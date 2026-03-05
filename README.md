@@ -21,35 +21,35 @@ A custom 360° VR video player for Jellyfin, injected via any Javascript Plugin 
 
 ## Installation
 
-**1. Install a Custom JavaScript plugin or injector. TamperMonkey also works.
+**1. Install a Custom JavaScript plugin or injector. TamperMonkey also works.**
 
-In Jellyfin, go to **Dashboard → Plugins → Repositories** and add a javascript injector. I highly recommend the following for 10.11:
+In Jellyfin, go to **Dashboard → Plugins → Repositories** and add a javascript injector. I highly recommend the following:
 
 ```
-[https://raw.githubusercontent.com/nicjansma/jellyfin-plugin-custom-javascript/master/manifest.json](https://raw.githubusercontent.com/n00bcodr/jellyfin-plugins/main/10.11/manifest.json )
+https://raw.githubusercontent.com/n00bcodr/jellyfin-plugins/main/10.11/manifest.json 
 ```
 
-Then install **Custom JavaScript** from the Catalog Tab and restart Jellyfin.
+Then install **JavaScript Injector** from the Catalog Tab and restart Jellyfin.
 
 **2. Add the player script**
 
-- Download `jellyfin-360-inject.js` from this repository
-- In Jellyfin, go to **Dashboard → Custom JavaScript**
-- Paste the contents of the file into the text box and save
+- Download `jellyfin-vr.js` from this repository
+- In Jellyfin, go to **Dashboard → JS Injector (Under Plugins)**
+- Paste the contents of the file into the text box and save. 
 
 **3. Done**
 
-Refresh Jellyfin in your browser. When you play any video, a **VR** button will appear in the player controls next to the fullscreen button.
+Refresh Jellyfin in your browser. When you play any video, a **VR** button will appear in the player controls next to the fullscreen button. If you add a new video, it might take a minute to load. 
 
 ---
 
 ## Usage
 
 1. Start playing any 360° video in Jellyfin
-2. Click the **VR** button in the player controls
-3. The 360° player will open — click and drag to look around
-4. Access settings via the **⚙** gear icon for speed, quality, repeat, and theme
-5. Press **Escape** or click the back arrow (←) to return to Jellyfin
+2. Click the **VR** button in the player controls ![Preview](preview/Default.png)
+4. The 360° player will open, lick and drag to look around
+5. Access settings via the **⚙** gear icon for speed, quality, repeat, and theme
+6. Press **Escape** or click the back arrow (←) to return to Jellyfin
 
 ### Keyboard Shortcuts
 
@@ -64,6 +64,7 @@ Refresh Jellyfin in your browser. When you play any video, a **VR** button will 
 ## Themes
 
 Open **Settings → Theme** to choose an accent colour. Your choice is saved automatically.
+![Preview](preview/VR.png)
 
 ---
 
