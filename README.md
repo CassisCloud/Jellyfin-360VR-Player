@@ -8,7 +8,7 @@ A custom 360° VR video player for Jellyfin, injected via any Javascript Plugin 
 ## Features
 
 - 360° spherical video playback powered by A-Frame (open-sourced)
-- Custom playback controls (play/pause, skip ±10s, seek bar, volume) that are similar to JellyFin's
+- Custom playback controls (play/pause, skip ±10s, seek bar, volume) that are similar to JellyFin's native player theme.
 - Settings panel with:
     Theme selector (7 colour themes, saved across sessions)
 - "Ends at" clock display
@@ -46,7 +46,7 @@ Refresh Jellyfin in your browser. When you play any video, a **VR** button will 
 ## Usage
 
 1. Start playing any 360° video in Jellyfin
-2. Click the **VR** button in the player controls [![Preview](https://github.com/Mix1C/JellyFin-VR-360-Player/blob/main/Preview/DEFAULT.png)
+2. Click the **VR** button in the player controls [![Preview](https://github.com/Mix1C/JellyFin-VR-360-Player/blob/main/Preview/DEFAULT.png)]
 4. The 360° player will open, lick and drag to look around
 5. Access settings via the **⚙** gear icon for speed, quality, repeat, and theme
 6. Press **Escape** or click the back arrow (←) to return to Jellyfin
