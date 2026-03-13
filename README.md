@@ -81,4 +81,4 @@ This project uses the following libraries, which are loaded from public CDNs and
 
 Copyright (C) 2026 Mix1C
 
-This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. You are free to use, modify, and distribute this software for non-commercial and personal purposes, provided that any modifications are also released under the same license. See the [LICENSE](LICENSE) file for full details.
+This project is licensed under the **GNU Affero General Public License v2.0 (AGPL-2.0)**. You are free to use, modify, and distribute this software for non-commercial and personal purposes, provided that any modifications are also released under the same license. See the License for more details.
