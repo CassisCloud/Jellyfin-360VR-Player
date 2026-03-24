@@ -1,19 +1,16 @@
-
 (function () {
 
-  const PLAYER_HTML = `<!DOCTYPE html>
+const PLAYER_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>360° VR Video Player</title>
-    <!-- a frame vr rendering -->
-    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"><\/script>
+    <title>Extended VR Video Player</title>
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
     <style>
         * { box-sizing: border-box; }
         
-        /* Material Icons setup */
         .material-icons {
             font-family: 'Material Icons';
             font-weight: normal;
@@ -27,6 +24,7 @@
             word-wrap: normal;
             direction: ltr;
             -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
         }
         
         body { 
@@ -37,7 +35,6 @@
             color: rgba(255,255,255,0.87); 
         }
 
-        /* Main UI container at bottom */
         #ui {
             position: absolute;
             bottom: 0; 
@@ -52,13 +49,11 @@
             pointer-events: auto;
         }
         
-        /* Hidden state for UI auto-hide */
         #ui.hidden { 
             opacity: 0; 
             pointer-events: none; 
         }
 
-        /* Video progress bar container */
         .progress-container {
             width: 100%;
             height: 4px;
@@ -74,7 +69,6 @@
             height: 6px; 
         }
         
-        /* The blue fill that shows progress */
         .progress-fill {
             height: 100%;
             width: 0%;
@@ -84,7 +78,6 @@
             position: relative;
         }
         
-        /* Little thumb that appears on hover */
         .progress-fill::after {
             content: '';
             position: absolute;
@@ -103,14 +96,12 @@
             opacity: 1; 
         }
 
-        /* Row of control buttons */
         .control-row {
             display: flex;
             align-items: center;
             gap: 4px;
         }
 
-        /* Generic button style - matches Jellyfin aesthetic */
         .jf-btn {
             background: transparent;
             border: none;
@@ -138,7 +129,6 @@
             font-size: 20px; 
         }
 
-        /* Time display text */
         .time {
             font-size: 13px;
             font-family: 'Noto Sans', sans-serif;
@@ -148,7 +138,6 @@
             flex-shrink: 0;
         }
 
-        /* Volume control wrapper */
         .volume-wrap {
             position: relative;
             display: flex;
@@ -156,7 +145,6 @@
             flex-shrink: 0;
         }
         
-        /* Vertical volume slider popup - shows on hover */
         .volume-popup {
             display: none;
             position: absolute;
@@ -180,7 +168,6 @@
             display: flex; 
         }
 
-        /* The actual slider input */
         .volume-slider-vert {
             writing-mode: vertical-lr;
             direction: rtl;
@@ -195,7 +182,6 @@
             accent-color: #00a4dc;
         }
         
-        /* Webkit slider thumb styling */
         .volume-slider-vert::-webkit-slider-thumb {
             -webkit-appearance: none;
             width: 14px; 
@@ -206,7 +192,6 @@
             box-shadow: 0 0 4px rgba(0,0,0,0.5);
         }
         
-        /* Firefox slider thumb */
         .volume-slider-vert::-moz-range-thumb {
             width: 14px; 
             height: 14px;
@@ -216,7 +201,6 @@
             border: none;
         }
 
-        /* "360°" badge indicator */
         .vr-badge {
             font-size: 11px;
             font-family: 'Noto Sans', sans-serif;
@@ -231,8 +215,7 @@
 
         .spacer { flex: 1; }
 
-        /* Settings panel (main menu) */
-        .settings-panel {
+        .settings-panel, .settings-sub {
             display: none;
             position: fixed;
             bottom: 80px;
@@ -246,11 +229,10 @@
             overflow: hidden;
         }
         
-        .settings-panel.open { 
+        .settings-panel.open, .settings-sub.open { 
             display: block; 
         }
 
-        /* Individual setting rows */
         .settings-row {
             display: flex;
             justify-content: space-between;
@@ -281,26 +263,6 @@
             color: rgba(255,255,255,0.5);
         }
 
-        /* Sub-panels for speed/quality/repeat settings */
-        .settings-sub {
-            display: none;
-            position: fixed;
-            bottom: 80px;
-            right: 16px;
-            background: #1c1c1c;
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 6px;
-            min-width: 280px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.7);
-            z-index: 9999;
-            overflow: hidden;
-        }
-        
-        .settings-sub.open { 
-            display: block; 
-        }
-
-        /* Header of sub-panel with back arrow */
         .settings-sub-header {
             display: flex;
             align-items: center;
@@ -326,7 +288,6 @@
             font-weight: 600;
         }
 
-        /* Individual options in sub-panels */
         .settings-option {
             display: flex;
             justify-content: space-between;
@@ -349,7 +310,6 @@
             color: #00a4dc; 
         }
         
-        /* Checkmark icon for active option */
         .settings-option .check-icon {
             font-size: 18px;
             color: #00a4dc;
@@ -365,152 +325,484 @@
             font-size: 14px;
             color: rgba(255,255,255,0.87);
         }
-    <\/style>
-<\/head>
+
+        #mode-select-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            background: rgba(0,0,0,0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        #mode-select-overlay.hidden {
+            display: none;
+        }
+
+        .mode-select-title {
+            font-family: 'Noto Sans', sans-serif;
+            font-size: 28px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
+        .mode-select-subtitle {
+            font-family: 'Noto Sans', sans-serif;
+            font-size: 14px;
+            color: rgba(255,255,255,0.6);
+            margin-bottom: 32px;
+            text-align: center;
+        }
+
+        .mode-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            max-width: 700px;
+            width: 100%;
+        }
+
+        @media (max-width: 700px) {
+            .mode-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 400px) {
+            .mode-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .mode-card {
+            background: #1c1c1c;
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 20px 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+
+        .mode-card:hover {
+            border-color: #00a4dc;
+            background: #252525;
+            transform: translateY(-2px);
+        }
+
+        .mode-card.selected {
+            border-color: #00a4dc;
+            background: rgba(0,164,220,0.15);
+        }
+
+        .mode-card .mode-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .mode-card .mode-name {
+            font-family: 'Noto Sans', sans-serif;
+            font-size: 16px;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 4px;
+        }
+
+        .mode-card .mode-desc {
+            font-family: 'Noto Sans', sans-serif;
+            font-size: 12px;
+            color: rgba(255,255,255,0.5);
+        }
+
+        .mode-select-actions {
+            margin-top: 32px;
+            display: flex;
+            gap: 16px;
+        }
+
+        .mode-btn {
+            font-family: 'Noto Sans', sans-serif;
+            font-size: 16px;
+            font-weight: 600;
+            padding: 12px 32px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+        }
+
+        .mode-btn.primary {
+            background: #00a4dc;
+            color: #fff;
+        }
+
+        .mode-btn.primary:hover {
+            background: #0090c0;
+        }
+
+        .mode-btn.secondary {
+            background: transparent;
+            color: rgba(255,255,255,0.7);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .mode-btn.secondary:hover {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+        }
+
+        #loading-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 9998;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #loading-overlay.hidden {
+            display: none;
+        }
+
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top-color: #00a4dc;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-family: 'Noto Sans', sans-serif;
+            font-size: 14px;
+            color: rgba(255,255,255,0.7);
+            margin-top: 16px;
+        }
+
+        #vr-button {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 100;
+            background: #00a4dc;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-family: 'Noto Sans', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #vr-button.visible {
+            display: flex;
+        }
+
+        #vr-button:hover {
+            background: #0090c0;
+        }
+    </style>
+</head>
 <body>
-    <!-- Main control UI -->
+    <div id="loading-overlay" class="hidden">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Loading video...</div>
+    </div>
+
+    <div id="mode-select-overlay" class="hidden">
+        <div class="mode-select-title">Select VR Mode</div>
+        <div class="mode-select-subtitle">Choose how you want to view this video</div>
+        
+        <div class="mode-grid">
+            <div class="mode-card" data-mode="360">
+                <span class="material-icons mode-icon">panorama</span>
+                <div class="mode-name">360° Sphere</div>
+                <div class="mode-desc">Full 360° panoramic view</div>
+            </div>
+            <div class="mode-card" data-mode="fullsbs">
+                <span class="material-icons mode-icon">view_in_ar</span>
+                <div class="mode-name">Full SBS</div>
+                <div class="mode-desc">360° side-by-side 3D</div>
+            </div>
+            <div class="mode-card" data-mode="halfsbs">
+                <span class="material-icons mode-icon">3d_rotation</span>
+                <div class="mode-name">Half SBS</div>
+                <div class="mode-desc">360° half-width 3D</div>
+            </div>
+            <div class="mode-card" data-mode="sbs180">
+                <span class="material-icons mode-icon">vr_view</span>
+                <div class="mode-name">SBS 180°</div>
+                <div class="mode-desc">Side-by-side 180° VR</div>
+            </div>
+            <div class="mode-card" data-mode="ou180">
+                <span class="material-icons mode-icon">fold</span>
+                <div class="mode-name">OU 180°</div>
+                <div class="mode-desc">Over-under 180° VR</div>
+            </div>
+            <div class="mode-card" data-mode="ou360">
+                <span class="material-icons mode-icon">panorama_horizontal</span>
+                <div class="mode-name">OU 360°</div>
+                <div class="mode-desc">Over-under 360° VR</div>
+            </div>
+        </div>
+        
+        <div class="mode-select-actions">
+            <button class="mode-btn secondary" id="cancel-mode">Cancel</button>
+            <button class="mode-btn primary" id="start-mode">Start VR</button>
+        </div>
+    </div>
+
     <div id="ui">
         <div class="progress-container" id="seekContainer">
-            <div class="progress-fill" id="seekBar"><\/div>
-        <\/div>
+            <div class="progress-fill" id="seekBar"></div>
+        </div>
 
         <div class="control-row">
             <button class="jf-btn" id="playPauseBtn" title="Play/Pause">
-                <span class="material-icons">play_arrow<\/span>
-            <\/button>
+                <span class="material-icons">play_arrow</span>
+            </button>
 
             <button class="jf-btn small" id="skipBackBtn" title="Rewind 10s">
-                <span class="material-icons">replay_10<\/span>
-            <\/button>
+                <span class="material-icons">replay_10</span>
+            </button>
 
             <button class="jf-btn small" id="skipFwdBtn" title="Forward 10s">
-                <span class="material-icons">forward_10<\/span>
-            <\/button>
+                <span class="material-icons">forward_10</span>
+            </button>
 
             <div class="volume-wrap" id="volumeWrap">
                 <button class="jf-btn small" id="muteBtn" title="Mute">
-                    <span class="material-icons">volume_up<\/span>
-                <\/button>
+                    <span class="material-icons">volume_up</span>
+                </button>
                 <div class="volume-popup" id="volumePopup">
                     <input type="range" class="volume-slider-vert" id="volumeSlider" min="0" max="1" step="0.02" value="1">
-                <\/div>
-            <\/div>
+                </div>
+            </div>
 
-            <span class="time" id="timeDisplay">0:00 / 0:00<\/span>
-            <span class="time" id="endsAt"><\/span>
+            <span class="time" id="timeDisplay">0:00 / 0:00</span>
+            <span class="time" id="endsAt"></span>
 
-            <div class="spacer"><\/div>
+            <div class="spacer"></div>
 
-            <span class="vr-badge">360°<\/span>
+            <span class="vr-badge" id="modeBadge">360°</span>
 
             <button class="jf-btn small" id="settingsBtn" title="Settings">
-                <span class="material-icons">settings<\/span>
-            <\/button>
+                <span class="material-icons">settings</span>
+            </button>
 
             <button class="jf-btn" id="fullscreenBtn" title="Fullscreen">
-                <span class="material-icons">fullscreen<\/span>
-            <\/button>
-        <\/div>
-    <\/div>
+                <span class="material-icons">fullscreen</span>
+            </button>
+        </div>
+    </div>
 
-    <!-- Settings main panel -->
     <div class="settings-panel" id="settingsPanel">
         <div class="settings-row" id="setSpeed">
-            <span class="settings-label">Playback Speed<\/span>
-            <span class="settings-value" id="speedLabel">1x<\/span>
-        <\/div>
+            <span class="settings-label">Playback Speed</span>
+            <span class="settings-value" id="speedLabel">1x</span>
+        </div>
         <div class="settings-row" id="setQuality">
-            <span class="settings-label">Quality<\/span>
-            <span class="settings-value" id="qualityLabel">Auto<\/span>
-        <\/div>
+            <span class="settings-label">Quality</span>
+            <span class="settings-value" id="qualityLabel">Auto</span>
+        </div>
         <div class="settings-row" id="setRepeat">
-            <span class="settings-label">Repeat Mode<\/span>
-            <span class="settings-value" id="repeatLabel">None<\/span>
-        <\/div>
-    <\/div>
+            <span class="settings-label">Repeat Mode</span>
+            <span class="settings-value" id="repeatLabel">None</span>
+        </div>
+        <div class="settings-row" id="setScale">
+            <span class="settings-label">VR Scale</span>
+            <span class="settings-value" id="scaleLabel">1.0x</span>
+        </div>
+    </div>
 
-    <!-- Speed sub-panel -->
     <div class="settings-sub" id="speedPanel">
         <div class="settings-sub-header" id="speedBack">
-            <span class="material-icons">chevron_left<\/span>
-            <span class="title">Playback Speed<\/span>
-        <\/div>
-        <div class="settings-option" data-speed="0.25"><span class="material-icons check-icon">check<\/span><span class="opt-label">0.25x<\/span><\/div>
-        <div class="settings-option" data-speed="0.5"><span class="material-icons check-icon">check<\/span><span class="opt-label">0.5x<\/span><\/div>
-        <div class="settings-option" data-speed="0.75"><span class="material-icons check-icon">check<\/span><span class="opt-label">0.75x<\/span><\/div>
-        <div class="settings-option active" data-speed="1"><span class="material-icons check-icon">check<\/span><span class="opt-label">1x<\/span><\/div>
-        <div class="settings-option" data-speed="1.25"><span class="material-icons check-icon">check<\/span><span class="opt-label">1.25x<\/span><\/div>
-        <div class="settings-option" data-speed="1.5"><span class="material-icons check-icon">check<\/span><span class="opt-label">1.5x<\/span><\/div>
-        <div class="settings-option" data-speed="2"><span class="material-icons check-icon">check<\/span><span class="opt-label">2x<\/span><\/div>
-    <\/div>
+            <span class="material-icons">chevron_left</span>
+            <span class="title">Playback Speed</span>
+        </div>
+        <div class="settings-option" data-speed="0.25"><span class="material-icons check-icon">check</span><span class="opt-label">0.25x</span></div>
+        <div class="settings-option" data-speed="0.5"><span class="material-icons check-icon">check</span><span class="opt-label">0.5x</span></div>
+        <div class="settings-option" data-speed="0.75"><span class="material-icons check-icon">check</span><span class="opt-label">0.75x</span></div>
+        <div class="settings-option active" data-speed="1"><span class="material-icons check-icon">check</span><span class="opt-label">1x</span></div>
+        <div class="settings-option" data-speed="1.25"><span class="material-icons check-icon">check</span><span class="opt-label">1.25x</span></div>
+        <div class="settings-option" data-speed="1.5"><span class="material-icons check-icon">check</span><span class="opt-label">1.5x</span></div>
+        <div class="settings-option" data-speed="2"><span class="material-icons check-icon">check</span><span class="opt-label">2x</span></div>
+    </div>
 
-    <!-- Repeat sub-panel -->
     <div class="settings-sub" id="repeatPanel">
         <div class="settings-sub-header" id="repeatBack">
-            <span class="material-icons">chevron_left<\/span>
-            <span class="title">Repeat Mode<\/span>
-        <\/div>
-        <div class="settings-option active" data-repeat="none"><span class="material-icons check-icon">check<\/span><span class="opt-label">None<\/span><\/div>
-        <div class="settings-option" data-repeat="one"><span class="material-icons check-icon">check<\/span><span class="opt-label">Repeat One<\/span><\/div>
-        <div class="settings-option" data-repeat="all"><span class="material-icons check-icon">check<\/span><span class="opt-label">Repeat All<\/span><\/div>
-    <\/div>
+            <span class="material-icons">chevron_left</span>
+            <span class="title">Repeat Mode</span>
+        </div>
+        <div class="settings-option active" data-repeat="none"><span class="material-icons check-icon">check</span><span class="opt-label">None</span></div>
+        <div class="settings-option" data-repeat="one"><span class="material-icons check-icon">check</span><span class="opt-label">Repeat One</span></div>
+        <div class="settings-option" data-repeat="all"><span class="material-icons check-icon">check</span><span class="opt-label">Repeat All</span></div>
+    </div>
 
-    <!-- Quality sub-panel -->
     <div class="settings-sub" id="qualityPanel">
         <div class="settings-sub-header" id="qualityBack">
-            <span class="material-icons">chevron_left<\/span>
-            <span class="title">Quality<\/span>
-        <\/div>
-        <div class="settings-option active" data-bitrate="0"><span class="material-icons check-icon">check<\/span><span class="opt-label">Auto<\/span><\/div>
-        <div class="settings-option" data-bitrate="120000000"><span class="material-icons check-icon">check<\/span><span class="opt-label">Max<\/span><\/div>
-        <div class="settings-option" data-bitrate="15000000"><span class="material-icons check-icon">check<\/span><span class="opt-label">15 Mbps<\/span><\/div>
-        <div class="settings-option" data-bitrate="8000000"><span class="material-icons check-icon">check<\/span><span class="opt-label">8 Mbps<\/span><\/div>
-        <div class="settings-option" data-bitrate="6000000"><span class="material-icons check-icon">check<\/span><span class="opt-label">6 Mbps<\/span><\/div>
-        <div class="settings-option" data-bitrate="4000000"><span class="material-icons check-icon">check<\/span><span class="opt-label">4 Mbps<\/span><\/div>
-        <div class="settings-option" data-bitrate="3000000"><span class="material-icons check-icon">check<\/span><span class="opt-label">3 Mbps<\/span><\/div>
-        <div class="settings-option" data-bitrate="1500000"><span class="material-icons check-icon">check<\/span><span class="opt-label">1.5 Mbps<\/span><\/div>
-        <div class="settings-option" data-bitrate="720000"><span class="material-icons check-icon">check<\/span><span class="opt-label">720 kbps<\/span><\/div>
-        <div class="settings-option" data-bitrate="420000"><span class="material-icons check-icon">check<\/span><span class="opt-label">420 kbps<\/span><\/div>
-    <\/div>
+            <span class="material-icons">chevron_left</span>
+            <span class="title">Quality</span>
+        </div>
+        <div class="settings-option active" data-bitrate="0"><span class="material-icons check-icon">check</span><span class="opt-label">Auto</span></div>
+        <div class="settings-option" data-bitrate="120000000"><span class="material-icons check-icon">check</span><span class="opt-label">Max</span></div>
+        <div class="settings-option" data-bitrate="15000000"><span class="material-icons check-icon">check</span><span class="opt-label">15 Mbps</span></div>
+        <div class="settings-option" data-bitrate="8000000"><span class="material-icons check-icon">check</span><span class="opt-label">8 Mbps</span></div>
+        <div class="settings-option" data-bitrate="6000000"><span class="material-icons check-icon">check</span><span class="opt-label">6 Mbps</span></div>
+        <div class="settings-option" data-bitrate="4000000"><span class="material-icons check-icon">check</span><span class="opt-label">4 Mbps</span></div>
+        <div class="settings-option" data-bitrate="3000000"><span class="material-icons check-icon">check</span><span class="opt-label">3 Mbps</span></div>
+        <div class="settings-option" data-bitrate="1500000"><span class="material-icons check-icon">check</span><span class="opt-label">1.5 Mbps</span></div>
+    </div>
 
-    <!-- 360 rendering / view -->
-    <a-scene vr-mode-ui="enabled: false" background="color: #000000">
-        <a-assets id="assets"><\/a-assets>
+    <div class="settings-sub" id="scalePanel">
+        <div class="settings-sub-header" id="scaleBack">
+            <span class="material-icons">chevron_left</span>
+            <span class="title">VR Scale</span>
+        </div>
+        <div class="settings-option" data-scale="0.5"><span class="material-icons check-icon">check</span><span class="opt-label">0.5x</span></div>
+        <div class="settings-option" data-scale="0.75"><span class="material-icons check-icon">check</span><span class="opt-label">0.75x</span></div>
+        <div class="settings-option active" data-scale="1"><span class="material-icons check-icon">check</span><span class="opt-label">1.0x</span></div>
+        <div class="settings-option" data-scale="1.5"><span class="material-icons check-icon">check</span><span class="opt-label">1.5x</span></div>
+        <div class="settings-option" data-scale="2"><span class="material-icons check-icon">check</span><span class="opt-label">2.0x</span></div>
+    </div>
+
+    <a-scene id="a-scene" vr-mode-ui="enabled: true" background="color: #000000" renderer="antialias: true; colorManagement: true">
+        <a-assets id="assets"></a-assets>
         <a-entity id="videosphere"
-                  geometry="primitive: sphere; radius: 5000;"
+                  geometry="primitive: sphere; radius: 5000; segmentsWidth: 64; segmentsHeight: 32"
                   material="shader: flat; side: back;"
                   rotation="0 180 0">
-        <\/a-entity>
+        </a-entity>
+        <a-entity id="videosphere-left"
+                  geometry="primitive: sphere; radius: 5000; segmentsWidth: 64; segmentsHeight: 32"
+                  material="shader: flat; side: back; transparent: true; opacity: 0"
+                  rotation="0 180 0">
+        </a-entity>
         <a-camera id="camera"
                   position="0 1.6 0"
                   look-controls="enabled: true"
                   wasd-controls-enabled="false">
-        <\/a-camera>
-    <\/a-scene>
+        </a-camera>
+        <a-entity id="vr-ui" position="0 1.2 -3" visible="false">
+            <a-plane id="vr-progress-bg" 
+                     geometry="width: 4; height: 0.1" 
+                     material="color: #333; opacity: 0.8; transparent: true"
+                     position="0 -0.5 0">
+            </a-plane>
+            <a-plane id="vr-progress-fill" 
+                     geometry="width: 0; height: 0.1" 
+                     material="color: #00a4dc; opacity: 0.9; transparent: true"
+                     position="-2 -0.5 0.01">
+            </a-plane>
+            <a-plane class="clickable" 
+                     geometry="width: 4; height: 0.5" 
+                     material="transparent: true; opacity: 0; color: #fff"
+                     position="0 -0.5 0"
+                     vr-progress-control>
+            </a-plane>
+            <a-text id="vr-time-display" 
+                    value="0:00 / 0:00" 
+                    position="0 -0.7 0" 
+                    align="center" 
+                    color="#fff"
+                    width="4">
+            </a-text>
+            <a-entity id="vr-controls" position="0 -1 0">
+                <a-plane class="clickable vr-btn" 
+                         geometry="width: 0.5; height: 0.5" 
+                         material="color: #1c1c1c; opacity: 0.9"
+                         position="-1.5 0 0"
+                         vr-play-btn>
+                    <a-text value="PLAY" position="0 0 0.01" align="center" color="#fff" width="2"></a-text>
+                </a-plane>
+                <a-plane class="clickable vr-btn" 
+                         geometry="width: 0.5; height: 0.5" 
+                         material="color: #1c1c1c; opacity: 0.9"
+                         position="-0.7 0 0"
+                         vr-skip-back-btn>
+                    <a-text value="-10" position="0 0 0.01" align="center" color="#fff" width="2"></a-text>
+                </a-plane>
+                <a-plane class="clickable vr-btn" 
+                         geometry="width: 0.5; height: 0.5" 
+                         material="color: #1c1c1c; opacity: 0.9"
+                         position="0.7 0 0"
+                         vr-skip-fwd-btn>
+                    <a-text value="+10" position="0 0 0.01" align="center" color="#fff" width="2"></a-text>
+                </a-plane>
+                <a-plane class="clickable vr-btn" 
+                         geometry="width: 0.5; height: 0.5" 
+                         material="color: #1c1c1c; opacity: 0.9"
+                         position="1.5 0 0"
+                         vr-fullscreen-btn>
+                    <a-text value="EXIT" position="0 0 0.01" align="center" color="#fff" width="2"></a-text>
+                </a-plane>
+            </a-entity>
+            <a-text id="vr-mode-label" 
+                    value="" 
+                    position="0 0.8 0" 
+                    align="center" 
+                    color="#00a4dc"
+                    width="6">
+            </a-text>
+        </a-entity>
+    </a-scene>
 
     <script>
-        // ui elements
-        const ui            = document.getElementById('ui');
-        const playPauseBtn  = document.getElementById('playPauseBtn');
-        const playIcon      = playPauseBtn.querySelector('.material-icons');
-        const skipBackBtn   = document.getElementById('skipBackBtn');
-        const skipFwdBtn    = document.getElementById('skipFwdBtn');
-        const muteBtn       = document.getElementById('muteBtn');
-        const muteIcon      = muteBtn.querySelector('.material-icons');
+        const ui = document.getElementById('ui');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const playIcon = playPauseBtn.querySelector('.material-icons');
+        const skipBackBtn = document.getElementById('skipBackBtn');
+        const skipFwdBtn = document.getElementById('skipFwdBtn');
+        const muteBtn = document.getElementById('muteBtn');
+        const muteIcon = muteBtn.querySelector('.material-icons');
         const seekContainer = document.getElementById('seekContainer');
-        const seekBar       = document.getElementById('seekBar');
-        const timeDisplay   = document.getElementById('timeDisplay');
-        const endsAt        = document.getElementById('endsAt');
-        const volumeSlider  = document.getElementById('volumeSlider');
+        const seekBar = document.getElementById('seekBar');
+        const timeDisplay = document.getElementById('timeDisplay');
+        const endsAt = document.getElementById('endsAt');
+        const volumeSlider = document.getElementById('volumeSlider');
         const fullscreenBtn = document.getElementById('fullscreenBtn');
-        const fsIcon        = fullscreenBtn.querySelector('.material-icons');
-        const videosphere   = document.getElementById('videosphere');
+        const fsIcon = fullscreenBtn.querySelector('.material-icons');
+        const modeBadge = document.getElementById('modeBadge');
+        const modeSelectOverlay = document.getElementById('mode-select-overlay');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const startModeBtn = document.getElementById('start-mode');
+        const cancelModeBtn = document.getElementById('cancel-mode');
+        const vrUi = document.getElementById('vr-ui');
+        const aScene = document.getElementById('a-scene');
 
         let videoElement = null;
-        let hideTimer    = null;
-        let muted        = false;
+        let hideTimer = null;
+        let muted = false;
+        let currentMode = '360';
+        let vrScale = 1.0;
+        let isInVR = false;
 
-        // end time
+        const modeNames = {
+            '360': '360°',
+            'fullsbs': 'Full SBS',
+            'halfsbs': 'Half SBS',
+            'sbs180': 'SBS 180°',
+            'ou180': 'OU 180°',
+            'ou360': 'OU 360°'
+        };
+
         function updateEndsAt() {
             if (!videoElement || !videoElement.duration || isNaN(videoElement.duration)) return;
             
@@ -521,47 +813,53 @@
             const ampm = hours >= 12 ? 'PM' : 'AM';
             const h12 = hours % 12 || 12;
             
-            // Formatting the "Ends at" string with some extra spaces for padding
-            endsAt.textContent = \`\u00a0\u00a0\u00a0\u00a0Ends at \${h12}:\${minutes} \${ampm}\`;
+            endsAt.textContent = `\u00a0\u00a0\u00a0\u00a0Ends at ${h12}:${minutes} ${ampm}`;
         }
 
-        // Helper to format seconds into "M:SS"
         function formatTime(seconds) {
             if (isNaN(seconds)) return '0:00';
             const mins = Math.floor(seconds / 60);
             const secs = Math.floor(seconds % 60);
-            return \`\${mins}:\${secs.toString().padStart(2,'0')}\`;
+            return `${mins}:${secs.toString().padStart(2,'0')}`;
         }
 
-        // Update progress bar and time display
         function updateProgress() {
             if (!videoElement) return;
             
             const percentage = (videoElement.currentTime / videoElement.duration) * 100;
             seekBar.style.width = percentage + '%';
-            timeDisplay.textContent = \`\${formatTime(videoElement.currentTime)} / \${formatTime(videoElement.duration)}\`;
+            timeDisplay.textContent = `${formatTime(videoElement.currentTime)} / ${formatTime(videoElement.duration)}`;
+            
+            if (isInVR) {
+                const vrProgressFill = document.getElementById('vr-progress-fill');
+                const vrTimeDisplay = document.getElementById('vr-time-display');
+                if (vrProgressFill) {
+                    vrProgressFill.setAttribute('geometry', 'width', percentage / 100 * 4);
+                    vrProgressFill.setAttribute('position', `${(percentage / 100 * 4) - 2} -0.5 0.01`);
+                }
+                if (vrTimeDisplay) {
+                    vrTimeDisplay.setAttribute('value', `${formatTime(videoElement.currentTime)} / ${formatTime(videoElement.duration)}`);
+                }
+            }
+            
             updateEndsAt();
         }
 
-        // Seek to specific time in video
         function seekTo(targetTime) {
             if (!videoElement) return;
             videoElement.currentTime = Math.max(0, Math.min(targetTime, videoElement.duration));
             updateProgress();
         }
 
-        // Show controls and auto-hide after 4 seconds
         function showControls() {
             ui.classList.remove('hidden');
             clearTimeout(hideTimer);
             hideTimer = setTimeout(() => ui.classList.add('hidden'), 4000);
         }
 
-        // Show controls on mouse movement or touch
         document.addEventListener('mousemove', showControls);
         document.addEventListener('touchstart', showControls);
 
-        // Seek bar click to jump to position
         seekContainer.addEventListener('click', (e) => {
             if (!videoElement || !videoElement.duration) return;
             
@@ -571,7 +869,6 @@
             seekTo(newTime);
         });
 
-        // Seek bar drag functionality
         let dragging = false;
         seekContainer.addEventListener('mousedown', () => dragging = true);
         document.addEventListener('mouseup', () => dragging = false);
@@ -585,7 +882,6 @@
             seekTo(ratio * videoElement.duration);
         });
 
-        // Play/Pause button
         playPauseBtn.onclick = () => {
             if (!videoElement) return;
             
@@ -599,36 +895,30 @@
             showControls();
         };
 
-        // Skip backward 10 seconds
         skipBackBtn.onclick = () => {
             const currentTime = videoElement?.currentTime || 0;
             seekTo(currentTime - 10);
         };
         
-        // Skip forward 10 seconds
         skipFwdBtn.onclick = () => {
             const currentTime = videoElement?.currentTime || 0;
             seekTo(currentTime + 10);
         };
 
-        // Mute/unmute toggle
         muteBtn.onclick = () => {
             if (!videoElement) return;
             
             muted = !muted;
             videoElement.muted = muted;
             
-            // Update icon based on mute state
             muteIcon.textContent = muted ? 'volume_off' : (videoElement.volume > 0.5 ? 'volume_up' : 'volume_down');
         };
 
-        // Volume slider input handler
         volumeSlider.oninput = () => {
             if (!videoElement) return;
             
             videoElement.volume = volumeSlider.value;
             
-            // Update volume icon based on level
             if (volumeSlider.value == 0) {
                 muteIcon.textContent = 'volume_off';
             } else if (volumeSlider.value < 0.5) {
@@ -638,7 +928,6 @@
             }
         };
 
-        // Fullscreen toggle
         fullscreenBtn.onclick = () => {
             if (!document.fullscreenElement) {
                 document.documentElement.requestFullscreen().catch(() => {});
@@ -649,25 +938,25 @@
             }
         };
 
-        // ── Settings panel logic ──
-        const settingsBtn   = document.getElementById('settingsBtn');
+        const settingsBtn = document.getElementById('settingsBtn');
         const settingsPanel = document.getElementById('settingsPanel');
-        const speedPanel    = document.getElementById('speedPanel');
-        const repeatPanel   = document.getElementById('repeatPanel');
-        const qualityPanel  = document.getElementById('qualityPanel');
-        const speedLabel    = document.getElementById('speedLabel');
-        const repeatLabel   = document.getElementById('repeatLabel');
-        const qualityLabel  = document.getElementById('qualityLabel');
+        const speedPanel = document.getElementById('speedPanel');
+        const repeatPanel = document.getElementById('repeatPanel');
+        const qualityPanel = document.getElementById('qualityPanel');
+        const scalePanel = document.getElementById('scalePanel');
+        const speedLabel = document.getElementById('speedLabel');
+        const repeatLabel = document.getElementById('repeatLabel');
+        const qualityLabel = document.getElementById('qualityLabel');
+        const scaleLabel = document.getElementById('scaleLabel');
 
-        // Close all settings panels
         function closeAll() {
             settingsPanel.classList.remove('open');
             speedPanel.classList.remove('open');
             repeatPanel.classList.remove('open');
             qualityPanel.classList.remove('open');
+            scalePanel.classList.remove('open');
         }
 
-        // Settings button click handler
         settingsBtn.onclick = (e) => {
             e.stopPropagation();
             const isOpen = settingsPanel.classList.contains('open');
@@ -676,49 +965,54 @@
             showControls();
         };
 
-        // Open speed sub-panel
         document.getElementById('setSpeed').onclick = (e) => {
             e.stopPropagation();
             settingsPanel.classList.remove('open');
             speedPanel.classList.add('open');
         };
 
-        // Open repeat sub-panel
         document.getElementById('setRepeat').onclick = (e) => {
             e.stopPropagation();
             settingsPanel.classList.remove('open');
             repeatPanel.classList.add('open');
         };
 
-        // Open quality sub-panel
         document.getElementById('setQuality').onclick = (e) => {
             e.stopPropagation();
             settingsPanel.classList.remove('open');
             qualityPanel.classList.add('open');
         };
 
-        // Back button in speed panel
+        document.getElementById('setScale').onclick = (e) => {
+            e.stopPropagation();
+            settingsPanel.classList.remove('open');
+            scalePanel.classList.add('open');
+        };
+
         document.getElementById('speedBack').onclick = (e) => {
             e.stopPropagation();
             speedPanel.classList.remove('open');
             settingsPanel.classList.add('open');
         };
 
-        // Back button in repeat panel
         document.getElementById('repeatBack').onclick = (e) => {
             e.stopPropagation();
             repeatPanel.classList.remove('open');
             settingsPanel.classList.add('open');
         };
 
-        // Back button in quality panel
         document.getElementById('qualityBack').onclick = (e) => {
             e.stopPropagation();
             qualityPanel.classList.remove('open');
             settingsPanel.classList.add('open');
         };
 
-        // Speed option selection
+        document.getElementById('scaleBack').onclick = (e) => {
+            e.stopPropagation();
+            scalePanel.classList.remove('open');
+            settingsPanel.classList.add('open');
+        };
+
         document.querySelectorAll('[data-speed]').forEach(opt => {
             opt.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -728,7 +1022,6 @@
                 
                 speedLabel.textContent = speed + 'x';
                 
-                // Mark this option as active
                 document.querySelectorAll('[data-speed]').forEach(o => o.classList.remove('active'));
                 opt.classList.add('active');
                 
@@ -738,7 +1031,6 @@
             });
         });
 
-        // Repeat mode selection
         document.querySelectorAll('[data-repeat]').forEach(opt => {
             opt.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -748,7 +1040,6 @@
                 
                 repeatLabel.textContent = opt.querySelector('.opt-label').textContent;
                 
-                // Mark active
                 document.querySelectorAll('[data-repeat]').forEach(o => o.classList.remove('active'));
                 opt.classList.add('active');
                 
@@ -757,7 +1048,6 @@
             });
         });
 
-        // Quality/bitrate selection
         document.querySelectorAll('[data-bitrate]').forEach(opt => {
             opt.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -767,11 +1057,9 @@
                 
                 qualityLabel.textContent = label;
                 
-                // Mark active
                 document.querySelectorAll('[data-bitrate]').forEach(o => o.classList.remove('active'));
                 opt.classList.add('active');
                 
-                // Change video source with new bitrate parameter
                 if (videoElement && videoElement.src) {
                     const currentTime = videoElement.currentTime;
                     const url = new URL(videoElement.src);
@@ -792,37 +1080,54 @@
             });
         });
 
-        // Click outside to close settings
+        document.querySelectorAll('[data-scale]').forEach(opt => {
+            opt.addEventListener('click', (e) => {
+                e.stopPropagation();
+                
+                vrScale = parseFloat(opt.dataset.scale);
+                scaleLabel.textContent = vrScale + 'x';
+                
+                document.querySelectorAll('[data-scale]').forEach(o => o.classList.remove('active'));
+                opt.classList.add('active');
+                
+                if (videoElement) {
+                    videoElement.playbackRate = vrScale;
+                }
+                
+                const camera = document.getElementById('camera');
+                if (camera) {
+                    camera.setAttribute('position', `0 ${1.6 * vrScale} 0`);
+                }
+                
+                closeAll();
+                settingsPanel.classList.add('open');
+            });
+        });
+
         document.addEventListener('click', () => closeAll());
 
-        // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
             if (!videoElement) return;
             
-            // Space = play/pause
             if (e.key === ' ') { 
                 e.preventDefault(); 
                 playPauseBtn.click(); 
             }
             
-            // Arrow right = skip forward 5s
             if (e.key === 'ArrowRight') { 
                 e.preventDefault(); 
                 seekTo(videoElement.currentTime + 5); 
             }
             
-            // Arrow left = skip back 5s
             if (e.key === 'ArrowLeft') { 
                 e.preventDefault(); 
                 seekTo(videoElement.currentTime - 5); 
             }
             
-            // M = mute toggle
             if (e.key === 'm' || e.key === 'M') {
                 muteBtn.click();
             }
             
-            // F = fullscreen toggle
             if (e.key === 'f' || e.key === 'F') {
                 fullscreenBtn.click();
             }
@@ -830,207 +1135,408 @@
             showControls();
         });
 
-        // Listen for video load message from parent
-        window.addEventListener('message', (e) => {
-            const { type, src, currentTime } = e.data || {};
-            if (type !== 'LOAD_VIDEO' || !src) return;
-
-            // Create video element
-            videoElement = document.createElement('video');
-            videoElement.id          = 'my360video';
-            videoElement.src         = src;
-            videoElement.crossOrigin = 'anonymous';
-            videoElement.autoplay    = true;
-            videoElement.loop        = false;
-            videoElement.playsInline = true;
-            videoElement.volume      = parseFloat(volumeSlider.value);
-
-            // a-frame assets
-            document.getElementById('assets').appendChild(videoElement);
-
-            // Attach video to 360 sphere
-            videosphere.setAttribute('material', {
-                shader: 'flat', 
-                side: 'back',
-                src: '#my360video', 
-                repeat: '-1 1'
+        const modeCards = document.querySelectorAll('.mode-card');
+        modeCards.forEach(card => {
+            card.addEventListener('click', () => {
+                modeCards.forEach(c => c.classList.remove('selected'));
+                card.classList.add('selected');
+                currentMode = card.dataset.mode;
             });
-
-            // Set up event listeners
-            videoElement.addEventListener('timeupdate', updateProgress);
-            videoElement.addEventListener('durationchange', updateEndsAt);
-
-            videoElement.onloadedmetadata = () => {
-                if (currentTime) videoElement.currentTime = currentTime;
-                playIcon.textContent = 'pause';
-                updateEndsAt();
-                showControls();
-            };
-
-            videoElement.play().catch(() => {});
         });
 
-        // Remove A-Frame's default VR button (we don't want it)
+        if (modeCards.length > 0) {
+            modeCards[0].classList.add('selected');
+            currentMode = '360';
+        }
+
+        startModeBtn.addEventListener('click', () => {
+            modeSelectOverlay.classList.add('hidden');
+            startVRPlayer();
+        });
+
+        cancelModeBtn.addEventListener('click', () => {
+            modeSelectOverlay.classList.add('hidden');
+            window.parent.postMessage({ type: 'CLOSE_PLAYER' }, '*');
+        });
+
+        function configureScene() {
+            const videosphere = document.getElementById('videosphere');
+            const videosphereLeft = document.getElementById('videosphere-left');
+            
+            if (currentMode === '360' || currentMode === 'fullsbs' || currentMode === 'halfsbs' || currentMode === 'ou360') {
+                videosphere.setAttribute('geometry', 'primitive: sphere; radius: 5000; segmentsWidth: 64; segmentsHeight: 32');
+                videosphere.setAttribute('rotation', '0 180 0');
+                videosphere.setAttribute('material', 'shader: flat; side: back; transparent: false; opacity: 1');
+                videosphereLeft.setAttribute('material', 'opacity: 0');
+            } else if (currentMode === 'sbs180' || currentMode === 'ou180') {
+                videosphere.setAttribute('geometry', 'primitive: sphere; radius: 5000; segmentsWidth: 64; segmentsHeight: 32; phiStart: 0; phiLength: 180');
+                videosphere.setAttribute('rotation', '0 90 0');
+                videosphere.setAttribute('material', 'shader: flat; side: back; transparent: false; opacity: 1');
+                videosphereLeft.setAttribute('material', 'opacity: 0');
+            }
+
+            modeBadge.textContent = modeNames[currentMode] || '360°';
+        }
+
+        function applyVideoTexture() {
+            const videosphere = document.getElementById('videosphere');
+            
+            switch (currentMode) {
+                case '360':
+                    videosphere.setAttribute('material', {
+                        shader: 'flat', 
+                        side: 'back',
+                        src: '#my360video', 
+                        repeat: '-1 1'
+                    });
+                    break;
+                    
+                case 'fullsbs':
+                    videosphere.setAttribute('material', {
+                        shader: 'flat', 
+                        side: 'back',
+                        src: '#my360video', 
+                        repeat: '-0.5 1',
+                        offset: '0.5 0'
+                    });
+                    break;
+                    
+                case 'halfsbs':
+                    videosphere.setAttribute('material', {
+                        shader: 'flat', 
+                        side: 'double',
+                        src: '#my360video', 
+                        repeat: '-2 1'
+                    });
+                    break;
+                    
+                case 'sbs180':
+                    videosphere.setAttribute('material', {
+                        shader: 'flat', 
+                        side: 'back',
+                        src: '#my360video', 
+                        repeat: '-1 1'
+                    });
+                    break;
+                    
+                case 'ou180':
+                    videosphere.setAttribute('material', {
+                        shader: 'flat', 
+                        side: 'back',
+                        src: '#my360video', 
+                        repeat: '1 -0.5'
+                    });
+                    break;
+                    
+                case 'ou360':
+                    videosphere.setAttribute('material', {
+                        shader: 'flat', 
+                        side: 'back',
+                        src: '#my360video', 
+                        repeat: '1 -0.5'
+                    });
+                    break;
+            }
+        }
+
+        function startVRPlayer() {
+            loadingOverlay.classList.remove('hidden');
+            
+            configureScene();
+            
+            const scene = document.getElementById('a-scene');
+            
+            scene.addEventListener('loaded', () => {
+                applyVideoTexture();
+                
+                if (videoElement) {
+                    videoElement.play().catch(() => {});
+                }
+                
+                setTimeout(() => {
+                    loadingOverlay.classList.add('hidden');
+                    updateProgress();
+                    showControls();
+                }, 1000);
+            });
+
+            scene.addEventListener('enter-vr', () => {
+                isInVR = true;
+                vrUi.setAttribute('visible', true);
+                ui.classList.add('hidden');
+                
+                const vrModeLabel = document.getElementById('vr-mode-label');
+                if (vrModeLabel) {
+                    vrModeLabel.setAttribute('value', modeNames[currentMode] || 'VR Mode');
+                }
+            });
+
+            scene.addEventListener('exit-vr', () => {
+                isInVR = false;
+                vrUi.setAttribute('visible', false);
+                ui.classList.remove('hidden');
+            });
+        }
+
+        AFRAME.registerComponent('vr-progress-control', {
+            init: function() {
+                this.el.addEventListener('click', (evt) => {
+                    if (!videoElement || !videoElement.duration) return;
+                    
+                    const intersection = evt.detail.intersection;
+                    if (intersection) {
+                        const x = intersection.point.x;
+                        const ratio = (x + 2) / 4;
+                        const newTime = ratio * videoElement.duration;
+                        seekTo(newTime);
+                    }
+                });
+            }
+        });
+
+        AFRAME.registerComponent('vr-play-btn', {
+            init: function() {
+                this.el.addEventListener('click', () => {
+                    if (!videoElement) return;
+                    
+                    if (videoElement.paused) { 
+                        videoElement.play(); 
+                    } else { 
+                        videoElement.pause(); 
+                    }
+                });
+            }
+        });
+
+        AFRAME.registerComponent('vr-skip-back-btn', {
+            init: function() {
+                this.el.addEventListener('click', () => {
+                    const currentTime = videoElement?.currentTime || 0;
+                    seekTo(currentTime - 10);
+                });
+            }
+        });
+
+        AFRAME.registerComponent('vr-skip-fwd-btn', {
+            init: function() {
+                this.el.addEventListener('click', () => {
+                    const currentTime = videoElement?.currentTime || 0;
+                    seekTo(currentTime + 10);
+                });
+            }
+        });
+
+        AFRAME.registerComponent('vr-fullscreen-btn', {
+            init: function() {
+                this.el.addEventListener('click', () => {
+                    window.parent.postMessage({ type: 'CLOSE_PLAYER' }, '*');
+                });
+            }
+        });
+
+        window.addEventListener('message', (e) => {
+            const { type, src, currentTime, mode } = e.data || {};
+            
+            if (type === 'OPEN_MODE_SELECT') {
+                modeSelectOverlay.classList.remove('hidden');
+                loadingOverlay.classList.add('hidden');
+                return;
+            }
+            
+            if (type === 'LOAD_VIDEO') {
+                if (!src) return;
+
+                videoElement = document.createElement('video');
+                videoElement.id = 'my360video';
+                videoElement.src = src;
+                videoElement.crossOrigin = 'anonymous';
+                videoElement.autoplay = false;
+                videoElement.loop = false;
+                videoElement.playsInline = true;
+                videoElement.volume = parseFloat(volumeSlider.value);
+
+                document.getElementById('assets').appendChild(videoElement);
+
+                videoElement.addEventListener('timeupdate', updateProgress);
+                videoElement.addEventListener('durationchange', updateEndsAt);
+
+                videoElement.onloadedmetadata = () => {
+                    if (currentTime) videoElement.currentTime = currentTime;
+                    playIcon.textContent = 'pause';
+                    updateEndsAt();
+                };
+
+                modeSelectOverlay.classList.remove('hidden');
+            }
+            
+            if (type === 'CHANGE_MODE') {
+                if (mode) {
+                    currentMode = mode;
+                    configureScene();
+                    applyVideoTexture();
+                }
+            }
+        });
+
         const aframeRemove = new MutationObserver(() => {
             document.querySelectorAll('.a-enter-vr, .a-enter-ar').forEach(el => el.remove());
         });
         aframeRemove.observe(document.body, { childList: true, subtree: true });
         document.querySelectorAll('.a-enter-vr, .a-enter-ar').forEach(el => el.remove());
-    <\/script>
-<\/body>
-<\/html>`;
+    </script>
+</body>
+</html>`;
 
-  // Get current Jellyfin video source and timestamp
-  function getJellyfinStamp() {
-    const vid = document.querySelector('video');
-    if (!vid || !vid.src) return null;
-    return { src: vid.src, currentTime: vid.currentTime };
-  }
+    const MODE_ICONS = {
+        '360': 'panorama',
+        'fullsbs': 'view_in_ar',
+        'halfsbs': '3d_rotation',
+        'sbs180': 'vr_view',
+        'ou180': 'fold',
+        'ou360': 'panorama_horizontal'
+    };
 
-  // Open the 360 VR player overlay
-  function opentheplayer() {
-    // Don't open if already open
-    if (document.getElementById('vr360-overlay')) return;
-
-    const videoInfo = getJellyfinStamp();
-    if (!videoInfo) {
-      alert('No video playing — start a video in Jellyfin first.');
-      return;
+    function getJellyfinStamp() {
+        const vid = document.querySelector('video');
+        if (!vid || !vid.src) return null;
+        return { src: vid.src, currentTime: vid.currentTime };
     }
 
-    // Pause Jellyfin's native player
-    const jellyfinVideo = document.querySelector('video');
-    if (jellyfinVideo) jellyfinVideo.pause();
+    function opentheplayer() {
+        if (document.getElementById('vr360-overlay')) return;
 
-    // Create blob URL for player HTML
-    const blob    = new Blob([PLAYER_HTML], { type: 'text/html' });
-    const blobUrl = URL.createObjectURL(blob);
+        const videoInfo = getJellyfinStamp();
+        if (!videoInfo) {
+            alert('No video playing — start a video in Jellyfin first.');
+            return;
+        }
 
-    // Create overlay container
-    const overlay = document.createElement('div');
-    overlay.id = 'vr360-overlay';
-    overlay.style.cssText = `position:fixed;inset:0;z-index:99999;background:#000;`;
+        const jellyfinVideo = document.querySelector('video');
+        if (jellyfinVideo) jellyfinVideo.pause();
 
-    // Back button to exit VR mode
-    const backBtn = document.createElement('button');
-    backBtn.style.cssText = `
-      position:absolute;top:12px;left:12px;z-index:100000;
-      background:transparent;border:none;color:rgba(255,255,255,0.87);
-      cursor:pointer;display:flex;align-items:center;gap:4px;
-      font-family:'Noto Sans',sans-serif;font-size:15px;font-weight:600;
-      padding:8px;border-radius:50%;transition:background 0.2s;
-    `;
-    backBtn.innerHTML = '<span style="font-family:\'Material Icons\',sans-serif;font-size:26px;line-height:1;">arrow_back</span>';
-    
-    // Button hover effects
-    backBtn.onmouseenter = () => backBtn.style.background = 'rgba(255,255,255,0.1)';
-    backBtn.onmouseleave = () => backBtn.style.background = 'transparent';
-    
-    // Close VR player on click
-    backBtn.onclick = () => {
-      URL.revokeObjectURL(blobUrl);
-      overlay.remove();
-      if (jellyfinVideo) jellyfinVideo.play();
-    };
+        const blob = new Blob([PLAYER_HTML], { type: 'text/html' });
+        const blobUrl = URL.createObjectURL(blob);
 
-    // Create iframe for VR player
-    const iframe = document.createElement('iframe');
-    iframe.src = blobUrl;
-    iframe.style.cssText = `position:absolute;inset:0;border:none;width:100%;height:100%;`;
-    iframe.allow = 'autoplay; fullscreen; xr-spatial-tracking';
-    
-    // Send video data to iframe once loaded
-    iframe.onload = () => {
-      iframe.contentWindow.postMessage({
-        type: 'LOAD_VIDEO',
-        src: videoInfo.src,
-        currentTime: videoInfo.currentTime
-      }, '*');
-    };
+        const overlay = document.createElement('div');
+        overlay.id = 'vr360-overlay';
+        overlay.style.cssText = `position:fixed;inset:0;z-index:99999;background:#000;`;
 
-    overlay.appendChild(backBtn);
-    overlay.appendChild(iframe);
-    document.body.appendChild(overlay);
+        const backBtn = document.createElement('button');
+        backBtn.style.cssText = `
+            position:absolute;top:12px;left:12px;z-index:100000;
+            background:transparent;border:none;color:rgba(255,255,255,0.87);
+            cursor:pointer;display:flex;align-items:center;gap:4px;
+            font-family:'Noto Sans',sans-serif;font-size:15px;font-weight:600;
+            padding:8px;border-radius:50%;transition:background 0.2s;z-index:100001;
+        `;
+        backBtn.innerHTML = '<span style="font-family:\'Material Icons\',sans-serif;font-size:26px;line-height:1;">arrow_back</span>';
+        
+        backBtn.onmouseenter = () => backBtn.style.background = 'rgba(255,255,255,0.1)';
+        backBtn.onmouseleave = () => backBtn.style.background = 'transparent';
+        
+        backBtn.onclick = () => {
+            URL.revokeObjectURL(blobUrl);
+            overlay.remove();
+            if (jellyfinVideo) jellyfinVideo.play();
+        };
 
-    // ESC key to exit VR mode
-    const onKey = (e) => {
-      if (e.key === 'Escape') {
-        URL.revokeObjectURL(blobUrl);
-        overlay.remove();
-        if (jellyfinVideo) jellyfinVideo.play();
-        document.removeEventListener('keydown', onKey);
-      }
-    };
-    document.addEventListener('keydown', onKey);
-  }
+        const iframe = document.createElement('iframe');
+        iframe.src = blobUrl;
+        iframe.style.cssText = `position:absolute;inset:0;border:none;width:100%;height:100%;`;
+        iframe.allow = 'autoplay; fullscreen; xr-spatial-tracking; vr';
+        
+        iframe.onload = () => {
+            iframe.contentWindow.postMessage({
+                type: 'LOAD_VIDEO',
+                src: videoInfo.src,
+                currentTime: videoInfo.currentTime
+            }, '*');
+        };
 
-  // Create the "VR" button in Jellyfin UI
-  function createVRstuff() {
-    // Don't create duplicate buttons
-    if (document.getElementById('vr360-toggleplay')) return;
+        overlay.appendChild(backBtn);
+        overlay.appendChild(iframe);
+        document.body.appendChild(overlay);
 
-    const fullscreenBtn = document.querySelector('.btnFullscreen');
-    if (!fullscreenBtn) return;
+        const onKey = (e) => {
+            if (e.key === 'Escape') {
+                URL.revokeObjectURL(blobUrl);
+                overlay.remove();
+                if (jellyfinVideo) jellyfinVideo.play();
+                document.removeEventListener('keydown', onKey);
+            }
+        };
+        document.addEventListener('keydown', onKey);
 
-    const btn = document.createElement('button');
-    btn.id = 'vr360-toggleplay';
-    btn.setAttribute('is', 'paper-icon-button-light');
-    btn.className = 'autoSize paper-icon-button-light';
-    btn.title = 'VR Player';
-    btn.setAttribute('aria-label', 'VR Player');
+        window.addEventListener('message', function closePlayerHandler(e) {
+            if (e.data?.type === 'CLOSE_PLAYER') {
+                URL.revokeObjectURL(blobUrl);
+                overlay.remove();
+                if (jellyfinVideo) jellyfinVideo.play();
+                window.removeEventListener('message', closePlayerHandler);
+                document.removeEventListener('keydown', onKey);
+            }
+        });
+    }
 
-    const span = document.createElement('span');
-    span.className = 'largePaperIconButton';
-    span.setAttribute('aria-hidden', 'true');
-    span.textContent = 'VR';
-    span.style.cssText = `
-      font-family: 'Noto Sans', sans-serif;
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: 0.5px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    `;
+    function createVRstuff() {
+        if (document.getElementById('vr360-toggleplay')) return;
 
-    btn.appendChild(span);
-    btn.onclick = opentheplayer;
-    
-    // Insert button before fullscreen button
-    fullscreenBtn.parentNode.insertBefore(btn, fullscreenBtn);
-  }
+        const fullscreenBtn = document.querySelector('.btnFullscreen');
+        if (!fullscreenBtn) return;
 
-  // Remove VR button from UI
-  function removeVRstuff() {
-    const el = document.getElementById('vr360-toggleplay');
-    if (el) el.remove();
-  }
+        const btn = document.createElement('button');
+        btn.id = 'vr360-toggleplay';
+        btn.setAttribute('is', 'paper-icon-button-light');
+        btn.className = 'autoSize paper-icon-button-light';
+        btn.title = 'Extended VR Player';
+        btn.setAttribute('aria-label', 'Extended VR Player');
 
-  // Check if video is playing and show/hide VR button accordingly
-  function checkForVideo() {
-    const vid = document.querySelector('video');
-    const hasVideo = vid && vid.src;
-    
-    if (hasVideo) {
-      if (!document.getElementById('vr360-toggleplay')) createVRstuff();
+        const span = document.createElement('span');
+        span.className = 'largePaperIconButton';
+        span.setAttribute('aria-hidden', 'true');
+        span.textContent = 'VR';
+        span.style.cssText = `
+            font-family: 'Noto Sans', sans-serif;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        `;
+
+        btn.appendChild(span);
+        btn.onclick = opentheplayer;
+        
+        fullscreenBtn.parentNode.insertBefore(btn, fullscreenBtn);
+    }
+
+    function removeVRstuff() {
+        const el = document.getElementById('vr360-toggleplay');
+        if (el) el.remove();
+    }
+
+    function checkForVideo() {
+        const vid = document.querySelector('video');
+        const hasVideo = vid && vid.src;
+        
+        if (hasVideo) {
+            if (!document.getElementById('vr360-toggleplay')) createVRstuff();
+        } else {
+            removeVRstuff();
+        }
+    }
+
+    const observer = new MutationObserver(checkForVideo);
+
+    function init() {
+        checkForVideo();
+        observer.observe(document.body, { childList: true, subtree: true });
+    }
+
+    if (document.readyState === 'complete') {
+        init();
     } else {
-      removeVRstuff();
+        window.addEventListener('load', init);
     }
-  }
-
-  // Watch DOM for video element changes
-  const observer = new MutationObserver(checkForVideo);
-
-  // Initialize everything
-  function init() {
-    checkForVideo();
-    observer.observe(document.body, { childList: true, subtree: true });
-  }
-
-  // Run init when page loads
-  if (document.readyState === 'complete') {
-    init();
-  } else {
-    window.addEventListener('load', init);
-  }
 })();
