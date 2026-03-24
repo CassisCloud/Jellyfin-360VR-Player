@@ -1,1583 +1,1669 @@
 (function () {
+  const STORAGE_KEYS = {
+    lastMode: 'jfvr:last-mode',
+    uiDistance: 'jfvr:ui-distance',
+    uiScale: 'jfvr:ui-scale'
+  };
 
-    console.log('[Extended VR] Script loading...');
+  const VIEW_MODES = [
+    {
+      id: '360-mono',
+      label: '360 Mono',
+      shortLabel: '360',
+      description: 'Classic monoscopic 360 sphere playback.',
+      projection: '360',
+      stereo: 'mono',
+      variant: 'mono'
+    },
+    {
+      id: '360-sbs-full',
+      label: '360 SBS Full',
+      shortLabel: '360 SBS',
+      description: '360 stereoscopic side-by-side full-resolution layout.',
+      projection: '360',
+      stereo: 'sbs',
+      variant: 'full'
+    },
+    {
+      id: '360-sbs-half',
+      label: '360 SBS Half',
+      shortLabel: '360 SBS',
+      description: '360 stereoscopic half side-by-side layout.',
+      projection: '360',
+      stereo: 'sbs',
+      variant: 'half'
+    },
+    {
+      id: '360-ou-full',
+      label: '360 OU Full',
+      shortLabel: '360 OU',
+      description: '360 stereoscopic over-under full-resolution layout.',
+      projection: '360',
+      stereo: 'ou',
+      variant: 'full'
+    },
+    {
+      id: '360-ou-half',
+      label: '360 OU Half',
+      shortLabel: '360 OU',
+      description: '360 stereoscopic half over-under layout.',
+      projection: '360',
+      stereo: 'ou',
+      variant: 'half'
+    },
+    {
+      id: '180-mono',
+      label: '180 Mono',
+      shortLabel: '180',
+      description: '180 equirectangular monoscopic VR video.',
+      projection: '180',
+      stereo: 'mono',
+      variant: 'mono'
+    },
+    {
+      id: '180-sbs-full',
+      label: '180 SBS Full',
+      shortLabel: '180 SBS',
+      description: '180 equirectangular stereoscopic side-by-side full layout.',
+      projection: '180',
+      stereo: 'sbs',
+      variant: 'full'
+    },
+    {
+      id: '180-sbs-half',
+      label: '180 SBS Half',
+      shortLabel: '180 SBS',
+      description: '180 equirectangular stereoscopic half side-by-side layout.',
+      projection: '180',
+      stereo: 'sbs',
+      variant: 'half'
+    },
+    {
+      id: '180-ou-full',
+      label: '180 OU Full',
+      shortLabel: '180 OU',
+      description: '180 equirectangular stereoscopic over-under full layout.',
+      projection: '180',
+      stereo: 'ou',
+      variant: 'full'
+    },
+    {
+      id: '180-ou-half',
+      label: '180 OU Half',
+      shortLabel: '180 OU',
+      description: '180 equirectangular stereoscopic half over-under layout.',
+      projection: '180',
+      stereo: 'ou',
+      variant: 'half'
+    }
+  ];
 
-    const PLAYER_HTML = `<!DOCTYPE html>
+  const MODES_BY_ID = VIEW_MODES.reduce((acc, mode) => {
+    acc[mode.id] = mode;
+    return acc;
+  }, {});
+
+  const PLAYER_HTML = String.raw`<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Extended VR Video Player</title>
-    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <title>Jellyfin VR Player</title>
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"><\/script>
     <style>
+        :root {
+            color-scheme: dark;
+            --panel-bg: rgba(4, 12, 20, 0.86);
+            --panel-line: rgba(148, 163, 184, 0.22);
+            --panel-text: #e5eef7;
+            --panel-muted: #94a3b8;
+            --panel-accent: #38bdf8;
+            --panel-accent-strong: #0ea5e9;
+            --panel-button: rgba(15, 23, 42, 0.92);
+            --panel-button-hover: rgba(30, 41, 59, 0.98);
+            --panel-danger: #fb7185;
+            --panel-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+        }
+
         * { box-sizing: border-box; }
-        
-        .material-icons {
-            font-family: 'Material Icons';
-            font-weight: normal;
-            font-style: normal;
-            font-size: 24px;
-            line-height: 1;
-            letter-spacing: normal;
-            text-transform: none;
-            display: inline-block;
-            white-space: nowrap;
-            word-wrap: normal;
-            direction: ltr;
-            -webkit-font-smoothing: antialiased;
-            text-rendering: optimizeLegibility;
-        }
-        
-        body { 
-            margin: 0; 
-            overflow: hidden; 
-            font-family: 'Noto Sans', sans-serif; 
-            background: #000; 
-            color: rgba(255,255,255,0.87); 
-        }
 
-        #ui {
-            position: absolute;
-            bottom: 0; 
-            left: 0; 
-            right: 0;
-            z-index: 100;
-            background: linear-gradient(to top, rgba(0,0,0,0.9) 50%, transparent 100%);
-            color: #fff;
-            padding: 8px 16px 20px;
-            transition: opacity 0.4s ease;
-            opacity: 1;
-            pointer-events: auto;
-        }
-        
-        #ui.hidden { 
-            opacity: 0; 
-            pointer-events: none; 
-        }
-
-        .progress-container {
+        html, body {
             width: 100%;
-            height: 4px;
-            background: rgba(255,255,255,0.2);
-            border-radius: 2px;
-            cursor: pointer;
-            position: relative;
-            margin-bottom: 10px;
-            transition: height 0.15s;
-        }
-        
-        .progress-container:hover { 
-            height: 6px; 
-        }
-        
-        .progress-fill {
             height: 100%;
-            width: 0%;
-            background: #00a4dc;
-            border-radius: 2px;
-            pointer-events: none;
-            position: relative;
-        }
-        
-        .progress-fill::after {
-            content: '';
-            position: absolute;
-            right: -6px; 
-            top: 50%;
-            transform: translateY(-50%);
-            width: 12px; 
-            height: 12px;
-            background: #fff;
-            border-radius: 50%;
-            opacity: 0;
-            transition: opacity 0.15s;
-        }
-        
-        .progress-container:hover .progress-fill::after { 
-            opacity: 1; 
-        }
-
-        .control-row {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-
-        .jf-btn {
-            background: transparent;
-            border: none;
-            color: rgba(255,255,255,0.87);
-            cursor: pointer;
-            padding: 8px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: background 0.2s, color 0.2s;
-            flex-shrink: 0;
-        }
-        
-        .jf-btn:hover { 
-            background: rgba(255,255,255,0.15); 
-            color: #fff; 
-        }
-        
-        .jf-btn .material-icons { 
-            font-size: 24px; 
-        }
-        
-        .jf-btn.small .material-icons { 
-            font-size: 20px; 
-        }
-
-        .time {
-            font-size: 13px;
-            font-family: 'Noto Sans', sans-serif;
-            color: rgba(255,255,255,0.87);
-            white-space: nowrap;
-            padding: 0 8px;
-            flex-shrink: 0;
-        }
-
-        .volume-wrap {
-            position: relative;
-            display: flex;
-            align-items: center;
-            flex-shrink: 0;
-        }
-        
-        .volume-popup {
-            display: none;
-            position: absolute;
-            bottom: calc(100% + 8px);
-            left: 50%;
-            transform: translateX(-50%);
-            background: #1c1c1c;
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 6px;
-            padding: 12px 10px;
-            align-items: center;
-            justify-content: center;
-            width: 36px;
-            height: 120px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
-            z-index: 200;
-        }
-        
-        .volume-wrap:hover .volume-popup,
-        .volume-popup:hover { 
-            display: flex; 
-        }
-
-        .volume-slider-vert {
-            writing-mode: vertical-lr;
-            direction: rtl;
-            appearance: none;
-            -webkit-appearance: none;
-            width: 4px;
-            height: 90px;
-            background: rgba(255,255,255,0.2);
-            border-radius: 2px;
-            outline: none;
-            cursor: pointer;
-            accent-color: #00a4dc;
-        }
-        
-        .volume-slider-vert::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 14px; 
-            height: 14px;
-            border-radius: 50%;
-            background: #fff;
-            cursor: pointer;
-            box-shadow: 0 0 4px rgba(0,0,0,0.5);
-        }
-        
-        .volume-slider-vert::-moz-range-thumb {
-            width: 14px; 
-            height: 14px;
-            border-radius: 50%;
-            background: #fff;
-            cursor: pointer;
-            border: none;
-        }
-
-        .vr-badge {
-            font-size: 11px;
-            font-family: 'Noto Sans', sans-serif;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-            color: #00a4dc;
-            border: 1px solid #00a4dc;
-            padding: 2px 7px;
-            border-radius: 3px;
-            flex-shrink: 0;
-        }
-
-        .spacer { flex: 1; }
-
-        .settings-panel, .settings-sub {
-            display: none;
-            position: fixed;
-            bottom: 80px;
-            right: 16px;
-            background: #1c1c1c;
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 6px;
-            min-width: 280px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.7);
-            z-index: 9999;
+            margin: 0;
             overflow: hidden;
-        }
-        
-        .settings-panel.open, .settings-sub.open { 
-            display: block; 
-        }
-
-        .settings-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 16px 20px;
-            cursor: pointer;
-            border-bottom: 1px solid rgba(255,255,255,0.06);
-            transition: background 0.15s;
-        }
-        
-        .settings-row:last-child { 
-            border-bottom: none; 
-        }
-        
-        .settings-row:hover { 
-            background: rgba(255,255,255,0.07); 
+            background:
+                radial-gradient(circle at top, rgba(14, 165, 233, 0.20), transparent 28%),
+                radial-gradient(circle at bottom, rgba(59, 130, 246, 0.16), transparent 24%),
+                #000;
+            color: var(--panel-text);
+            font-family: "Segoe UI", Arial, sans-serif;
         }
 
-        .settings-label {
-            font-family: 'Noto Sans', sans-serif;
-            font-size: 14px;
-            color: rgba(255,255,255,0.87);
-        }
-        
-        .settings-value {
-            font-family: 'Noto Sans', sans-serif;
-            font-size: 14px;
-            color: rgba(255,255,255,0.5);
-        }
-
-        .settings-sub-header {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 14px 20px;
-            border-bottom: 1px solid rgba(255,255,255,0.08);
-            cursor: pointer;
-        }
-        
-        .settings-sub-header:hover { 
-            background: rgba(255,255,255,0.05); 
-        }
-        
-        .settings-sub-header .material-icons { 
-            font-size: 18px; 
-            color: rgba(255,255,255,0.6); 
-        }
-        
-        .settings-sub-header span.title {
-            font-family: 'Noto Sans', sans-serif;
-            font-size: 14px;
-            color: rgba(255,255,255,0.87);
-            font-weight: 600;
-        }
-
-        .settings-option {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 14px 20px;
-            cursor: pointer;
-            border-bottom: 1px solid rgba(255,255,255,0.06);
-            transition: background 0.15s;
-        }
-        
-        .settings-option:last-child { 
-            border-bottom: none; 
-        }
-        
-        .settings-option:hover { 
-            background: rgba(255,255,255,0.07); 
-        }
-        
-        .settings-option.active .opt-label { 
-            color: #00a4dc; 
-        }
-        
-        .settings-option .check-icon {
-            font-size: 18px;
-            color: #00a4dc;
-            visibility: hidden;
-        }
-        
-        .settings-option.active .check-icon { 
-            visibility: visible; 
-        }
-        
-        .opt-label {
-            font-family: 'Noto Sans', sans-serif;
-            font-size: 14px;
-            color: rgba(255,255,255,0.87);
-        }
-
-        #mode-select-overlay {
+        #hud {
             position: fixed;
             inset: 0;
-            z-index: 10000;
-            background: rgba(0,0,0,0.95);
+            pointer-events: none;
+            z-index: 20;
+        }
+
+        .hud-card {
+            pointer-events: auto;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-line);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            box-shadow: var(--panel-shadow);
+        }
+
+        #topbar {
+            position: fixed;
+            top: 18px;
+            left: 18px;
+            right: 18px;
             display: flex;
-            flex-direction: column;
             align-items: center;
-            justify-content: center;
-            padding: 20px;
+            justify-content: space-between;
+            gap: 12px;
         }
 
-        #mode-select-overlay.hidden {
-            display: none;
+        #topbar-left,
+        #topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
-        .mode-select-title {
-            font-family: 'Noto Sans', sans-serif;
-            font-size: 28px;
+        .hud-btn,
+        .hud-chip {
+            border-radius: 999px;
+            border: 1px solid var(--panel-line);
+            background: rgba(2, 8, 14, 0.78);
+            color: var(--panel-text);
+            font: inherit;
+        }
+
+        .hud-btn {
+            cursor: pointer;
+            padding: 10px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+        }
+
+        .hud-btn:hover,
+        .hud-btn:focus-visible {
+            background: rgba(15, 23, 42, 0.95);
+            border-color: rgba(56, 189, 248, 0.4);
+            transform: translateY(-1px);
+            outline: none;
+        }
+
+        .hud-btn.primary {
+            background: linear-gradient(135deg, rgba(14, 165, 233, 0.9), rgba(56, 189, 248, 0.7));
+            color: #04111b;
+            border-color: rgba(56, 189, 248, 0.65);
+        }
+
+        .hud-chip {
+            padding: 9px 14px;
+            font-size: 13px;
             font-weight: 700;
-            color: #fff;
-            margin-bottom: 8px;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .hud-chip.mode {
+            color: #7dd3fc;
+        }
+
+        .hud-chip.status {
+            color: var(--panel-muted);
+            min-width: 120px;
             text-align: center;
         }
 
-        .mode-select-subtitle {
-            font-family: 'Noto Sans', sans-serif;
-            font-size: 14px;
-            color: rgba(255,255,255,0.6);
-            margin-bottom: 32px;
-            text-align: center;
-        }
-
-        .mode-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 16px;
-            max-width: 700px;
-            width: 100%;
-        }
-
-        @media (max-width: 700px) {
-            .mode-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-
-        @media (max-width: 400px) {
-            .mode-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .mode-card {
-            background: #1c1c1c;
-            border: 2px solid rgba(255,255,255,0.1);
-            border-radius: 12px;
-            padding: 20px 16px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            text-align: center;
-        }
-
-        .mode-card:hover {
-            border-color: #00a4dc;
-            background: #252525;
-            transform: translateY(-2px);
-        }
-
-        .mode-card.selected {
-            border-color: #00a4dc;
-            background: rgba(0,164,220,0.15);
-        }
-
-        .mode-card .mode-icon {
-            font-size: 48px;
-            margin-bottom: 12px;
-            display: block;
-        }
-
-        .mode-card .mode-name {
-            font-family: 'Noto Sans', sans-serif;
-            font-size: 16px;
-            font-weight: 600;
-            color: #fff;
-            margin-bottom: 4px;
-        }
-
-        .mode-card .mode-desc {
-            font-family: 'Noto Sans', sans-serif;
-            font-size: 12px;
-            color: rgba(255,255,255,0.5);
-        }
-
-        .mode-select-actions {
-            margin-top: 32px;
-            display: flex;
-            gap: 16px;
-        }
-
-        .mode-btn {
-            font-family: 'Noto Sans', sans-serif;
-            font-size: 16px;
-            font-weight: 600;
-            padding: 12px 32px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            border: none;
-        }
-
-        .mode-btn.primary {
-            background: #00a4dc;
-            color: #fff;
-        }
-
-        .mode-btn.primary:hover {
-            background: #0090c0;
-        }
-
-        .mode-btn.secondary {
-            background: transparent;
-            color: rgba(255,255,255,0.7);
-            border: 1px solid rgba(255,255,255,0.2);
-        }
-
-        .mode-btn.secondary:hover {
-            background: rgba(255,255,255,0.1);
-            color: #fff;
-        }
-
-        #loading-overlay {
+        #dock {
             position: fixed;
-            inset: 0;
-            z-index: 9998;
-            background: #000;
+            left: 18px;
+            right: 18px;
+            bottom: 18px;
+            padding: 14px 16px;
+            border-radius: 22px;
+        }
+
+        #dock-row {
             display: flex;
-            flex-direction: column;
             align-items: center;
-            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
         }
 
-        #loading-overlay.hidden {
-            display: none;
+        #seek-wrap {
+            flex: 1 1 260px;
+            display: grid;
+            gap: 6px;
+            min-width: 220px;
         }
 
-        .loading-spinner {
-            width: 48px;
-            height: 48px;
-            border: 3px solid rgba(255,255,255,0.1);
-            border-top-color: #00a4dc;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .loading-text {
-            font-family: 'Noto Sans', sans-serif;
-            font-size: 14px;
-            color: rgba(255,255,255,0.7);
-            margin-top: 16px;
-        }
-
-        #vr-button {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            z-index: 100;
-            background: #00a4dc;
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            padding: 12px 24px;
-            font-family: 'Noto Sans', sans-serif;
-            font-size: 14px;
-            font-weight: 600;
+        #seekInput {
+            width: 100%;
+            accent-color: var(--panel-accent-strong);
             cursor: pointer;
-            display: none;
-            align-items: center;
-            gap: 8px;
         }
 
-        #vr-button.visible {
+        #timeDisplay,
+        #comfortDisplay,
+        #hintText {
+            color: var(--panel-muted);
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        #dockControls {
             display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
         }
 
-        #vr-button:hover {
-            background: #0090c0;
+        #volumeSlider {
+            width: 110px;
+            accent-color: var(--panel-accent-strong);
         }
-    </style>
+
+        .hidden {
+            display: none !important;
+        }
+
+        a-scene {
+            width: 100%;
+            height: 100%;
+        }
+
+        .a-enter-vr,
+        .a-enter-ar {
+            display: none !important;
+        }
+
+        @media (max-width: 720px) {
+            #topbar {
+                top: 12px;
+                left: 12px;
+                right: 12px;
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            #topbar-left,
+            #topbar-right {
+                justify-content: space-between;
+            }
+
+            #dock {
+                left: 12px;
+                right: 12px;
+                bottom: 12px;
+            }
+
+            #dock-row {
+                align-items: stretch;
+            }
+
+            #dockControls {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            #volumeSlider {
+                width: 80px;
+            }
+        }
+    <\/style>
 </head>
 <body>
-    <div id="loading-overlay" class="hidden">
-        <div class="loading-spinner"></div>
-        <div class="loading-text">Loading video...</div>
-    </div>
-
-    <div id="mode-select-overlay" class="hidden">
-        <div class="mode-select-title">Select VR Mode</div>
-        <div class="mode-select-subtitle">Choose how you want to view this video</div>
-        
-        <div class="mode-grid">
-            <div class="mode-card" data-mode="360">
-                <span class="material-icons mode-icon">panorama</span>
-                <div class="mode-name">360° Sphere</div>
-                <div class="mode-desc">Full 360° panoramic view</div>
+    <div id="hud">
+        <div id="topbar">
+            <div id="topbar-left">
+                <button class="hud-btn" id="closeBtn">Back</button>
+                <div class="hud-chip mode" id="modeChip">360 Mono</div>
+                <div class="hud-chip status" id="statusChip">Loading...</div>
             </div>
-            <div class="mode-card" data-mode="fullsbs">
-                <span class="material-icons mode-icon">view_in_ar</span>
-                <div class="mode-name">Full SBS</div>
-                <div class="mode-desc">360° side-by-side 3D</div>
-            </div>
-            <div class="mode-card" data-mode="halfsbs">
-                <span class="material-icons mode-icon">3d_rotation</span>
-                <div class="mode-name">Half SBS</div>
-                <div class="mode-desc">360° half-width 3D</div>
-            </div>
-            <div class="mode-card" data-mode="sbs180">
-                <span class="material-icons mode-icon">vr_view</span>
-                <div class="mode-name">SBS 180°</div>
-                <div class="mode-desc">Side-by-side 180° VR</div>
-            </div>
-            <div class="mode-card" data-mode="ou180">
-                <span class="material-icons mode-icon">fold</span>
-                <div class="mode-name">OU 180°</div>
-                <div class="mode-desc">Over-under 180° VR</div>
-            </div>
-            <div class="mode-card" data-mode="ou360">
-                <span class="material-icons mode-icon">panorama_horizontal</span>
-                <div class="mode-name">OU 360°</div>
-                <div class="mode-desc">Over-under 360° VR</div>
+            <div id="topbar-right">
+                <div id="comfortDisplay">UI 1.90m / 1.00x</div>
+                <button class="hud-btn primary" id="enterVrBtn">Enter VR</button>
             </div>
         </div>
-        
-        <div class="mode-select-actions">
-            <button class="mode-btn secondary" id="cancel-mode">Cancel</button>
-            <button class="mode-btn primary" id="start-mode">Start VR</button>
-        </div>
-    </div>
 
-    <div id="ui">
-        <div class="progress-container" id="seekContainer">
-            <div class="progress-fill" id="seekBar"></div>
-        </div>
-
-        <div class="control-row">
-            <button class="jf-btn" id="playPauseBtn" title="Play/Pause">
-                <span class="material-icons">play_arrow</span>
-            </button>
-
-            <button class="jf-btn small" id="skipBackBtn" title="Rewind 10s">
-                <span class="material-icons">replay_10</span>
-            </button>
-
-            <button class="jf-btn small" id="skipFwdBtn" title="Forward 10s">
-                <span class="material-icons">forward_10</span>
-            </button>
-
-            <div class="volume-wrap" id="volumeWrap">
-                <button class="jf-btn small" id="muteBtn" title="Mute">
-                    <span class="material-icons">volume_up</span>
-                </button>
-                <div class="volume-popup" id="volumePopup">
-                    <input type="range" class="volume-slider-vert" id="volumeSlider" min="0" max="1" step="0.02" value="1">
+        <div class="hud-card" id="dock">
+            <div id="dock-row">
+                <div id="dockControls">
+                    <button class="hud-btn" id="playPauseBtn">Pause</button>
+                    <button class="hud-btn" id="seekBackBtn">-10s</button>
+                    <button class="hud-btn" id="seekFwdBtn">+10s</button>
+                    <button class="hud-btn" id="muteBtn">Mute</button>
+                    <input id="volumeSlider" type="range" min="0" max="1" step="0.02" value="1">
                 </div>
+
+                <div id="seek-wrap">
+                    <input id="seekInput" type="range" min="0" max="1000" step="1" value="0">
+                    <div id="timeDisplay">0:00 / 0:00</div>
+                </div>
+
+                <div id="hintText">Space play/pause, arrows seek, V enter VR, X swap stereo</div>
             </div>
-
-            <span class="time" id="timeDisplay">0:00 / 0:00</span>
-            <span class="time" id="endsAt"></span>
-
-            <div class="spacer"></div>
-
-            <span class="vr-badge" id="modeBadge">360°</span>
-
-            <button class="jf-btn small" id="settingsBtn" title="Settings">
-                <span class="material-icons">settings</span>
-            </button>
-
-            <button class="jf-btn" id="fullscreenBtn" title="Fullscreen">
-                <span class="material-icons">fullscreen</span>
-            </button>
         </div>
     </div>
 
-    <div class="settings-panel" id="settingsPanel">
-        <div class="settings-row" id="setSpeed">
-            <span class="settings-label">Playback Speed</span>
-            <span class="settings-value" id="speedLabel">1x</span>
-        </div>
-        <div class="settings-row" id="setQuality">
-            <span class="settings-label">Quality</span>
-            <span class="settings-value" id="qualityLabel">Auto</span>
-        </div>
-        <div class="settings-row" id="setRepeat">
-            <span class="settings-label">Repeat Mode</span>
-            <span class="settings-value" id="repeatLabel">None</span>
-        </div>
-        <div class="settings-row" id="setScale">
-            <span class="settings-label">VR Scale</span>
-            <span class="settings-value" id="scaleLabel">1.0x</span>
-        </div>
-    </div>
-
-    <div class="settings-sub" id="speedPanel">
-        <div class="settings-sub-header" id="speedBack">
-            <span class="material-icons">chevron_left</span>
-            <span class="title">Playback Speed</span>
-        </div>
-        <div class="settings-option" data-speed="0.25"><span class="material-icons check-icon">check</span><span class="opt-label">0.25x</span></div>
-        <div class="settings-option" data-speed="0.5"><span class="material-icons check-icon">check</span><span class="opt-label">0.5x</span></div>
-        <div class="settings-option" data-speed="0.75"><span class="material-icons check-icon">check</span><span class="opt-label">0.75x</span></div>
-        <div class="settings-option active" data-speed="1"><span class="material-icons check-icon">check</span><span class="opt-label">1x</span></div>
-        <div class="settings-option" data-speed="1.25"><span class="material-icons check-icon">check</span><span class="opt-label">1.25x</span></div>
-        <div class="settings-option" data-speed="1.5"><span class="material-icons check-icon">check</span><span class="opt-label">1.5x</span></div>
-        <div class="settings-option" data-speed="2"><span class="material-icons check-icon">check</span><span class="opt-label">2x</span></div>
-    </div>
-
-    <div class="settings-sub" id="repeatPanel">
-        <div class="settings-sub-header" id="repeatBack">
-            <span class="material-icons">chevron_left</span>
-            <span class="title">Repeat Mode</span>
-        </div>
-        <div class="settings-option active" data-repeat="none"><span class="material-icons check-icon">check</span><span class="opt-label">None</span></div>
-        <div class="settings-option" data-repeat="one"><span class="material-icons check-icon">check</span><span class="opt-label">Repeat One</span></div>
-        <div class="settings-option" data-repeat="all"><span class="material-icons check-icon">check</span><span class="opt-label">Repeat All</span></div>
-    </div>
-
-    <div class="settings-sub" id="qualityPanel">
-        <div class="settings-sub-header" id="qualityBack">
-            <span class="material-icons">chevron_left</span>
-            <span class="title">Quality</span>
-        </div>
-        <div class="settings-option active" data-bitrate="0"><span class="material-icons check-icon">check</span><span class="opt-label">Auto</span></div>
-        <div class="settings-option" data-bitrate="120000000"><span class="material-icons check-icon">check</span><span class="opt-label">Max</span></div>
-        <div class="settings-option" data-bitrate="15000000"><span class="material-icons check-icon">check</span><span class="opt-label">15 Mbps</span></div>
-        <div class="settings-option" data-bitrate="8000000"><span class="material-icons check-icon">check</span><span class="opt-label">8 Mbps</span></div>
-        <div class="settings-option" data-bitrate="6000000"><span class="material-icons check-icon">check</span><span class="opt-label">6 Mbps</span></div>
-        <div class="settings-option" data-bitrate="4000000"><span class="material-icons check-icon">check</span><span class="opt-label">4 Mbps</span></div>
-        <div class="settings-option" data-bitrate="3000000"><span class="material-icons check-icon">check</span><span class="opt-label">3 Mbps</span></div>
-        <div class="settings-option" data-bitrate="1500000"><span class="material-icons check-icon">check</span><span class="opt-label">1.5 Mbps</span></div>
-    </div>
-
-    <div class="settings-sub" id="scalePanel">
-        <div class="settings-sub-header" id="scaleBack">
-            <span class="material-icons">chevron_left</span>
-            <span class="title">VR Scale</span>
-        </div>
-        <div class="settings-option" data-scale="0.5"><span class="material-icons check-icon">check</span><span class="opt-label">0.5x</span></div>
-        <div class="settings-option" data-scale="0.75"><span class="material-icons check-icon">check</span><span class="opt-label">0.75x</span></div>
-        <div class="settings-option active" data-scale="1"><span class="material-icons check-icon">check</span><span class="opt-label">1.0x</span></div>
-        <div class="settings-option" data-scale="1.5"><span class="material-icons check-icon">check</span><span class="opt-label">1.5x</span></div>
-        <div class="settings-option" data-scale="2"><span class="material-icons check-icon">check</span><span class="opt-label">2.0x</span></div>
-    </div>
-
-    <a-scene id="a-scene" vr-mode-ui="enabled: true" background="color: #000000" renderer="antialias: true; colorManagement: true">
+    <a-scene
+        id="scene"
+        background="color: #000"
+        renderer="antialias: true; colorManagement: true"
+        embedded
+        xr-mode-ui="enabled: true"
+        webxr="requiredFeatures: local-floor; optionalFeatures: bounded-floor,unbounded"
+        cursor__mouse="rayOrigin: mouse"
+        raycaster__mouse="objects: .clickable; far: 30">
         <a-assets id="assets"></a-assets>
-        <a-entity id="videosphere"
-                  geometry="primitive: sphere; radius: 5000; segmentsWidth: 64; segmentsHeight: 32"
-                  material="shader: flat; side: back;"
-                  rotation="0 180 0">
+
+        <a-entity id="cameraRig" position="0 0 0">
+            <a-camera id="camera" position="0 1.6 0" look-controls="enabled: true" wasd-controls-enabled="false">
+                <a-entity
+                    id="gazeCursor"
+                    cursor="fuse: true; fuseTimeout: 900"
+                    raycaster="objects: .clickable; far: 20"
+                    position="0 0 -1.35"
+                    geometry="primitive: ring; radiusInner: 0.010; radiusOuter: 0.016"
+                    material="shader: flat; color: #7dd3fc; opacity: 0.92"></a-entity>
+
+                <a-entity id="uiRoot" position="0 -0.38 -1.90" scale="1 1 1">
+                    <a-plane width="1.86" height="0.62" color="#05111a" opacity="0.88" material="shader: flat; transparent: true; opacity: 0.88"></a-plane>
+                    <a-plane width="1.80" height="0.56" color="#0b1b2a" opacity="0.12" position="0 0 0.001" material="shader: flat; transparent: true; opacity: 0.12"></a-plane>
+
+                    <a-entity id="panelModeText" position="0 0.20 0.01" text="value: 360 Mono; align: center; width: 2.5; color: #f8fbff; wrapCount: 28"></a-entity>
+                    <a-entity id="panelStatusText" position="0 0.13 0.01" text="value: Loading...; align: center; width: 2.1; color: #8fb8d8; wrapCount: 34"></a-entity>
+
+                    <a-entity id="uiExit3d" class="clickable" position="-0.70 0.03 0.02" geometry="primitive: plane; width: 0.20; height: 0.10" material="shader: flat; color: #3b0b19; opacity: 0.95">
+                        <a-entity id="uiExit3dLabel" position="0 0 0.01" text="value: Exit; align: center; width: 0.8; color: #ffffff"></a-entity>
+                    </a-entity>
+                    <a-entity id="uiSeekBack3d" class="clickable" position="-0.42 0.03 0.02" geometry="primitive: plane; width: 0.20; height: 0.10" material="shader: flat; color: #13283a; opacity: 0.95">
+                        <a-entity id="uiSeekBack3dLabel" position="0 0 0.01" text="value: -10s; align: center; width: 0.8; color: #ffffff"></a-entity>
+                    </a-entity>
+                    <a-entity id="uiPlay3d" class="clickable" position="-0.14 0.03 0.02" geometry="primitive: plane; width: 0.20; height: 0.10" material="shader: flat; color: #11415a; opacity: 0.98">
+                        <a-entity id="uiPlay3dLabel" position="0 0 0.01" text="value: Pause; align: center; width: 0.8; color: #ffffff"></a-entity>
+                    </a-entity>
+                    <a-entity id="uiSeekFwd3d" class="clickable" position="0.14 0.03 0.02" geometry="primitive: plane; width: 0.20; height: 0.10" material="shader: flat; color: #13283a; opacity: 0.95">
+                        <a-entity id="uiSeekFwd3dLabel" position="0 0 0.01" text="value: +10s; align: center; width: 0.8; color: #ffffff"></a-entity>
+                    </a-entity>
+                    <a-entity id="uiEnterVr3d" class="clickable" position="0.42 0.03 0.02" geometry="primitive: plane; width: 0.20; height: 0.10" material="shader: flat; color: #0a4a3d; opacity: 0.98">
+                        <a-entity id="uiEnterVr3dLabel" position="0 0 0.01" text="value: VR; align: center; width: 0.8; color: #ffffff"></a-entity>
+                    </a-entity>
+                    <a-entity id="uiSwap3d" class="clickable" position="0.70 0.03 0.02" geometry="primitive: plane; width: 0.20; height: 0.10" material="shader: flat; color: #13283a; opacity: 0.95">
+                        <a-entity id="uiSwap3dLabel" position="0 0 0.01" text="value: Swap; align: center; width: 0.8; color: #ffffff"></a-entity>
+                    </a-entity>
+
+                    <a-entity id="comfortText3d" position="0 -0.07 0.01" text="value: UI 1.90m / 1.00x; align: center; width: 2.1; color: #d0e7ff; wrapCount: 32"></a-entity>
+                    <a-entity id="uiNear3d" class="clickable" position="-0.42 -0.07 0.02" geometry="primitive: plane; width: 0.18; height: 0.08" material="shader: flat; color: #13283a; opacity: 0.95">
+                        <a-entity position="0 0 0.01" text="value: Near; align: center; width: 0.8; color: #ffffff"></a-entity>
+                    </a-entity>
+                    <a-entity id="uiFar3d" class="clickable" position="-0.18 -0.07 0.02" geometry="primitive: plane; width: 0.18; height: 0.08" material="shader: flat; color: #13283a; opacity: 0.95">
+                        <a-entity position="0 0 0.01" text="value: Far; align: center; width: 0.8; color: #ffffff"></a-entity>
+                    </a-entity>
+                    <a-entity id="uiScaleDown3d" class="clickable" position="0.18 -0.07 0.02" geometry="primitive: plane; width: 0.18; height: 0.08" material="shader: flat; color: #13283a; opacity: 0.95">
+                        <a-entity position="0 0 0.01" text="value: Scale -; align: center; width: 0.8; color: #ffffff"></a-entity>
+                    </a-entity>
+                    <a-entity id="uiScaleUp3d" class="clickable" position="0.42 -0.07 0.02" geometry="primitive: plane; width: 0.18; height: 0.08" material="shader: flat; color: #13283a; opacity: 0.95">
+                        <a-entity position="0 0 0.01" text="value: Scale +; align: center; width: 0.8; color: #ffffff"></a-entity>
+                    </a-entity>
+
+                    <a-entity id="seekTrack3d" class="clickable" position="0 -0.20 0.02" geometry="primitive: plane; width: 1.44; height: 0.06" material="shader: flat; color: #102131; opacity: 0.96"></a-entity>
+                    <a-entity id="seekBuffered3d" position="-0.72 -0.20 0.025" geometry="primitive: plane; width: 0.001; height: 0.032" material="shader: flat; color: #33536b; opacity: 0.9"></a-entity>
+                    <a-entity id="seekPlayed3d" position="-0.72 -0.20 0.03" geometry="primitive: plane; width: 0.001; height: 0.032" material="shader: flat; color: #38bdf8; opacity: 1"></a-entity>
+                    <a-entity id="seekTime3d" position="0 -0.29 0.01" text="value: 0:00 / 0:00; align: center; width: 2.1; color: #d7e8f7"></a-entity>
+                </a-entity>
+            </a-camera>
         </a-entity>
-        <a-entity id="videosphere-left"
-                  geometry="primitive: sphere; radius: 5000; segmentsWidth: 64; segmentsHeight: 32"
-                  material="shader: flat; side: back; transparent: true; opacity: 0"
-                  rotation="0 180 0">
-        </a-entity>
-        <a-camera id="camera"
-                  position="0 1.6 0"
-                  look-controls="enabled: true"
-                  wasd-controls-enabled="false">
-        </a-camera>
-        <a-entity id="vr-ui" position="0 1.2 -3" visible="false">
-            <a-plane id="vr-progress-bg" 
-                     geometry="width: 4; height: 0.1" 
-                     material="color: #333; opacity: 0.8; transparent: true"
-                     position="0 -0.5 0">
-            </a-plane>
-            <a-plane id="vr-progress-fill" 
-                     geometry="width: 0; height: 0.1" 
-                     material="color: #00a4dc; opacity: 0.9; transparent: true"
-                     position="-2 -0.5 0.01">
-            </a-plane>
-            <a-plane class="clickable" 
-                     geometry="width: 4; height: 0.5" 
-                     material="transparent: true; opacity: 0; color: #fff"
-                     position="0 -0.5 0"
-                     vr-progress-control>
-            </a-plane>
-            <a-text id="vr-time-display" 
-                    value="0:00 / 0:00" 
-                    position="0 -0.7 0" 
-                    align="center" 
-                    color="#fff"
-                    width="4">
-            </a-text>
-            <a-entity id="vr-controls" position="0 -1 0">
-                <a-plane class="clickable vr-btn" 
-                         geometry="width: 0.5; height: 0.5" 
-                         material="color: #1c1c1c; opacity: 0.9"
-                         position="-1.5 0 0"
-                         vr-play-btn>
-                    <a-text value="PLAY" position="0 0 0.01" align="center" color="#fff" width="2"></a-text>
-                </a-plane>
-                <a-plane class="clickable vr-btn" 
-                         geometry="width: 0.5; height: 0.5" 
-                         material="color: #1c1c1c; opacity: 0.9"
-                         position="-0.7 0 0"
-                         vr-skip-back-btn>
-                    <a-text value="-10" position="0 0 0.01" align="center" color="#fff" width="2"></a-text>
-                </a-plane>
-                <a-plane class="clickable vr-btn" 
-                         geometry="width: 0.5; height: 0.5" 
-                         material="color: #1c1c1c; opacity: 0.9"
-                         position="0.7 0 0"
-                         vr-skip-fwd-btn>
-                    <a-text value="+10" position="0 0 0.01" align="center" color="#fff" width="2"></a-text>
-                </a-plane>
-                <a-plane class="clickable vr-btn" 
-                         geometry="width: 0.5; height: 0.5" 
-                         material="color: #1c1c1c; opacity: 0.9"
-                         position="1.5 0 0"
-                         vr-fullscreen-btn>
-                    <a-text value="EXIT" position="0 0 0.01" align="center" color="#fff" width="2"></a-text>
-                </a-plane>
-            </a-entity>
-            <a-text id="vr-mode-label" 
-                    value="" 
-                    position="0 0.8 0" 
-                    align="center" 
-                    color="#00a4dc"
-                    width="6">
-            </a-text>
-        </a-entity>
+
+        <a-entity id="leftHand" laser-controls="hand: left" raycaster="objects: .clickable; far: 20; lineColor: #7dd3fc; lineOpacity: 0.7"></a-entity>
+        <a-entity id="rightHand" laser-controls="hand: right" raycaster="objects: .clickable; far: 20; lineColor: #7dd3fc; lineOpacity: 0.7"></a-entity>
     </a-scene>
 
     <script>
-        const ui = document.getElementById('ui');
-        const playPauseBtn = document.getElementById('playPauseBtn');
-        const playIcon = playPauseBtn.querySelector('.material-icons');
-        const skipBackBtn = document.getElementById('skipBackBtn');
-        const skipFwdBtn = document.getElementById('skipFwdBtn');
-        const muteBtn = document.getElementById('muteBtn');
-        const muteIcon = muteBtn.querySelector('.material-icons');
-        const seekContainer = document.getElementById('seekContainer');
-        const seekBar = document.getElementById('seekBar');
-        const timeDisplay = document.getElementById('timeDisplay');
-        const endsAt = document.getElementById('endsAt');
-        const volumeSlider = document.getElementById('volumeSlider');
-        const fullscreenBtn = document.getElementById('fullscreenBtn');
-        const fsIcon = fullscreenBtn.querySelector('.material-icons');
-        const modeBadge = document.getElementById('modeBadge');
-        const modeSelectOverlay = document.getElementById('mode-select-overlay');
-        const loadingOverlay = document.getElementById('loading-overlay');
-        const startModeBtn = document.getElementById('start-mode');
-        const cancelModeBtn = document.getElementById('cancel-mode');
-        const vrUi = document.getElementById('vr-ui');
-        const aScene = document.getElementById('a-scene');
-
-        let videoElement = null;
-        let hideTimer = null;
-        let muted = false;
-        let currentMode = '360';
-        let vrScale = 1.0;
-        let isInVR = false;
-
-        const modeNames = {
-            '360': '360°',
-            'fullsbs': 'Full SBS',
-            'halfsbs': 'Half SBS',
-            'sbs180': 'SBS 180°',
-            'ou180': 'OU 180°',
-            'ou360': 'OU 360°'
-        };
-
-        function updateEndsAt() {
-            if (!videoElement || !videoElement.duration || isNaN(videoElement.duration)) return;
-            
-            const remaining = (videoElement.duration - videoElement.currentTime) / (videoElement.playbackRate || 1);
-            const end = new Date(Date.now() + remaining * 1000);
-            const hours = end.getHours();
-            const minutes = end.getMinutes().toString().padStart(2,'0');
-            const ampm = hours >= 12 ? 'PM' : 'AM';
-            const h12 = hours % 12 || 12;
-            
-            endsAt.textContent = `\u00a0\u00a0\u00a0\u00a0Ends at ${h12}:${minutes} ${ampm}`;
-        }
-
-        function formatTime(seconds) {
-            if (isNaN(seconds)) return '0:00';
-            const mins = Math.floor(seconds / 60);
-            const secs = Math.floor(seconds % 60);
-            return `${mins}:${secs.toString().padStart(2,'0')}`;
-        }
-
-        function updateProgress() {
-            if (!videoElement) return;
-            
-            const percentage = (videoElement.currentTime / videoElement.duration) * 100;
-            seekBar.style.width = percentage + '%';
-            timeDisplay.textContent = `${formatTime(videoElement.currentTime)} / ${formatTime(videoElement.duration)}`;
-            
-            if (isInVR) {
-                const vrProgressFill = document.getElementById('vr-progress-fill');
-                const vrTimeDisplay = document.getElementById('vr-time-display');
-                if (vrProgressFill) {
-                    vrProgressFill.setAttribute('geometry', 'width', percentage / 100 * 4);
-                    vrProgressFill.setAttribute('position', `${(percentage / 100 * 4) - 2} -0.5 0.01`);
-                }
-                if (vrTimeDisplay) {
-                    vrTimeDisplay.setAttribute('value', `${formatTime(videoElement.currentTime)} / ${formatTime(videoElement.duration)}`);
-                }
-            }
-            
-            updateEndsAt();
-        }
-
-        function seekTo(targetTime) {
-            if (!videoElement) return;
-            videoElement.currentTime = Math.max(0, Math.min(targetTime, videoElement.duration));
-            updateProgress();
-        }
-
-        function showControls() {
-            ui.classList.remove('hidden');
-            clearTimeout(hideTimer);
-            hideTimer = setTimeout(() => ui.classList.add('hidden'), 4000);
-        }
-
-        document.addEventListener('mousemove', showControls);
-        document.addEventListener('touchstart', showControls);
-
-        seekContainer.addEventListener('click', (e) => {
-            if (!videoElement || !videoElement.duration) return;
-            
-            const rect = seekContainer.getBoundingClientRect();
-            const clickX = e.clientX - rect.left;
-            const newTime = (clickX / rect.width) * videoElement.duration;
-            seekTo(newTime);
-        });
-
-        let dragging = false;
-        seekContainer.addEventListener('mousedown', () => dragging = true);
-        document.addEventListener('mouseup', () => dragging = false);
-        
-        seekContainer.addEventListener('mousemove', (e) => {
-            if (!dragging || !videoElement?.duration) return;
-            
-            const rect = seekContainer.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const ratio = Math.max(0, Math.min(1, mouseX / rect.width));
-            seekTo(ratio * videoElement.duration);
-        });
-
-        playPauseBtn.onclick = () => {
-            if (!videoElement) return;
-            
-            if (videoElement.paused) { 
-                videoElement.play(); 
-                playIcon.textContent = 'pause'; 
-            } else { 
-                videoElement.pause(); 
-                playIcon.textContent = 'play_arrow'; 
-            }
-            showControls();
-        };
-
-        skipBackBtn.onclick = () => {
-            const currentTime = videoElement?.currentTime || 0;
-            seekTo(currentTime - 10);
-        };
-        
-        skipFwdBtn.onclick = () => {
-            const currentTime = videoElement?.currentTime || 0;
-            seekTo(currentTime + 10);
-        };
-
-        muteBtn.onclick = () => {
-            if (!videoElement) return;
-            
-            muted = !muted;
-            videoElement.muted = muted;
-            
-            muteIcon.textContent = muted ? 'volume_off' : (videoElement.volume > 0.5 ? 'volume_up' : 'volume_down');
-        };
-
-        volumeSlider.oninput = () => {
-            if (!videoElement) return;
-            
-            videoElement.volume = volumeSlider.value;
-            
-            if (volumeSlider.value == 0) {
-                muteIcon.textContent = 'volume_off';
-            } else if (volumeSlider.value < 0.5) {
-                muteIcon.textContent = 'volume_down';
-            } else {
-                muteIcon.textContent = 'volume_up';
-            }
-        };
-
-        fullscreenBtn.onclick = () => {
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen().catch(() => {});
-                fsIcon.textContent = 'fullscreen_exit';
-            } else {
-                document.exitFullscreen();
-                fsIcon.textContent = 'fullscreen';
-            }
-        };
-
-        const settingsBtn = document.getElementById('settingsBtn');
-        const settingsPanel = document.getElementById('settingsPanel');
-        const speedPanel = document.getElementById('speedPanel');
-        const repeatPanel = document.getElementById('repeatPanel');
-        const qualityPanel = document.getElementById('qualityPanel');
-        const scalePanel = document.getElementById('scalePanel');
-        const speedLabel = document.getElementById('speedLabel');
-        const repeatLabel = document.getElementById('repeatLabel');
-        const qualityLabel = document.getElementById('qualityLabel');
-        const scaleLabel = document.getElementById('scaleLabel');
-
-        function closeAll() {
-            settingsPanel.classList.remove('open');
-            speedPanel.classList.remove('open');
-            repeatPanel.classList.remove('open');
-            qualityPanel.classList.remove('open');
-            scalePanel.classList.remove('open');
-        }
-
-        settingsBtn.onclick = (e) => {
-            e.stopPropagation();
-            const isOpen = settingsPanel.classList.contains('open');
-            closeAll();
-            if (!isOpen) settingsPanel.classList.add('open');
-            showControls();
-        };
-
-        document.getElementById('setSpeed').onclick = (e) => {
-            e.stopPropagation();
-            settingsPanel.classList.remove('open');
-            speedPanel.classList.add('open');
-        };
-
-        document.getElementById('setRepeat').onclick = (e) => {
-            e.stopPropagation();
-            settingsPanel.classList.remove('open');
-            repeatPanel.classList.add('open');
-        };
-
-        document.getElementById('setQuality').onclick = (e) => {
-            e.stopPropagation();
-            settingsPanel.classList.remove('open');
-            qualityPanel.classList.add('open');
-        };
-
-        document.getElementById('setScale').onclick = (e) => {
-            e.stopPropagation();
-            settingsPanel.classList.remove('open');
-            scalePanel.classList.add('open');
-        };
-
-        document.getElementById('speedBack').onclick = (e) => {
-            e.stopPropagation();
-            speedPanel.classList.remove('open');
-            settingsPanel.classList.add('open');
-        };
-
-        document.getElementById('repeatBack').onclick = (e) => {
-            e.stopPropagation();
-            repeatPanel.classList.remove('open');
-            settingsPanel.classList.add('open');
-        };
-
-        document.getElementById('qualityBack').onclick = (e) => {
-            e.stopPropagation();
-            qualityPanel.classList.remove('open');
-            settingsPanel.classList.add('open');
-        };
-
-        document.getElementById('scaleBack').onclick = (e) => {
-            e.stopPropagation();
-            scalePanel.classList.remove('open');
-            settingsPanel.classList.add('open');
-        };
-
-        document.querySelectorAll('[data-speed]').forEach(opt => {
-            opt.addEventListener('click', (e) => {
-                e.stopPropagation();
-                
-                const speed = parseFloat(opt.dataset.speed);
-                if (videoElement) videoElement.playbackRate = speed;
-                
-                speedLabel.textContent = speed + 'x';
-                
-                document.querySelectorAll('[data-speed]').forEach(o => o.classList.remove('active'));
-                opt.classList.add('active');
-                
-                updateEndsAt();
-                closeAll();
-                settingsPanel.classList.add('open');
+        (function () {
+            var MODE_LIST = ${JSON.stringify(VIEW_MODES)};
+            var MODE_MAP = {};
+            MODE_LIST.forEach(function (mode) {
+                MODE_MAP[mode.id] = mode;
             });
-        });
 
-        document.querySelectorAll('[data-repeat]').forEach(opt => {
-            opt.addEventListener('click', (e) => {
-                e.stopPropagation();
-                
-                const mode = opt.dataset.repeat;
-                if (videoElement) videoElement.loop = (mode === 'one');
-                
-                repeatLabel.textContent = opt.querySelector('.opt-label').textContent;
-                
-                document.querySelectorAll('[data-repeat]').forEach(o => o.classList.remove('active'));
-                opt.classList.add('active');
-                
-                closeAll();
-                settingsPanel.classList.add('open');
-            });
-        });
+            var STORAGE_KEYS = {
+                uiDistance: 'jfvr:ui-distance',
+                uiScale: 'jfvr:ui-scale'
+            };
 
-        document.querySelectorAll('[data-bitrate]').forEach(opt => {
-            opt.addEventListener('click', (e) => {
-                e.stopPropagation();
-                
-                const bitrate = parseInt(opt.dataset.bitrate);
-                const label = opt.querySelector('.opt-label').textContent;
-                
-                qualityLabel.textContent = label;
-                
-                document.querySelectorAll('[data-bitrate]').forEach(o => o.classList.remove('active'));
-                opt.classList.add('active');
-                
-                if (videoElement && videoElement.src) {
-                    const currentTime = videoElement.currentTime;
-                    const url = new URL(videoElement.src);
-                    
-                    if (bitrate === 0) {
-                        url.searchParams.delete('maxStreamingBitrate');
-                    } else {
-                        url.searchParams.set('maxStreamingBitrate', bitrate);
+            var SEEK_TRACK_WIDTH = 1.44;
+            var statusTimers = [];
+            var pendingPayload = null;
+            var surfacesReady = false;
+            var autoEnterRequested = false;
+            var swapEyes = false;
+            var panelDistance = clamp(parseFloat(localStorage.getItem(STORAGE_KEYS.uiDistance)) || 1.9, 1.2, 3.4);
+            var panelScale = clamp(parseFloat(localStorage.getItem(STORAGE_KEYS.uiScale)) || 1.0, 0.7, 1.55);
+
+            var sceneEl = document.getElementById('scene');
+            var assetsEl = document.getElementById('assets');
+            var closeBtn = document.getElementById('closeBtn');
+            var enterVrBtn = document.getElementById('enterVrBtn');
+            var modeChip = document.getElementById('modeChip');
+            var statusChip = document.getElementById('statusChip');
+            var comfortDisplay = document.getElementById('comfortDisplay');
+            var playPauseBtn = document.getElementById('playPauseBtn');
+            var seekBackBtn = document.getElementById('seekBackBtn');
+            var seekFwdBtn = document.getElementById('seekFwdBtn');
+            var muteBtn = document.getElementById('muteBtn');
+            var volumeSlider = document.getElementById('volumeSlider');
+            var seekInput = document.getElementById('seekInput');
+            var timeDisplay = document.getElementById('timeDisplay');
+
+            var uiRoot = document.getElementById('uiRoot');
+            var panelModeText = document.getElementById('panelModeText');
+            var panelStatusText = document.getElementById('panelStatusText');
+            var comfortText3d = document.getElementById('comfortText3d');
+            var uiExit3d = document.getElementById('uiExit3d');
+            var uiSeekBack3d = document.getElementById('uiSeekBack3d');
+            var uiPlay3d = document.getElementById('uiPlay3d');
+            var uiPlay3dLabel = document.getElementById('uiPlay3dLabel');
+            var uiSeekFwd3d = document.getElementById('uiSeekFwd3d');
+            var uiEnterVr3d = document.getElementById('uiEnterVr3d');
+            var uiEnterVr3dLabel = document.getElementById('uiEnterVr3dLabel');
+            var uiSwap3d = document.getElementById('uiSwap3d');
+            var uiSwap3dLabel = document.getElementById('uiSwap3dLabel');
+            var uiNear3d = document.getElementById('uiNear3d');
+            var uiFar3d = document.getElementById('uiFar3d');
+            var uiScaleDown3d = document.getElementById('uiScaleDown3d');
+            var uiScaleUp3d = document.getElementById('uiScaleUp3d');
+            var seekTrack3d = document.getElementById('seekTrack3d');
+            var seekBuffered3d = document.getElementById('seekBuffered3d');
+            var seekPlayed3d = document.getElementById('seekPlayed3d');
+            var seekTime3d = document.getElementById('seekTime3d');
+
+            var playerState = {
+                currentMode: MODE_MAP['360-mono'],
+                video: null,
+                currentSrc: '',
+                textures: null,
+                materials: null,
+                meshes: null,
+                surfaceRoot: null,
+                isImmersive: false,
+                isSeeking: false,
+                requestedCurrentTime: 0,
+                lastStatus: 'Loading...',
+                statusSticky: false
+            };
+
+            function clamp(value, min, max) {
+                if (!Number.isFinite(value)) return min;
+                return Math.min(max, Math.max(min, value));
+            }
+
+            function formatTime(seconds) {
+                if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
+                var total = Math.floor(seconds);
+                var hrs = Math.floor(total / 3600);
+                var mins = Math.floor((total % 3600) / 60);
+                var secs = total % 60;
+                if (hrs > 0) {
+                    return hrs + ':' + String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+                }
+                return mins + ':' + String(secs).padStart(2, '0');
+            }
+
+            function setEntityText(el, value) {
+                el.setAttribute('text', 'value', value);
+            }
+
+            function setStatus(text, sticky) {
+                playerState.lastStatus = text;
+                playerState.statusSticky = Boolean(sticky);
+                statusChip.textContent = text;
+                setEntityText(panelStatusText, text);
+
+                while (statusTimers.length) {
+                    clearTimeout(statusTimers.pop());
+                }
+
+                if (!sticky) {
+                    statusTimers.push(setTimeout(function () {
+                        if (!playerState.statusSticky) {
+                            var idleText = playerState.video && !playerState.video.paused ? 'Ready' : 'Paused';
+                            statusChip.textContent = idleText;
+                            setEntityText(panelStatusText, idleText);
+                        }
+                    }, 1800));
+                }
+            }
+
+            function updateComfortUi() {
+                var comfortText = 'UI ' + panelDistance.toFixed(2) + 'm / ' + panelScale.toFixed(2) + 'x';
+                comfortDisplay.textContent = comfortText;
+                setEntityText(comfortText3d, comfortText);
+                uiRoot.setAttribute('position', '0 -0.38 -' + panelDistance.toFixed(2));
+                uiRoot.object3D.scale.set(panelScale, panelScale, panelScale);
+                localStorage.setItem(STORAGE_KEYS.uiDistance, String(panelDistance));
+                localStorage.setItem(STORAGE_KEYS.uiScale, String(panelScale));
+            }
+
+            function updateButtonLabels() {
+                var video = playerState.video;
+                var paused = !video || video.paused;
+                playPauseBtn.textContent = paused ? 'Play' : 'Pause';
+                setEntityText(uiPlay3dLabel, paused ? 'Play' : 'Pause');
+                muteBtn.textContent = video && video.muted ? 'Unmute' : 'Mute';
+                var inVr = playerState.isImmersive;
+                enterVrBtn.textContent = inVr ? 'Exit VR' : 'Enter VR';
+                setEntityText(uiEnterVr3dLabel, inVr ? 'Exit VR' : 'VR');
+                setEntityText(uiSwap3dLabel, swapEyes ? 'Swap On' : 'Swap');
+            }
+
+            function updateModeUi() {
+                var mode = playerState.currentMode || MODE_MAP['360-mono'];
+                modeChip.textContent = mode.label;
+                setEntityText(panelModeText, mode.label);
+                var stereoEnabled = mode.stereo !== 'mono';
+                setClickableState(uiSwap3d, stereoEnabled);
+                if (!stereoEnabled) {
+                    swapEyes = false;
+                }
+                updateButtonLabels();
+            }
+
+            function updateTimeUi() {
+                var video = playerState.video;
+                var duration = video && Number.isFinite(video.duration) ? video.duration : 0;
+                var currentTime = video ? video.currentTime : 0;
+                var ratio = duration > 0 ? currentTime / duration : 0;
+                var bufferedRatio = 0;
+
+                if (video && video.buffered && video.buffered.length) {
+                    try {
+                        bufferedRatio = video.buffered.end(video.buffered.length - 1) / duration;
+                    } catch (error) {
+                        bufferedRatio = ratio;
                     }
-                    
-                    videoElement.src = url.toString();
-                    videoElement.currentTime = currentTime;
-                    videoElement.play().catch(() => {});
                 }
-                
-                closeAll();
-                settingsPanel.classList.add('open');
-            });
-        });
 
-        document.querySelectorAll('[data-scale]').forEach(opt => {
-            opt.addEventListener('click', (e) => {
-                e.stopPropagation();
-                
-                vrScale = parseFloat(opt.dataset.scale);
-                scaleLabel.textContent = vrScale + 'x';
-                
-                document.querySelectorAll('[data-scale]').forEach(o => o.classList.remove('active'));
-                opt.classList.add('active');
-                
-                if (videoElement) {
-                    videoElement.playbackRate = vrScale;
+                ratio = clamp(ratio, 0, 1);
+                bufferedRatio = clamp(bufferedRatio, 0, 1);
+
+                if (!playerState.isSeeking) {
+                    seekInput.value = String(Math.round(ratio * 1000));
                 }
-                
-                const camera = document.getElementById('camera');
-                if (camera) {
-                    camera.setAttribute('position', `0 ${1.6 * vrScale} 0`);
+
+                var label = formatTime(currentTime) + ' / ' + formatTime(duration);
+                timeDisplay.textContent = label;
+                setEntityText(seekTime3d, label);
+
+                updateSeekFill(seekPlayed3d, ratio, '#38bdf8');
+                updateSeekFill(seekBuffered3d, bufferedRatio, '#33536b');
+            }
+
+            function updateSeekFill(el, ratio, color) {
+                var width = Math.max(0.001, SEEK_TRACK_WIDTH * clamp(ratio, 0, 1));
+                el.setAttribute('geometry', 'width', width);
+                el.setAttribute('material', 'color', color);
+                el.setAttribute('position', (-SEEK_TRACK_WIDTH / 2 + width / 2) + ' -0.20 ' + (el === seekPlayed3d ? '0.03' : '0.025'));
+            }
+
+            function seekTo(nextTime) {
+                var video = playerState.video;
+                if (!video || !Number.isFinite(video.duration)) return;
+                var clampedTime = clamp(nextTime, 0, video.duration);
+                video.currentTime = clampedTime;
+                updateTimeUi();
+            }
+
+            function getViewportForEye(mode, eye) {
+                var stereo = mode.stereo;
+                if (stereo === 'mono') {
+                    return { offsetX: 1, repeatX: -1, offsetY: 0, repeatY: 1 };
                 }
-                
-                closeAll();
-                settingsPanel.classList.add('open');
-            });
-        });
 
-        document.addEventListener('click', () => closeAll());
-
-        document.addEventListener('keydown', (e) => {
-            if (!videoElement) return;
-            
-            if (e.key === ' ') { 
-                e.preventDefault(); 
-                playPauseBtn.click(); 
-            }
-            
-            if (e.key === 'ArrowRight') { 
-                e.preventDefault(); 
-                seekTo(videoElement.currentTime + 5); 
-            }
-            
-            if (e.key === 'ArrowLeft') { 
-                e.preventDefault(); 
-                seekTo(videoElement.currentTime - 5); 
-            }
-            
-            if (e.key === 'm' || e.key === 'M') {
-                muteBtn.click();
-            }
-            
-            if (e.key === 'f' || e.key === 'F') {
-                fullscreenBtn.click();
-            }
-            
-            showControls();
-        });
-
-        const modeCards = document.querySelectorAll('.mode-card');
-        modeCards.forEach(card => {
-            card.addEventListener('click', () => {
-                modeCards.forEach(c => c.classList.remove('selected'));
-                card.classList.add('selected');
-                currentMode = card.dataset.mode;
-            });
-        });
-
-        if (modeCards.length > 0) {
-            modeCards[0].classList.add('selected');
-            currentMode = '360';
-        }
-
-        startModeBtn.addEventListener('click', () => {
-            modeSelectOverlay.classList.add('hidden');
-            startVRPlayer();
-        });
-
-        cancelModeBtn.addEventListener('click', () => {
-            modeSelectOverlay.classList.add('hidden');
-            window.parent.postMessage({ type: 'CLOSE_PLAYER' }, '*');
-        });
-
-        function configureScene() {
-            const videosphere = document.getElementById('videosphere');
-            const videosphereLeft = document.getElementById('videosphere-left');
-            
-            if (currentMode === '360' || currentMode === 'fullsbs' || currentMode === 'halfsbs' || currentMode === 'ou360') {
-                videosphere.setAttribute('geometry', 'primitive: sphere; radius: 5000; segmentsWidth: 64; segmentsHeight: 32');
-                videosphere.setAttribute('rotation', '0 180 0');
-                videosphere.setAttribute('material', 'shader: flat; side: back; transparent: false; opacity: 1');
-                videosphereLeft.setAttribute('material', 'opacity: 0');
-            } else if (currentMode === 'sbs180' || currentMode === 'ou180') {
-                videosphere.setAttribute('geometry', 'primitive: sphere; radius: 5000; segmentsWidth: 64; segmentsHeight: 32; phiStart: 0; phiLength: 180');
-                videosphere.setAttribute('rotation', '0 90 0');
-                videosphere.setAttribute('material', 'shader: flat; side: back; transparent: false; opacity: 1');
-                videosphereLeft.setAttribute('material', 'opacity: 0');
-            }
-
-            modeBadge.textContent = modeNames[currentMode] || '360°';
-        }
-
-        function applyVideoTexture() {
-            const videosphere = document.getElementById('videosphere');
-            
-            switch (currentMode) {
-                case '360':
-                    videosphere.setAttribute('material', {
-                        shader: 'flat', 
-                        side: 'back',
-                        src: '#my360video', 
-                        repeat: '-1 1'
-                    });
-                    break;
-                    
-                case 'fullsbs':
-                    videosphere.setAttribute('material', {
-                        shader: 'flat', 
-                        side: 'back',
-                        src: '#my360video', 
-                        repeat: '-0.5 1',
-                        offset: '0.5 0'
-                    });
-                    break;
-                    
-                case 'halfsbs':
-                    videosphere.setAttribute('material', {
-                        shader: 'flat', 
-                        side: 'double',
-                        src: '#my360video', 
-                        repeat: '-2 1'
-                    });
-                    break;
-                    
-                case 'sbs180':
-                    videosphere.setAttribute('material', {
-                        shader: 'flat', 
-                        side: 'back',
-                        src: '#my360video', 
-                        repeat: '-1 1'
-                    });
-                    break;
-                    
-                case 'ou180':
-                    videosphere.setAttribute('material', {
-                        shader: 'flat', 
-                        side: 'back',
-                        src: '#my360video', 
-                        repeat: '1 -0.5'
-                    });
-                    break;
-                    
-                case 'ou360':
-                    videosphere.setAttribute('material', {
-                        shader: 'flat', 
-                        side: 'back',
-                        src: '#my360video', 
-                        repeat: '1 -0.5'
-                    });
-                    break;
-            }
-        }
-
-        function startVRPlayer() {
-            loadingOverlay.classList.remove('hidden');
-            
-            configureScene();
-            
-            const scene = document.getElementById('a-scene');
-            
-            scene.addEventListener('loaded', () => {
-                applyVideoTexture();
-                
-                if (videoElement) {
-                    videoElement.play().catch(() => {});
-                }
-                
-                setTimeout(() => {
-                    loadingOverlay.classList.add('hidden');
-                    updateProgress();
-                    showControls();
-                }, 1000);
-            });
-
-            scene.addEventListener('enter-vr', () => {
-                isInVR = true;
-                vrUi.setAttribute('visible', true);
-                ui.classList.add('hidden');
-                
-                const vrModeLabel = document.getElementById('vr-mode-label');
-                if (vrModeLabel) {
-                    vrModeLabel.setAttribute('value', modeNames[currentMode] || 'VR Mode');
-                }
-            });
-
-            scene.addEventListener('exit-vr', () => {
-                isInVR = false;
-                vrUi.setAttribute('visible', false);
-                ui.classList.remove('hidden');
-            });
-        }
-
-        AFRAME.registerComponent('vr-progress-control', {
-            init: function() {
-                this.el.addEventListener('click', (evt) => {
-                    if (!videoElement || !videoElement.duration) return;
-                    
-                    const intersection = evt.detail.intersection;
-                    if (intersection) {
-                        const x = intersection.point.x;
-                        const ratio = (x + 2) / 4;
-                        const newTime = ratio * videoElement.duration;
-                        seekTo(newTime);
+                if (stereo === 'sbs') {
+                    if (eye === 'right') {
+                        return { offsetX: 1, repeatX: -0.5, offsetY: 0, repeatY: 1 };
                     }
+                    return { offsetX: 0.5, repeatX: -0.5, offsetY: 0, repeatY: 1 };
+                }
+
+                if (eye === 'right') {
+                    return { offsetX: 1, repeatX: -1, offsetY: 0, repeatY: 0.5 };
+                }
+                return { offsetX: 1, repeatX: -1, offsetY: 0.5, repeatY: 0.5 };
+            }
+
+            function applyViewport(material, viewport) {
+                if (!material || !material.map) return;
+                material.map.wrapS = THREE.ClampToEdgeWrapping;
+                material.map.wrapT = THREE.ClampToEdgeWrapping;
+                material.map.offset.set(viewport.offsetX, viewport.offsetY);
+                material.map.repeat.set(viewport.repeatX, viewport.repeatY);
+                material.map.needsUpdate = true;
+                material.needsUpdate = true;
+            }
+
+            function buildProjectionGeometry(mode) {
+                var radius = 32;
+                if (mode.projection === '180') {
+                    return new THREE.SphereGeometry(radius, 96, 64, 0, Math.PI, 0, Math.PI);
+                }
+                return new THREE.SphereGeometry(radius, 96, 64);
+            }
+
+            function createVideoTexture(video) {
+                var texture = new THREE.VideoTexture(video);
+                texture.minFilter = THREE.LinearFilter;
+                texture.magFilter = THREE.LinearFilter;
+                texture.generateMipmaps = false;
+                if (texture.colorSpace !== undefined && THREE.SRGBColorSpace !== undefined) {
+                    texture.colorSpace = THREE.SRGBColorSpace;
+                } else if (texture.encoding !== undefined && THREE.sRGBEncoding !== undefined) {
+                    texture.encoding = THREE.sRGBEncoding;
+                }
+                return texture;
+            }
+
+            function createVideoMaterial(texture) {
+                return new THREE.MeshBasicMaterial({
+                    map: texture,
+                    side: THREE.BackSide,
+                    toneMapped: false
                 });
             }
-        });
 
-        AFRAME.registerComponent('vr-play-btn', {
-            init: function() {
-                this.el.addEventListener('click', () => {
-                    if (!videoElement) return;
-                    
-                    if (videoElement.paused) { 
-                        videoElement.play(); 
-                    } else { 
-                        videoElement.pause(); 
+            function configureStereoLayers() {
+                var camera = sceneEl.camera;
+                if (!camera) return;
+
+                camera.layers.enable(0);
+                camera.layers.enable(1);
+                camera.layers.enable(2);
+
+                var renderer = sceneEl.renderer;
+                if (!renderer || !renderer.xr || !renderer.xr.getCamera) return;
+
+                var xrCamera = renderer.xr.getCamera();
+                if (!xrCamera || !xrCamera.cameras || xrCamera.cameras.length < 2) return;
+
+                xrCamera.layers.enable(0);
+                xrCamera.layers.enable(1);
+                xrCamera.layers.enable(2);
+
+                xrCamera.cameras[0].layers.enable(0);
+                xrCamera.cameras[0].layers.enable(1);
+                xrCamera.cameras[0].layers.disable(2);
+
+                xrCamera.cameras[1].layers.enable(0);
+                xrCamera.cameras[1].layers.enable(2);
+                xrCamera.cameras[1].layers.disable(1);
+            }
+
+            function updateSurfaceVisibility() {
+                if (!playerState.meshes) return;
+                var mode = playerState.currentMode;
+                var useStereo = mode.stereo !== 'mono' && playerState.isImmersive;
+                playerState.meshes.preview.visible = !useStereo;
+                playerState.meshes.left.visible = useStereo;
+                playerState.meshes.right.visible = useStereo;
+                configureStereoLayers();
+            }
+
+            function applyMode(modeId) {
+                var mode = MODE_MAP[modeId] || MODE_MAP['360-mono'];
+                playerState.currentMode = mode;
+
+                if (!surfacesReady || !playerState.meshes || !playerState.materials) {
+                    updateModeUi();
+                    return;
+                }
+
+                if (playerState.meshes.currentProjection !== mode.projection) {
+                    var geometry = buildProjectionGeometry(mode);
+                    playerState.meshes.preview.geometry.dispose();
+                    playerState.meshes.left.geometry.dispose();
+                    playerState.meshes.right.geometry.dispose();
+                    playerState.meshes.preview.geometry = geometry.clone();
+                    playerState.meshes.left.geometry = geometry.clone();
+                    playerState.meshes.right.geometry = geometry.clone();
+                    playerState.meshes.currentProjection = mode.projection;
+                }
+
+                var leftEye = swapEyes ? 'right' : 'left';
+                var rightEye = swapEyes ? 'left' : 'right';
+                applyViewport(playerState.materials.preview, getViewportForEye(mode, leftEye));
+                applyViewport(playerState.materials.left, getViewportForEye(mode, leftEye));
+                applyViewport(playerState.materials.right, getViewportForEye(mode, rightEye));
+
+                updateModeUi();
+                updateSurfaceVisibility();
+            }
+
+            function destroyVideoResources() {
+                if (playerState.video) {
+                    playerState.video.pause();
+                    playerState.video.removeAttribute('src');
+                    playerState.video.load();
+                    if (playerState.video.parentNode) {
+                        playerState.video.parentNode.removeChild(playerState.video);
                     }
+                }
+
+                if (playerState.materials) {
+                    Object.keys(playerState.materials).forEach(function (key) {
+                        var material = playerState.materials[key];
+                        if (material.map) material.map.dispose();
+                        material.dispose();
+                    });
+                }
+
+                playerState.video = null;
+                playerState.materials = null;
+                playerState.textures = null;
+            }
+
+            function wireVideoEvents(video) {
+                video.addEventListener('loadedmetadata', function () {
+                    if (Number.isFinite(playerState.requestedCurrentTime) && playerState.requestedCurrentTime > 0) {
+                        try {
+                            video.currentTime = Math.min(playerState.requestedCurrentTime, video.duration || playerState.requestedCurrentTime);
+                        } catch (error) {
+                            video.currentTime = playerState.requestedCurrentTime;
+                        }
+                    }
+                    updateTimeUi();
+                    updateButtonLabels();
+                    setStatus('Metadata ready', false);
+                });
+
+                video.addEventListener('durationchange', updateTimeUi);
+                video.addEventListener('timeupdate', updateTimeUi);
+                video.addEventListener('progress', updateTimeUi);
+                video.addEventListener('seeking', function () { setStatus('Seeking...', true); });
+                video.addEventListener('seeked', function () { setStatus('Seek complete', false); updateTimeUi(); });
+                video.addEventListener('waiting', function () { setStatus('Buffering...', true); });
+                video.addEventListener('stalled', function () { setStatus('Network stalled', true); });
+                video.addEventListener('canplay', function () { setStatus('Ready', false); });
+                video.addEventListener('canplaythrough', function () { setStatus('Buffered', false); });
+                video.addEventListener('playing', function () { setStatus('Playing', false); updateButtonLabels(); });
+                video.addEventListener('pause', function () { setStatus('Paused', false); updateButtonLabels(); });
+                video.addEventListener('volumechange', updateButtonLabels);
+                video.addEventListener('ended', function () {
+                    updateButtonLabels();
+                    setStatus('Playback ended', false);
+                });
+                video.addEventListener('error', function () {
+                    setStatus('Video failed to load', true);
                 });
             }
-        });
 
-        AFRAME.registerComponent('vr-skip-back-btn', {
-            init: function() {
-                this.el.addEventListener('click', () => {
-                    const currentTime = videoElement?.currentTime || 0;
-                    seekTo(currentTime - 10);
-                });
+            function requestAutoEnterVr() {
+                if (!autoEnterRequested || !sceneEl.enterVR) return;
+                autoEnterRequested = false;
+                try {
+                    var result = sceneEl.enterVR();
+                    if (result && typeof result.catch === 'function') {
+                        result.catch(function () {});
+                    }
+                } catch (error) {
+                    // ignored - explicit button remains available
+                }
             }
-        });
 
-        AFRAME.registerComponent('vr-skip-fwd-btn', {
-            init: function() {
-                this.el.addEventListener('click', () => {
-                    const currentTime = videoElement?.currentTime || 0;
-                    seekTo(currentTime + 10);
-                });
-            }
-        });
+            function loadVideo(payload) {
+                destroyVideoResources();
 
-        AFRAME.registerComponent('vr-fullscreen-btn', {
-            init: function() {
-                this.el.addEventListener('click', () => {
-                    window.parent.postMessage({ type: 'CLOSE_PLAYER' }, '*');
-                });
-            }
-        });
+                swapEyes = false;
+                playerState.requestedCurrentTime = Number(payload.currentTime) || 0;
+                playerState.currentSrc = payload.src || '';
+                autoEnterRequested = Boolean(payload.autoEnterVr);
 
-        window.addEventListener('message', (e) => {
-            const { type, src, currentTime, mode } = e.data || {};
-            
-            if (type === 'OPEN_MODE_SELECT') {
-                modeSelectOverlay.classList.remove('hidden');
-                loadingOverlay.classList.add('hidden');
-                return;
-            }
-            
-            if (type === 'LOAD_VIDEO') {
-                if (!src) return;
+                var video = document.createElement('video');
+                video.id = 'jfvr-video';
+                video.crossOrigin = 'anonymous';
+                video.preload = 'auto';
+                video.autoplay = true;
+                video.loop = false;
+                video.playsInline = true;
+                video.setAttribute('playsinline', 'playsinline');
+                video.setAttribute('webkit-playsinline', 'webkit-playsinline');
+                video.disableRemotePlayback = true;
+                var initialVolume = parseFloat(payload.volume);
+                video.volume = clamp(Number.isFinite(initialVolume) ? initialVolume : (parseFloat(volumeSlider.value) || 1), 0, 1);
+                video.muted = Boolean(payload.muted);
+                volumeSlider.value = String(video.volume || 0);
+                video.src = payload.src;
 
-                videoElement = document.createElement('video');
-                videoElement.id = 'my360video';
-                videoElement.src = src;
-                videoElement.crossOrigin = 'anonymous';
-                videoElement.autoplay = false;
-                videoElement.loop = false;
-                videoElement.playsInline = true;
-                videoElement.volume = parseFloat(volumeSlider.value);
+                assetsEl.appendChild(video);
+                wireVideoEvents(video);
 
-                document.getElementById('assets').appendChild(videoElement);
-
-                videoElement.addEventListener('timeupdate', updateProgress);
-                videoElement.addEventListener('durationchange', updateEndsAt);
-
-                videoElement.onloadedmetadata = () => {
-                    if (currentTime) videoElement.currentTime = currentTime;
-                    playIcon.textContent = 'pause';
-                    updateEndsAt();
+                playerState.video = video;
+                playerState.textures = {
+                    preview: createVideoTexture(video),
+                    left: createVideoTexture(video),
+                    right: createVideoTexture(video)
+                };
+                playerState.materials = {
+                    preview: createVideoMaterial(playerState.textures.preview),
+                    left: createVideoMaterial(playerState.textures.left),
+                    right: createVideoMaterial(playerState.textures.right)
                 };
 
-                modeSelectOverlay.classList.remove('hidden');
+                playerState.meshes.preview.material = playerState.materials.preview;
+                playerState.meshes.left.material = playerState.materials.left;
+                playerState.meshes.right.material = playerState.materials.right;
+
+                applyMode(payload.modeId || '360-mono');
+                updateTimeUi();
+                updateButtonLabels();
+                setStatus('Loading stream...', true);
+
+                if (payload.paused) {
+                    video.pause();
+                    setStatus('Paused', false);
+                    requestAutoEnterVr();
+                    return;
+                }
+
+                var playAttempt = video.play();
+                if (playAttempt && typeof playAttempt.catch === 'function') {
+                    playAttempt.catch(function () {
+                        setStatus('Tap Play to start video', true);
+                    });
+                }
+
+                requestAutoEnterVr();
             }
-            
-            if (type === 'CHANGE_MODE') {
-                if (mode) {
-                    currentMode = mode;
-                    configureScene();
-                    applyVideoTexture();
+
+            function closePlayer() {
+                parent.postMessage({ type: 'CLOSE_PLAYER' }, '*');
+            }
+
+            function sendPlayerState() {
+                var video = playerState.video;
+                parent.postMessage({
+                    type: 'PLAYER_STATE',
+                    currentTime: video ? video.currentTime : 0,
+                    paused: video ? video.paused : true,
+                    volume: video ? video.volume : 1,
+                    muted: video ? video.muted : false,
+                    playbackRate: video ? video.playbackRate : 1,
+                    modeId: playerState.currentMode ? playerState.currentMode.id : '360-mono'
+                }, '*');
+            }
+
+            function togglePlay() {
+                var video = playerState.video;
+                if (!video) return;
+                if (video.paused) {
+                    var playAttempt = video.play();
+                    if (playAttempt && typeof playAttempt.catch === 'function') {
+                        playAttempt.catch(function () {
+                            setStatus('Playback blocked by browser', true);
+                        });
+                    }
+                } else {
+                    video.pause();
+                }
+                updateButtonLabels();
+            }
+
+            function toggleMute() {
+                var video = playerState.video;
+                if (!video) return;
+                video.muted = !video.muted;
+                if (!video.muted && video.volume === 0) {
+                    video.volume = 0.8;
+                    volumeSlider.value = '0.8';
+                }
+                updateButtonLabels();
+            }
+
+            function toggleVrSession() {
+                if (playerState.isImmersive) {
+                    var exitResult = sceneEl.exitVR && sceneEl.exitVR();
+                    if (exitResult && typeof exitResult.catch === 'function') {
+                        exitResult.catch(function () {});
+                    }
+                    return;
+                }
+                autoEnterRequested = true;
+                requestAutoEnterVr();
+            }
+
+            function setClickableState(el, enabled) {
+                if (!el) return;
+                if (enabled) {
+                    el.classList.add('clickable');
+                    el.dataset.disabled = '0';
+                    el.setAttribute('material', 'opacity', 0.95);
+                } else {
+                    el.classList.remove('clickable');
+                    el.dataset.disabled = '1';
+                    el.setAttribute('material', 'opacity', 0.38);
                 }
             }
-        });
 
-        const aframeRemove = new MutationObserver(() => {
-            document.querySelectorAll('.a-enter-vr, .a-enter-ar').forEach(el => el.remove());
-        });
-        aframeRemove.observe(document.body, { childList: true, subtree: true });
-        document.querySelectorAll('.a-enter-vr, .a-enter-ar').forEach(el => el.remove());
-    </script>
+            function registerPanelButton(el, baseColor, hoverColor, handler) {
+                if (!el) return;
+                el.dataset.baseColor = baseColor;
+                el.dataset.hoverColor = hoverColor;
+                el.setAttribute('material', 'color', baseColor);
+                el.addEventListener('mouseenter', function () {
+                    if (el.dataset.disabled === '1') return;
+                    el.setAttribute('material', 'color', hoverColor);
+                });
+                el.addEventListener('mouseleave', function () {
+                    el.setAttribute('material', 'color', baseColor);
+                });
+                el.addEventListener('click', function (event) {
+                    if (el.dataset.disabled === '1') return;
+                    handler(event);
+                });
+            }
+
+            function seekFrom3dEvent(event) {
+                var video = playerState.video;
+                if (!video || !Number.isFinite(video.duration)) return;
+                if (!event.detail || !event.detail.intersection || !event.detail.intersection.point) return;
+
+                var point = event.detail.intersection.point.clone();
+                seekTrack3d.object3D.worldToLocal(point);
+                var ratio = clamp((point.x + SEEK_TRACK_WIDTH / 2) / SEEK_TRACK_WIDTH, 0, 1);
+                seekTo(video.duration * ratio);
+            }
+
+            function bootstrapSurfaces() {
+                if (surfacesReady) return;
+                var surfaceRoot = new THREE.Group();
+                surfaceRoot.rotation.y = Math.PI;
+
+                var geometry = buildProjectionGeometry(playerState.currentMode);
+                var fallbackMaterial = new THREE.MeshBasicMaterial({ color: 0x01070c, side: THREE.BackSide });
+
+                var previewMesh = new THREE.Mesh(geometry.clone(), fallbackMaterial.clone());
+                previewMesh.layers.set(0);
+                var leftMesh = new THREE.Mesh(geometry.clone(), fallbackMaterial.clone());
+                leftMesh.layers.set(1);
+                var rightMesh = new THREE.Mesh(geometry.clone(), fallbackMaterial.clone());
+                rightMesh.layers.set(2);
+
+                surfaceRoot.add(previewMesh);
+                surfaceRoot.add(leftMesh);
+                surfaceRoot.add(rightMesh);
+                sceneEl.object3D.add(surfaceRoot);
+
+                playerState.surfaceRoot = surfaceRoot;
+                playerState.meshes = {
+                    preview: previewMesh,
+                    left: leftMesh,
+                    right: rightMesh,
+                    currentProjection: playerState.currentMode.projection
+                };
+
+                registerPanelButton(uiExit3d, '#3b0b19', '#5c1025', closePlayer);
+                registerPanelButton(uiSeekBack3d, '#13283a', '#1b3951', function () {
+                    seekTo((playerState.video ? playerState.video.currentTime : 0) - 10);
+                });
+                registerPanelButton(uiPlay3d, '#11415a', '#15597a', togglePlay);
+                registerPanelButton(uiSeekFwd3d, '#13283a', '#1b3951', function () {
+                    seekTo((playerState.video ? playerState.video.currentTime : 0) + 10);
+                });
+                registerPanelButton(uiEnterVr3d, '#0a4a3d', '#0e6b58', toggleVrSession);
+                registerPanelButton(uiSwap3d, '#13283a', '#1b3951', function () {
+                    if (playerState.currentMode.stereo === 'mono') return;
+                    swapEyes = !swapEyes;
+                    applyMode(playerState.currentMode.id);
+                    setStatus(swapEyes ? 'Stereo eyes swapped' : 'Stereo eyes restored', false);
+                });
+                registerPanelButton(uiNear3d, '#13283a', '#1b3951', function () {
+                    panelDistance = clamp(panelDistance - 0.15, 1.2, 3.4);
+                    updateComfortUi();
+                });
+                registerPanelButton(uiFar3d, '#13283a', '#1b3951', function () {
+                    panelDistance = clamp(panelDistance + 0.15, 1.2, 3.4);
+                    updateComfortUi();
+                });
+                registerPanelButton(uiScaleDown3d, '#13283a', '#1b3951', function () {
+                    panelScale = clamp(panelScale - 0.08, 0.7, 1.55);
+                    updateComfortUi();
+                });
+                registerPanelButton(uiScaleUp3d, '#13283a', '#1b3951', function () {
+                    panelScale = clamp(panelScale + 0.08, 0.7, 1.55);
+                    updateComfortUi();
+                });
+                registerPanelButton(seekTrack3d, '#102131', '#163248', seekFrom3dEvent);
+
+                surfacesReady = true;
+                updateComfortUi();
+                updateModeUi();
+                updateTimeUi();
+
+                if (pendingPayload) {
+                    loadVideo(pendingPayload);
+                    pendingPayload = null;
+                }
+            }
+
+            playPauseBtn.addEventListener('click', togglePlay);
+            seekBackBtn.addEventListener('click', function () {
+                seekTo((playerState.video ? playerState.video.currentTime : 0) - 10);
+            });
+            seekFwdBtn.addEventListener('click', function () {
+                seekTo((playerState.video ? playerState.video.currentTime : 0) + 10);
+            });
+            muteBtn.addEventListener('click', toggleMute);
+            closeBtn.addEventListener('click', closePlayer);
+            enterVrBtn.addEventListener('click', toggleVrSession);
+
+            volumeSlider.addEventListener('input', function () {
+                if (!playerState.video) return;
+                playerState.video.volume = parseFloat(volumeSlider.value);
+                if (playerState.video.volume > 0) {
+                    playerState.video.muted = false;
+                }
+                updateButtonLabels();
+            });
+
+            seekInput.addEventListener('pointerdown', function () {
+                playerState.isSeeking = true;
+            });
+            seekInput.addEventListener('pointerup', function () {
+                playerState.isSeeking = false;
+                if (!playerState.video || !Number.isFinite(playerState.video.duration)) return;
+                seekTo(playerState.video.duration * (parseFloat(seekInput.value) / 1000));
+            });
+            seekInput.addEventListener('input', function () {
+                if (!playerState.video || !Number.isFinite(playerState.video.duration)) return;
+                var previewTime = playerState.video.duration * (parseFloat(seekInput.value) / 1000);
+                var label = formatTime(previewTime) + ' / ' + formatTime(playerState.video.duration);
+                timeDisplay.textContent = label;
+                setEntityText(seekTime3d, label);
+                updateSeekFill(seekPlayed3d, parseFloat(seekInput.value) / 1000, '#38bdf8');
+            });
+
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    closePlayer();
+                    return;
+                }
+
+                if (!playerState.video) return;
+
+                if (event.key === ' ') {
+                    event.preventDefault();
+                    togglePlay();
+                } else if (event.key === 'ArrowLeft') {
+                    event.preventDefault();
+                    seekTo(playerState.video.currentTime - 10);
+                } else if (event.key === 'ArrowRight') {
+                    event.preventDefault();
+                    seekTo(playerState.video.currentTime + 10);
+                } else if (event.key === 'm' || event.key === 'M') {
+                    event.preventDefault();
+                    toggleMute();
+                } else if (event.key === 'v' || event.key === 'V') {
+                    event.preventDefault();
+                    toggleVrSession();
+                } else if (event.key === 'x' || event.key === 'X') {
+                    event.preventDefault();
+                    if (playerState.currentMode.stereo !== 'mono') {
+                        swapEyes = !swapEyes;
+                        applyMode(playerState.currentMode.id);
+                        setStatus(swapEyes ? 'Stereo eyes swapped' : 'Stereo eyes restored', false);
+                    }
+                } else if (event.key === '[') {
+                    event.preventDefault();
+                    panelDistance = clamp(panelDistance - 0.1, 1.2, 3.4);
+                    updateComfortUi();
+                } else if (event.key === ']') {
+                    event.preventDefault();
+                    panelDistance = clamp(panelDistance + 0.1, 1.2, 3.4);
+                    updateComfortUi();
+                } else if (event.key === '-') {
+                    event.preventDefault();
+                    panelScale = clamp(panelScale - 0.06, 0.7, 1.55);
+                    updateComfortUi();
+                } else if (event.key === '=' || event.key === '+') {
+                    event.preventDefault();
+                    panelScale = clamp(panelScale + 0.06, 0.7, 1.55);
+                    updateComfortUi();
+                }
+            });
+
+            sceneEl.addEventListener('loaded', bootstrapSurfaces);
+            sceneEl.addEventListener('renderstart', configureStereoLayers);
+            sceneEl.addEventListener('enter-vr', function () {
+                playerState.isImmersive = true;
+                updateButtonLabels();
+                updateSurfaceVisibility();
+                setStatus('Immersive VR active', false);
+            });
+            sceneEl.addEventListener('exit-vr', function () {
+                playerState.isImmersive = false;
+                updateButtonLabels();
+                updateSurfaceVisibility();
+                setStatus('Exited immersive VR', false);
+            });
+
+            if (sceneEl.hasLoaded) {
+                bootstrapSurfaces();
+            }
+
+            window.addEventListener('message', function (event) {
+                var data = event.data || {};
+                if (data.type === 'LOAD_VIDEO') {
+                    if (!surfacesReady) {
+                        pendingPayload = data;
+                        return;
+                    }
+                    loadVideo(data);
+                    return;
+                }
+
+                if (data.type === 'REQUEST_STATE') {
+                    sendPlayerState();
+                }
+            });
+
+            updateComfortUi();
+            updateButtonLabels();
+            updateModeUi();
+            setStatus('Waiting for stream...', true);
+        })();
+    <\/script>
 </body>
 </html>`;
 
-    const MODE_ICONS = {
-        '360': 'panorama',
-        'fullsbs': 'view_in_ar',
-        'halfsbs': '3d_rotation',
-        'sbs180': 'vr_view',
-        'ou180': 'fold',
-        'ou360': 'panorama_horizontal'
+  function injectParentStyles() {
+    if (document.getElementById('jfvr-style')) return;
+
+    const style = document.createElement('style');
+    style.id = 'jfvr-style';
+    style.textContent = `
+      #jfvr-mode-menu {
+        position: fixed;
+        z-index: 100001;
+        width: min(92vw, 430px);
+        max-height: min(78vh, 740px);
+        overflow: auto;
+        border-radius: 22px;
+        border: 1px solid rgba(103, 132, 162, 0.28);
+        background:
+          radial-gradient(circle at top, rgba(56, 189, 248, 0.18), transparent 32%),
+          linear-gradient(180deg, rgba(4, 11, 18, 0.98), rgba(2, 8, 14, 0.98));
+        color: #eef7ff;
+        box-shadow: 0 26px 60px rgba(0, 0, 0, 0.52);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+      }
+
+      #jfvr-mode-menu * {
+        box-sizing: border-box;
+      }
+
+      .jfvr-menu-head {
+        padding: 18px 20px 12px;
+        border-bottom: 1px solid rgba(103, 132, 162, 0.16);
+      }
+
+      .jfvr-menu-title {
+        font: 700 18px/1.2 "Segoe UI", Arial, sans-serif;
+        margin: 0;
+      }
+
+      .jfvr-menu-subtitle {
+        margin-top: 7px;
+        color: rgba(211, 227, 242, 0.76);
+        font: 500 13px/1.5 "Segoe UI", Arial, sans-serif;
+      }
+
+      .jfvr-menu-section {
+        padding: 12px 12px 14px;
+      }
+
+      .jfvr-menu-section + .jfvr-menu-section {
+        border-top: 1px solid rgba(103, 132, 162, 0.12);
+      }
+
+      .jfvr-menu-label {
+        padding: 0 8px 10px;
+        color: #7dd3fc;
+        font: 700 12px/1 "Segoe UI", Arial, sans-serif;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .jfvr-mode-option {
+        width: 100%;
+        display: grid;
+        gap: 5px;
+        padding: 14px 14px;
+        border: 1px solid rgba(103, 132, 162, 0.16);
+        border-radius: 16px;
+        background: rgba(6, 14, 22, 0.78);
+        color: inherit;
+        cursor: pointer;
+        text-align: left;
+        transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+      }
+
+      .jfvr-mode-option + .jfvr-mode-option {
+        margin-top: 10px;
+      }
+
+      .jfvr-mode-option:hover,
+      .jfvr-mode-option:focus-visible {
+        transform: translateY(-1px);
+        border-color: rgba(56, 189, 248, 0.38);
+        background: rgba(13, 28, 43, 0.92);
+        outline: none;
+      }
+
+      .jfvr-mode-topline {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .jfvr-mode-name {
+        font: 700 15px/1.2 "Segoe UI", Arial, sans-serif;
+      }
+
+      .jfvr-mode-tag {
+        border-radius: 999px;
+        padding: 5px 10px;
+        font: 700 11px/1 "Segoe UI", Arial, sans-serif;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #04111b;
+        background: linear-gradient(135deg, #7dd3fc, #38bdf8);
+      }
+
+      .jfvr-mode-desc {
+        color: rgba(211, 227, 242, 0.76);
+        font: 500 13px/1.45 "Segoe UI", Arial, sans-serif;
+      }
+
+      .jfvr-mode-meta {
+        color: rgba(148, 163, 184, 0.92);
+        font: 600 12px/1.4 "Segoe UI", Arial, sans-serif;
+      }
+
+      @media (max-width: 640px) {
+        #jfvr-mode-menu {
+          width: calc(100vw - 24px);
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function getCurrentJellyfinVideo() {
+    return document.querySelector('video');
+  }
+
+  function getCurrentPlaybackSnapshot() {
+    const video = getCurrentJellyfinVideo();
+    if (!video || !video.src) return null;
+    return {
+      src: video.src,
+      currentTime: Number(video.currentTime) || 0,
+      paused: video.paused,
+      volume: Number(video.volume),
+      muted: Boolean(video.muted)
+    };
+  }
+
+  function createModeMenuButton(mode) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'jfvr-mode-option';
+    button.dataset.modeId = mode.id;
+
+    const modeTag = mode.stereo === 'mono' ? mode.projection + ' Mono' : mode.projection + ' ' + mode.stereo.toUpperCase();
+    const variantLabel = mode.variant === 'mono' ? 'Mono' : mode.variant === 'full' ? 'Full layout' : 'Half layout';
+
+    button.innerHTML = `
+      <div class="jfvr-mode-topline">
+        <div class="jfvr-mode-name">${escapeHtml(mode.label)}</div>
+        <div class="jfvr-mode-tag">${escapeHtml(modeTag)}</div>
+      </div>
+      <div class="jfvr-mode-desc">${escapeHtml(mode.description)}</div>
+      <div class="jfvr-mode-meta">${escapeHtml(variantLabel)} • Quest / WebXR ready</div>
+    `;
+
+    return button;
+  }
+
+  function escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function removeModeMenu() {
+    const existing = document.getElementById('jfvr-mode-menu');
+    if (existing) existing.remove();
+    document.removeEventListener('click', onParentDocumentClick, true);
+    window.removeEventListener('resize', positionExistingModeMenu);
+  }
+
+  function positionExistingModeMenu() {
+    const menu = document.getElementById('jfvr-mode-menu');
+    if (!menu || !menu._anchorButton) return;
+    positionModeMenu(menu, menu._anchorButton);
+  }
+
+  function onParentDocumentClick(event) {
+    const menu = document.getElementById('jfvr-mode-menu');
+    if (!menu) return;
+    if (menu.contains(event.target) || (menu._anchorButton && menu._anchorButton.contains(event.target))) {
+      return;
+    }
+    removeModeMenu();
+  }
+
+  function positionModeMenu(menu, anchorButton) {
+    const rect = anchorButton.getBoundingClientRect();
+    const width = Math.min(window.innerWidth - 24, 430);
+    const left = clampNumber(rect.right - width, 12, Math.max(12, window.innerWidth - width - 12));
+    const preferredTop = rect.bottom + 12;
+    const top = preferredTop + 420 > window.innerHeight ? Math.max(12, rect.top - 24) : preferredTop;
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+  }
+
+  function clampNumber(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
+
+  function openModeMenu(anchorButton) {
+    injectParentStyles();
+
+    const existing = document.getElementById('jfvr-mode-menu');
+    if (existing) {
+      removeModeMenu();
+      return;
+    }
+
+    const menu = document.createElement('div');
+    menu.id = 'jfvr-mode-menu';
+    menu._anchorButton = anchorButton;
+    const lastMode = localStorage.getItem(STORAGE_KEYS.lastMode) || '180-sbs-half';
+
+    const groups = ['180', '360'].map((projection) => {
+      const options = VIEW_MODES.filter((mode) => mode.projection === projection);
+      const section = document.createElement('div');
+      section.className = 'jfvr-menu-section';
+      section.innerHTML = `<div class="jfvr-menu-label">${projection} VR Modes</div>`;
+      options.forEach((mode) => {
+        const optionButton = createModeMenuButton(mode);
+        if (mode.id === lastMode) {
+          optionButton.querySelector('.jfvr-mode-meta').textContent += ' • Last used';
+        }
+        optionButton.addEventListener('click', () => {
+          removeModeMenu();
+          openPlayer(mode.id);
+        });
+        section.appendChild(optionButton);
+      });
+      return section;
+    });
+
+    const recommended = MODES_BY_ID[lastMode] || MODES_BY_ID['180-sbs-half'];
+    menu.innerHTML = `
+      <div class="jfvr-menu-head">
+        <div class="jfvr-menu-title">Choose a VR projection</div>
+        <div class="jfvr-menu-subtitle">Pick the layout that matches the video file. Recommended recent mode: <strong>${escapeHtml(recommended.label)}</strong>.</div>
+      </div>
+    `;
+    groups.forEach((section) => menu.appendChild(section));
+
+    document.body.appendChild(menu);
+    positionModeMenu(menu, anchorButton);
+    document.addEventListener('click', onParentDocumentClick, true);
+    window.addEventListener('resize', positionExistingModeMenu);
+  }
+
+  function requestPlayerState(iframe) {
+    return new Promise((resolve) => {
+      if (!iframe || !iframe.contentWindow) {
+        resolve(null);
+        return;
+      }
+
+      let settled = false;
+      const timeout = window.setTimeout(() => {
+        cleanup();
+        resolve(null);
+      }, 500);
+
+      const onMessage = (event) => {
+        if (event.source !== iframe.contentWindow) return;
+        const data = event.data || {};
+        if (data.type !== 'PLAYER_STATE') return;
+        cleanup();
+        resolve(data);
+      };
+
+      const cleanup = () => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timeout);
+        window.removeEventListener('message', onMessage);
+      };
+
+      window.addEventListener('message', onMessage);
+      iframe.contentWindow.postMessage({ type: 'REQUEST_STATE' }, '*');
+    });
+  }
+
+  async function closeOverlay(overlay, iframe, blobUrl, jellyfinVideo, overlayState) {
+    if (overlayState.closing) return;
+    overlayState.closing = true;
+
+    let playerState = null;
+    try {
+      playerState = await requestPlayerState(iframe);
+    } catch (error) {
+      playerState = null;
+    }
+
+    if (jellyfinVideo && playerState) {
+      if (Number.isFinite(playerState.currentTime)) {
+        try {
+          jellyfinVideo.currentTime = playerState.currentTime;
+        } catch (error) {
+          // ignored
+        }
+      }
+
+      if (typeof playerState.volume === 'number') {
+        jellyfinVideo.volume = Math.min(1, Math.max(0, playerState.volume));
+      }
+
+      jellyfinVideo.muted = Boolean(playerState.muted);
+
+      if (typeof playerState.playbackRate === 'number' && Number.isFinite(playerState.playbackRate)) {
+        jellyfinVideo.playbackRate = playerState.playbackRate;
+      }
+
+      if (playerState.paused) {
+        jellyfinVideo.pause();
+      } else {
+        jellyfinVideo.play().catch(() => {});
+      }
+    } else if (jellyfinVideo) {
+      jellyfinVideo.play().catch(() => {});
+    }
+
+    window.removeEventListener('message', overlayState.onMessage);
+    document.removeEventListener('keydown', overlayState.onKeyDown);
+    overlay.remove();
+    URL.revokeObjectURL(blobUrl);
+  }
+
+  function openPlayer(modeId) {
+    const playback = getCurrentPlaybackSnapshot();
+    if (!playback) {
+      window.alert('No video is currently playing in Jellyfin. Start playback first.');
+      return;
+    }
+
+    const mode = MODES_BY_ID[modeId] || MODES_BY_ID['360-mono'];
+    localStorage.setItem(STORAGE_KEYS.lastMode, mode.id);
+
+    const jellyfinVideo = getCurrentJellyfinVideo();
+    if (jellyfinVideo) {
+      jellyfinVideo.pause();
+    }
+
+    const blob = new Blob([PLAYER_HTML], { type: 'text/html' });
+    const blobUrl = URL.createObjectURL(blob);
+
+    const overlay = document.createElement('div');
+    overlay.id = 'jfvr-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:100000;background:#000;';
+
+    const emergencyCloseButton = document.createElement('button');
+    emergencyCloseButton.type = 'button';
+    emergencyCloseButton.textContent = 'Back';
+    emergencyCloseButton.style.cssText = [
+      'position:absolute',
+      'top:16px',
+      'left:16px',
+      'z-index:100001',
+      'padding:10px 16px',
+      'border-radius:999px',
+      'border:1px solid rgba(148,163,184,0.24)',
+      'background:rgba(4,12,20,0.82)',
+      'color:#eef7ff',
+      'font:600 14px "Segoe UI", Arial, sans-serif',
+      'cursor:pointer',
+      'backdrop-filter:blur(14px)',
+      '-webkit-backdrop-filter:blur(14px)'
+    ].join(';');
+
+    const iframe = document.createElement('iframe');
+    iframe.src = blobUrl;
+    iframe.allow = 'autoplay; fullscreen; xr-spatial-tracking';
+    iframe.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none;background:#000;';
+
+    const overlayState = {
+      closing: false,
+      onMessage: null,
+      onKeyDown: null
     };
 
-    function getJellyfinStamp() {
-        const vid = document.querySelector('video');
-        if (!vid || !vid.src) return null;
-        return { src: vid.src, currentTime: vid.currentTime };
-    }
+    overlayState.onMessage = (event) => {
+      if (event.source !== iframe.contentWindow) return;
+      const data = event.data || {};
+      if (data.type === 'CLOSE_PLAYER') {
+        closeOverlay(overlay, iframe, blobUrl, jellyfinVideo, overlayState);
+      }
+    };
+    window.addEventListener('message', overlayState.onMessage);
 
-    function opentheplayer() {
-        if (document.getElementById('vr360-overlay')) return;
+    overlayState.onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeOverlay(overlay, iframe, blobUrl, jellyfinVideo, overlayState);
+      }
+    };
+    document.addEventListener('keydown', overlayState.onKeyDown);
 
-        const videoInfo = getJellyfinStamp();
-        if (!videoInfo) {
-            alert('No video playing — start a video in Jellyfin first.');
-            return;
-        }
+    emergencyCloseButton.addEventListener('click', () => {
+      closeOverlay(overlay, iframe, blobUrl, jellyfinVideo, overlayState);
+    });
 
-        const jellyfinVideo = document.querySelector('video');
-        if (jellyfinVideo) jellyfinVideo.pause();
+    iframe.addEventListener('load', () => {
+      iframe.contentWindow.postMessage({
+        type: 'LOAD_VIDEO',
+        src: playback.src,
+        currentTime: playback.currentTime,
+        paused: playback.paused,
+        volume: playback.volume,
+        muted: playback.muted,
+        modeId: mode.id,
+        autoEnterVr: true
+      }, '*');
+    });
 
-        const blob = new Blob([PLAYER_HTML], { type: 'text/html' });
-        const blobUrl = URL.createObjectURL(blob);
+    overlay.appendChild(emergencyCloseButton);
+    overlay.appendChild(iframe);
+    document.body.appendChild(overlay);
+  }
 
-        const overlay = document.createElement('div');
-        overlay.id = 'vr360-overlay';
-        overlay.style.cssText = `position:fixed;inset:0;z-index:99999;background:#000;`;
+  function createVRButton() {
+    if (document.getElementById('vr360-toggleplay')) return;
 
-        const backBtn = document.createElement('button');
-        backBtn.style.cssText = `
-            position:absolute;top:12px;left:12px;z-index:100000;
-            background:transparent;border:none;color:rgba(255,255,255,0.87);
-            cursor:pointer;display:flex;align-items:center;gap:4px;
-            font-family:'Noto Sans',sans-serif;font-size:15px;font-weight:600;
-            padding:8px;border-radius:50%;transition:background 0.2s;z-index:100001;
-        `;
-        backBtn.innerHTML = '<span style="font-family:\'Material Icons\',sans-serif;font-size:26px;line-height:1;">arrow_back</span>';
-        
-        backBtn.onmouseenter = () => backBtn.style.background = 'rgba(255,255,255,0.1)';
-        backBtn.onmouseleave = () => backBtn.style.background = 'transparent';
-        
-        backBtn.onclick = () => {
-            URL.revokeObjectURL(blobUrl);
-            overlay.remove();
-            if (jellyfinVideo) jellyfinVideo.play();
-        };
+    const fullscreenBtn = document.querySelector('.btnFullscreen');
+    if (!fullscreenBtn || !fullscreenBtn.parentNode) return;
 
-        const iframe = document.createElement('iframe');
-        iframe.src = blobUrl;
-        iframe.style.cssText = `position:absolute;inset:0;border:none;width:100%;height:100%;`;
-        iframe.allow = 'autoplay; fullscreen; xr-spatial-tracking; vr';
-        
-        iframe.onload = () => {
-            iframe.contentWindow.postMessage({
-                type: 'LOAD_VIDEO',
-                src: videoInfo.src,
-                currentTime: videoInfo.currentTime
-            }, '*');
-        };
+    const button = document.createElement('button');
+    button.id = 'vr360-toggleplay';
+    button.setAttribute('is', 'paper-icon-button-light');
+    button.className = 'autoSize paper-icon-button-light';
+    button.title = 'VR Player';
+    button.setAttribute('aria-label', 'VR Player');
 
-        overlay.appendChild(backBtn);
-        overlay.appendChild(iframe);
-        document.body.appendChild(overlay);
+    const label = document.createElement('span');
+    label.className = 'largePaperIconButton';
+    label.setAttribute('aria-hidden', 'true');
+    label.textContent = 'VR';
+    label.style.cssText = 'font-family: "Segoe UI", Arial, sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; display:inline-flex; align-items:center; justify-content:center;';
 
-        const onKey = (e) => {
-            if (e.key === 'Escape') {
-                URL.revokeObjectURL(blobUrl);
-                overlay.remove();
-                if (jellyfinVideo) jellyfinVideo.play();
-                document.removeEventListener('keydown', onKey);
-            }
-        };
-        document.addEventListener('keydown', onKey);
+    button.appendChild(label);
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      openModeMenu(button);
+    });
 
-        window.addEventListener('message', function closePlayerHandler(e) {
-            if (e.data?.type === 'CLOSE_PLAYER') {
-                URL.revokeObjectURL(blobUrl);
-                overlay.remove();
-                if (jellyfinVideo) jellyfinVideo.play();
-                window.removeEventListener('message', closePlayerHandler);
-                document.removeEventListener('keydown', onKey);
-            }
-        });
-    }
+    fullscreenBtn.parentNode.insertBefore(button, fullscreenBtn);
+  }
 
-    function createVRstuff() {
-        if (document.getElementById('vr360-toggleplay')) return;
+  function removeVRButton() {
+    const button = document.getElementById('vr360-toggleplay');
+    if (button) button.remove();
+    removeModeMenu();
+  }
 
-        console.log('[Extended VR] Searching for player controls...');
-
-        // Find the main buttons container based on the user's provided HTML structure.
-        const controlsContainer = document.querySelector('.buttons.focuscontainer-x');
-
-        if (!controlsContainer) {
-            console.log('[Extended VR] Could not find controls container (.buttons.focuscontainer-x). Aborting button creation.');
-            return;
-        }
-
-        console.log('[Extended VR] Found controls container:', controlsContainer);
-
-        // Create a new button mimicking Jellyfin's native buttons
-        const btn = document.createElement('button');
-        btn.id = 'vr360-toggleplay';
-        btn.setAttribute('is', 'paper-icon-button-light');
-        // Use classes from other buttons for consistency
-        btn.classList.add('autoSize');
-        btn.type = 'button';
-        btn.title = 'Extended VR Player';
-
-        // Use Material Icons for consistency
-        const icon = document.createElement('span');
-        // Use classes from other icons for consistency
-        icon.classList.add('xlargePaperIconButton', 'material-icons');
-        icon.textContent = 'view_in_ar'; // A fitting icon for VR
-        icon.setAttribute('aria-hidden', 'true');
-
-        btn.appendChild(icon);
-        btn.onclick = opentheplayer;
-
-        // Add some specific styles for our button
-        const style = document.createElement('style');
-        style.textContent = `
-            #vr360-toggleplay .material-icons {
-                color: #00a4dc !important; /* Jellyfin blue accent */
-            }
-        `;
-        document.head.appendChild(style);
-
-
-        // Find the fullscreen button to insert our button before it for a consistent position.
-        const fullscreenButton = controlsContainer.querySelector('.btnFullscreen');
-        if (fullscreenButton) {
-            controlsContainer.insertBefore(btn, fullscreenButton);
-        } else {
-            // Fallback if the fullscreen button isn't found for some reason.
-            controlsContainer.appendChild(btn);
-        }
-
-        console.log('[Extended VR] VR button created and injected successfully.');
-    }
-
-    function removeVRstuff() {
-        const el = document.getElementById('vr360-toggleplay');
-        if (el) {
-            console.log('[Extended VR] Removing VR button');
-            el.remove();
-        }
-    }
-
-    function checkForVideo() {
-        const vid = document.querySelector('video');
-        const hasVideo = vid && (vid.src || vid.currentSrc || vid.querySelector('source'));
-        
-        console.log('[Extended VR] checkForVideo - video found:', !!vid, 'has source:', !!hasVideo);
-        
-        if (hasVideo) {
-            if (!document.getElementById('vr360-toggleplay')) {
-                console.log('[Extended VR] Creating VR button...');
-                createVRstuff();
-            }
-        } else {
-            removeVRstuff();
-        }
-    }
-
-    const observer = new MutationObserver(checkForVideo);
-
-    function init() {
-        try {
-            console.log('[Extended VR] Initializing...');
-            checkForVideo();
-            observer.observe(document.body, { childList: true, subtree: true });
-            console.log('[Extended VR] Observer started');
-        } catch (e) {
-            console.error('[Extended VR] Init error:', e);
-        }
-    }
-
-    if (document.readyState === 'complete') {
-        init();
+  function checkForVideo() {
+    const video = getCurrentJellyfinVideo();
+    const hasVideo = video && video.src;
+    if (hasVideo) {
+      createVRButton();
     } else {
-        window.addEventListener('load', init);
+      removeVRButton();
     }
-    
-    console.log('[Extended VR] Script initialization complete');
+  }
+
+  const observer = new MutationObserver(checkForVideo);
+
+  function init() {
+    checkForVideo();
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  if (document.readyState === 'complete') {
+    init();
+  } else {
+    window.addEventListener('load', init);
+  }
 })();
