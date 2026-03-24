@@ -121,6 +121,228 @@
     return acc;
   }, {});
 
+  let activeInlinePlayer = null;
+
+  const INLINE_PLAYER_STYLE = `
+    #jfvr-inline-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 100002;
+      background:
+        radial-gradient(circle at top, rgba(14, 165, 233, 0.20), transparent 28%),
+        radial-gradient(circle at bottom, rgba(59, 130, 246, 0.16), transparent 24%),
+        #000;
+      color: #e5eef7;
+      font-family: "Segoe UI", Arial, sans-serif;
+      overflow: hidden;
+    }
+
+    #jfvr-inline-overlay * { box-sizing: border-box; }
+
+    #jfvr-inline-overlay .jfvr-topbar {
+      position: absolute;
+      top: 18px;
+      left: 18px;
+      right: 18px;
+      z-index: 15;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      pointer-events: none;
+    }
+
+    #jfvr-inline-overlay .jfvr-topbar-left,
+    #jfvr-inline-overlay .jfvr-topbar-right,
+    #jfvr-inline-overlay .jfvr-dock-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    #jfvr-inline-overlay .jfvr-btn,
+    #jfvr-inline-overlay .jfvr-chip {
+      pointer-events: auto;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      background: rgba(4, 12, 20, 0.82);
+      color: #e5eef7;
+      font: inherit;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+
+    #jfvr-inline-overlay .jfvr-btn {
+      cursor: pointer;
+      padding: 10px 16px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    #jfvr-inline-overlay .jfvr-btn.primary {
+      background: linear-gradient(135deg, rgba(14, 165, 233, 0.9), rgba(56, 189, 248, 0.7));
+      color: #04111b;
+      border-color: rgba(56, 189, 248, 0.65);
+    }
+
+    #jfvr-inline-overlay .jfvr-chip {
+      padding: 9px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    #jfvr-inline-overlay .jfvr-chip.mode { color: #7dd3fc; }
+    #jfvr-inline-overlay .jfvr-chip.status { color: #94a3b8; min-width: 140px; text-align: center; }
+
+    #jfvr-inline-overlay .jfvr-dock {
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      bottom: 18px;
+      z-index: 15;
+      padding: 14px 16px;
+      border-radius: 22px;
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      background: rgba(4, 12, 20, 0.82);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+      pointer-events: auto;
+    }
+
+    #jfvr-inline-overlay .jfvr-dock-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    #jfvr-inline-overlay .jfvr-seek-wrap {
+      flex: 1 1 280px;
+      display: grid;
+      gap: 6px;
+      min-width: 240px;
+    }
+
+    #jfvr-inline-overlay .jfvr-range { width: 100%; accent-color: #0ea5e9; }
+    #jfvr-inline-overlay .jfvr-volume { width: 110px; accent-color: #0ea5e9; }
+    #jfvr-inline-overlay .jfvr-meta { color: #94a3b8; font-size: 13px; white-space: nowrap; }
+
+    #jfvr-inline-overlay a-scene {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    #jfvr-inline-overlay .a-enter-vr,
+    #jfvr-inline-overlay .a-enter-ar {
+      display: none !important;
+    }
+
+    @media (max-width: 720px) {
+      #jfvr-inline-overlay .jfvr-topbar {
+        top: 12px;
+        left: 12px;
+        right: 12px;
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      #jfvr-inline-overlay .jfvr-topbar-left,
+      #jfvr-inline-overlay .jfvr-topbar-right {
+        justify-content: space-between;
+      }
+
+      #jfvr-inline-overlay .jfvr-dock {
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+      }
+    }
+  `;
+
+  const INLINE_PLAYER_HTML = `
+    <div class="jfvr-topbar">
+      <div class="jfvr-topbar-left">
+        <button class="jfvr-btn" data-role="close">Back</button>
+        <div class="jfvr-chip mode" data-role="mode">360 Mono</div>
+        <div class="jfvr-chip status" data-role="status">Initializing...</div>
+      </div>
+      <div class="jfvr-topbar-right">
+        <div class="jfvr-meta" data-role="comfort">UI 1.90m / 1.00x</div>
+        <button class="jfvr-btn primary" data-role="enter-vr">Enter VR</button>
+      </div>
+    </div>
+
+    <div class="jfvr-dock">
+      <div class="jfvr-dock-row">
+        <div class="jfvr-dock-controls">
+          <button class="jfvr-btn" data-role="play">Pause</button>
+          <button class="jfvr-btn" data-role="seek-back">-10s</button>
+          <button class="jfvr-btn" data-role="seek-forward">+10s</button>
+          <button class="jfvr-btn" data-role="mute">Mute</button>
+          <input class="jfvr-volume" data-role="volume" type="range" min="0" max="1" step="0.02" value="1">
+        </div>
+
+        <div class="jfvr-seek-wrap">
+          <input class="jfvr-range" data-role="seek" type="range" min="0" max="1000" step="1" value="0">
+          <div class="jfvr-meta" data-role="time">0:00 / 0:00</div>
+        </div>
+
+        <div class="jfvr-meta">Quest: tap Enter VR after load. X swaps stereo. 3D SBS opens as a theater screen.</div>
+      </div>
+    </div>
+
+    <a-scene
+      data-role="scene"
+      background="color: #000"
+      renderer="antialias: true; colorManagement: true"
+      xr-mode-ui="enabled: true"
+      webxr="optionalFeatures: local-floor,bounded-floor,unbounded,hand-tracking"
+      cursor__mouse="rayOrigin: mouse"
+      raycaster__mouse="objects: .clickable; far: 30">
+      <a-entity data-role="camera-rig" position="0 0 0">
+        <a-camera data-role="camera" position="0 1.6 0" look-controls="enabled: true" wasd-controls-enabled="false">
+          <a-entity
+            data-role="gaze-cursor"
+            cursor="fuse: true; fuseTimeout: 900"
+            raycaster="objects: .clickable; far: 20"
+            position="0 0 -1.35"
+            geometry="primitive: ring; radiusInner: 0.010; radiusOuter: 0.016"
+            material="shader: flat; color: #7dd3fc; opacity: 0.92"></a-entity>
+
+          <a-entity data-role="ui-root" position="0 -0.38 -1.90" scale="1 1 1">
+            <a-plane width="1.86" height="0.62" color="#05111a" opacity="0.88" material="shader: flat; transparent: true; opacity: 0.88"></a-plane>
+            <a-plane width="1.80" height="0.56" color="#0b1b2a" opacity="0.12" position="0 0 0.001" material="shader: flat; transparent: true; opacity: 0.12"></a-plane>
+            <a-entity data-role="panel-mode" position="0 0.20 0.01" text="value: 360 Mono; align: center; width: 2.5; color: #f8fbff; wrapCount: 28"></a-entity>
+            <a-entity data-role="panel-status" position="0 0.13 0.01" text="value: Initializing...; align: center; width: 2.1; color: #8fb8d8; wrapCount: 34"></a-entity>
+            <a-entity class="clickable" data-role="panel-exit" position="-0.70 0.03 0.02" geometry="primitive: plane; width: 0.20; height: 0.10" material="shader: flat; color: #3b0b19; opacity: 0.95"><a-entity position="0 0 0.01" text="value: Exit; align: center; width: 0.8; color: #ffffff"></a-entity></a-entity>
+            <a-entity class="clickable" data-role="panel-back" position="-0.42 0.03 0.02" geometry="primitive: plane; width: 0.20; height: 0.10" material="shader: flat; color: #13283a; opacity: 0.95"><a-entity position="0 0 0.01" text="value: -10s; align: center; width: 0.8; color: #ffffff"></a-entity></a-entity>
+            <a-entity class="clickable" data-role="panel-play" position="-0.14 0.03 0.02" geometry="primitive: plane; width: 0.20; height: 0.10" material="shader: flat; color: #11415a; opacity: 0.98"><a-entity data-role="panel-play-label" position="0 0 0.01" text="value: Pause; align: center; width: 0.8; color: #ffffff"></a-entity></a-entity>
+            <a-entity class="clickable" data-role="panel-forward" position="0.14 0.03 0.02" geometry="primitive: plane; width: 0.20; height: 0.10" material="shader: flat; color: #13283a; opacity: 0.95"><a-entity position="0 0 0.01" text="value: +10s; align: center; width: 0.8; color: #ffffff"></a-entity></a-entity>
+            <a-entity class="clickable" data-role="panel-vr" position="0.42 0.03 0.02" geometry="primitive: plane; width: 0.20; height: 0.10" material="shader: flat; color: #0a4a3d; opacity: 0.98"><a-entity data-role="panel-vr-label" position="0 0 0.01" text="value: VR; align: center; width: 0.8; color: #ffffff"></a-entity></a-entity>
+            <a-entity class="clickable" data-role="panel-swap" position="0.70 0.03 0.02" geometry="primitive: plane; width: 0.20; height: 0.10" material="shader: flat; color: #13283a; opacity: 0.95"><a-entity data-role="panel-swap-label" position="0 0 0.01" text="value: Swap; align: center; width: 0.8; color: #ffffff"></a-entity></a-entity>
+            <a-entity data-role="panel-comfort" position="0 -0.07 0.01" text="value: UI 1.90m / 1.00x; align: center; width: 2.1; color: #d0e7ff; wrapCount: 32"></a-entity>
+            <a-entity class="clickable" data-role="panel-near" position="-0.42 -0.07 0.02" geometry="primitive: plane; width: 0.18; height: 0.08" material="shader: flat; color: #13283a; opacity: 0.95"><a-entity position="0 0 0.01" text="value: Near; align: center; width: 0.8; color: #ffffff"></a-entity></a-entity>
+            <a-entity class="clickable" data-role="panel-far" position="-0.18 -0.07 0.02" geometry="primitive: plane; width: 0.18; height: 0.08" material="shader: flat; color: #13283a; opacity: 0.95"><a-entity position="0 0 0.01" text="value: Far; align: center; width: 0.8; color: #ffffff"></a-entity></a-entity>
+            <a-entity class="clickable" data-role="panel-scale-down" position="0.18 -0.07 0.02" geometry="primitive: plane; width: 0.18; height: 0.08" material="shader: flat; color: #13283a; opacity: 0.95"><a-entity position="0 0 0.01" text="value: Scale -; align: center; width: 0.8; color: #ffffff"></a-entity></a-entity>
+            <a-entity class="clickable" data-role="panel-scale-up" position="0.42 -0.07 0.02" geometry="primitive: plane; width: 0.18; height: 0.08" material="shader: flat; color: #13283a; opacity: 0.95"><a-entity position="0 0 0.01" text="value: Scale +; align: center; width: 0.8; color: #ffffff"></a-entity></a-entity>
+            <a-entity class="clickable" data-role="seek-track" position="0 -0.20 0.02" geometry="primitive: plane; width: 1.44; height: 0.06" material="shader: flat; color: #102131; opacity: 0.96"></a-entity>
+            <a-entity data-role="seek-buffered" position="-0.72 -0.20 0.025" geometry="primitive: plane; width: 0.001; height: 0.032" material="shader: flat; color: #33536b; opacity: 0.9"></a-entity>
+            <a-entity data-role="seek-played" position="-0.72 -0.20 0.03" geometry="primitive: plane; width: 0.001; height: 0.032" material="shader: flat; color: #38bdf8; opacity: 1"></a-entity>
+            <a-entity data-role="seek-time-3d" position="0 -0.29 0.01" text="value: 0:00 / 0:00; align: center; width: 2.1; color: #d7e8f7"></a-entity>
+          </a-entity>
+        </a-camera>
+      </a-entity>
+      <a-entity data-role="left-hand" laser-controls="hand: left" raycaster="objects: .clickable; far: 20; lineColor: #7dd3fc; lineOpacity: 0.7"></a-entity>
+      <a-entity data-role="right-hand" laser-controls="hand: right" raycaster="objects: .clickable; far: 20; lineColor: #7dd3fc; lineOpacity: 0.7"></a-entity>
+    </a-scene>
+  `;
+
   const PLAYER_HTML = String.raw`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1769,6 +1991,558 @@
     document.body.appendChild(backdrop);
   }
 
+  function ensureAFrameLoaded() {
+    if (window.AFRAME && window.THREE) {
+      return Promise.resolve();
+    }
+
+    if (window.__JFVRAFramePromise) {
+      return window.__JFVRAFramePromise;
+    }
+
+    window.__JFVRAFramePromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://aframe.io/releases/1.5.0/aframe.min.js';
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('Failed to load A-Frame'));
+      document.head.appendChild(script);
+    });
+
+    return window.__JFVRAFramePromise;
+  }
+
+  function createInlinePlayerRuntime(overlay, styleEl, jellyfinVideo, modeId) {
+    const state = {
+      currentMode: MODES_BY_ID[modeId] || MODES_BY_ID['360-mono'],
+      video: jellyfinVideo,
+      isImmersive: false,
+      isSeeking: false,
+      swapEyes: false,
+      textures: null,
+      materials: null,
+      meshes: null,
+      surfaceRoot: null,
+      cleanup: [],
+      statusTimers: [],
+      panelDistance: Math.min(3.4, Math.max(1.2, parseFloat(localStorage.getItem(STORAGE_KEYS.uiDistance)) || 1.9)),
+      panelScale: Math.min(1.55, Math.max(0.7, parseFloat(localStorage.getItem(STORAGE_KEYS.uiScale)) || 1.0))
+    };
+
+    const SEEK_TRACK_WIDTH = 1.44;
+    const q = (selector) => overlay.querySelector(selector);
+    const sceneEl = q('[data-role="scene"]');
+    const modeChip = q('[data-role="mode"]');
+    const statusChip = q('[data-role="status"]');
+    const comfortDisplay = q('[data-role="comfort"]');
+    const closeBtn = q('[data-role="close"]');
+    const enterVrBtn = q('[data-role="enter-vr"]');
+    const playBtn = q('[data-role="play"]');
+    const seekBackBtn = q('[data-role="seek-back"]');
+    const seekFwdBtn = q('[data-role="seek-forward"]');
+    const muteBtn = q('[data-role="mute"]');
+    const volumeSlider = q('[data-role="volume"]');
+    const seekInput = q('[data-role="seek"]');
+    const timeDisplay = q('[data-role="time"]');
+    const uiRoot = q('[data-role="ui-root"]');
+    const panelModeText = q('[data-role="panel-mode"]');
+    const panelStatusText = q('[data-role="panel-status"]');
+    const panelComfortText = q('[data-role="panel-comfort"]');
+    const panelPlayLabel = q('[data-role="panel-play-label"]');
+    const panelVrLabel = q('[data-role="panel-vr-label"]');
+    const panelSwapLabel = q('[data-role="panel-swap-label"]');
+    const seekTrack3d = q('[data-role="seek-track"]');
+    const seekBuffered3d = q('[data-role="seek-buffered"]');
+    const seekPlayed3d = q('[data-role="seek-played"]');
+    const seekTime3d = q('[data-role="seek-time-3d"]');
+
+    function on(target, eventName, handler, options) {
+      target.addEventListener(eventName, handler, options);
+      state.cleanup.push(() => target.removeEventListener(eventName, handler, options));
+    }
+
+    function clamp(value, min, max) {
+      if (!Number.isFinite(value)) return min;
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function formatTime(seconds) {
+      if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
+      const total = Math.floor(seconds);
+      const hrs = Math.floor(total / 3600);
+      const mins = Math.floor((total % 3600) / 60);
+      const secs = total % 60;
+      if (hrs > 0) return `${hrs}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      return `${mins}:${String(secs).padStart(2, '0')}`;
+    }
+
+    function setText3d(el, value) {
+      el.setAttribute('text', 'value', value);
+    }
+
+    function clearStatusTimers() {
+      while (state.statusTimers.length) {
+        clearTimeout(state.statusTimers.pop());
+      }
+    }
+
+    function setStatus(text, sticky) {
+      statusChip.textContent = text;
+      setText3d(panelStatusText, text);
+      clearStatusTimers();
+      if (!sticky) {
+        state.statusTimers.push(setTimeout(() => {
+          const idleText = state.video && !state.video.paused ? 'Ready' : 'Paused';
+          statusChip.textContent = idleText;
+          setText3d(panelStatusText, idleText);
+        }, 1800));
+      }
+    }
+
+    function updateComfortUi() {
+      const text = `UI ${state.panelDistance.toFixed(2)}m / ${state.panelScale.toFixed(2)}x`;
+      comfortDisplay.textContent = text;
+      setText3d(panelComfortText, text);
+      uiRoot.setAttribute('position', `0 -0.38 -${state.panelDistance.toFixed(2)}`);
+      uiRoot.object3D.scale.set(state.panelScale, state.panelScale, state.panelScale);
+      localStorage.setItem(STORAGE_KEYS.uiDistance, String(state.panelDistance));
+      localStorage.setItem(STORAGE_KEYS.uiScale, String(state.panelScale));
+    }
+
+    function updateButtonLabels() {
+      const paused = !state.video || state.video.paused;
+      playBtn.textContent = paused ? 'Play' : 'Pause';
+      setText3d(panelPlayLabel, paused ? 'Play' : 'Pause');
+      muteBtn.textContent = state.video && state.video.muted ? 'Unmute' : 'Mute';
+      enterVrBtn.textContent = state.isImmersive ? 'Exit VR' : 'Enter VR';
+      setText3d(panelVrLabel, state.isImmersive ? 'Exit VR' : 'VR');
+      setText3d(panelSwapLabel, state.swapEyes ? 'Swap On' : 'Swap');
+    }
+
+    function updateModeUi() {
+      modeChip.textContent = state.currentMode.label;
+      setText3d(panelModeText, state.currentMode.label);
+      updateButtonLabels();
+    }
+
+    function updateSeekFill(el, ratio, color, z) {
+      const width = Math.max(0.001, SEEK_TRACK_WIDTH * clamp(ratio, 0, 1));
+      el.setAttribute('geometry', 'width', width);
+      el.setAttribute('material', 'color', color);
+      el.setAttribute('position', `${-SEEK_TRACK_WIDTH / 2 + width / 2} -0.20 ${z}`);
+    }
+
+    function updateTimeUi() {
+      const video = state.video;
+      const duration = video && Number.isFinite(video.duration) ? video.duration : 0;
+      const currentTime = video ? video.currentTime : 0;
+      const ratio = duration > 0 ? clamp(currentTime / duration, 0, 1) : 0;
+      let bufferedRatio = 0;
+      if (video && video.buffered && video.buffered.length && duration > 0) {
+        try {
+          bufferedRatio = clamp(video.buffered.end(video.buffered.length - 1) / duration, 0, 1);
+        } catch (error) {
+          bufferedRatio = ratio;
+        }
+      }
+      if (!state.isSeeking) {
+        seekInput.value = String(Math.round(ratio * 1000));
+      }
+      const label = `${formatTime(currentTime)} / ${formatTime(duration)}`;
+      timeDisplay.textContent = label;
+      setText3d(seekTime3d, label);
+      updateSeekFill(seekPlayed3d, ratio, '#38bdf8', '0.03');
+      updateSeekFill(seekBuffered3d, bufferedRatio, '#33536b', '0.025');
+    }
+
+    function seekTo(time) {
+      if (!state.video || !Number.isFinite(state.video.duration)) return;
+      state.video.currentTime = clamp(time, 0, state.video.duration);
+      updateTimeUi();
+    }
+
+    function getViewportForEye(mode, eye) {
+      if (mode.projection === 'screen') {
+        if (mode.stereo === 'sbs') {
+          return eye === 'right'
+            ? { offsetX: 0.5, repeatX: 0.5, offsetY: 0, repeatY: 1 }
+            : { offsetX: 0, repeatX: 0.5, offsetY: 0, repeatY: 1 };
+        }
+        return { offsetX: 0, repeatX: 1, offsetY: 0, repeatY: 1 };
+      }
+
+      if (mode.stereo === 'mono') return { offsetX: 1, repeatX: -1, offsetY: 0, repeatY: 1 };
+      if (mode.stereo === 'sbs') {
+        return eye === 'right'
+          ? { offsetX: 1, repeatX: -0.5, offsetY: 0, repeatY: 1 }
+          : { offsetX: 0.5, repeatX: -0.5, offsetY: 0, repeatY: 1 };
+      }
+      return eye === 'right'
+        ? { offsetX: 1, repeatX: -1, offsetY: 0, repeatY: 0.5 }
+        : { offsetX: 1, repeatX: -1, offsetY: 0.5, repeatY: 0.5 };
+    }
+
+    function getPreviewViewport(mode, leftEye) {
+      if (mode.projection === 'screen') return { offsetX: 0, repeatX: 1, offsetY: 0, repeatY: 1 };
+      return getViewportForEye(mode, leftEye);
+    }
+
+    function applyViewport(material, viewport) {
+      if (!material || !material.map) return;
+      material.map.wrapS = THREE.ClampToEdgeWrapping;
+      material.map.wrapT = THREE.ClampToEdgeWrapping;
+      material.map.offset.set(viewport.offsetX, viewport.offsetY);
+      material.map.repeat.set(viewport.repeatX, viewport.repeatY);
+      material.map.needsUpdate = true;
+      material.needsUpdate = true;
+    }
+
+    function buildProjectionGeometry(mode) {
+      if (mode.projection === 'screen') return new THREE.PlaneGeometry(18, 10.125, 1, 1);
+      const radius = 32;
+      if (mode.projection === '180') return new THREE.SphereGeometry(radius, 96, 64, 0, Math.PI, 0, Math.PI);
+      return new THREE.SphereGeometry(radius, 96, 64);
+    }
+
+    function applyProjectionPlacement(mode) {
+      if (!state.surfaceRoot) return;
+      if (mode.projection === 'screen') {
+        state.surfaceRoot.position.set(0, 1.6, -12);
+        state.surfaceRoot.rotation.set(0, 0, 0);
+      } else {
+        state.surfaceRoot.position.set(0, 0, 0);
+        state.surfaceRoot.rotation.set(0, Math.PI, 0);
+      }
+    }
+
+    function applyProjectionMaterialSettings(mode) {
+      if (!state.materials) return;
+      const side = mode.projection === 'screen' ? THREE.FrontSide : THREE.BackSide;
+      Object.values(state.materials).forEach((material) => {
+        material.side = side;
+        material.needsUpdate = true;
+      });
+    }
+
+    function createVideoTexture(video) {
+      const texture = new THREE.VideoTexture(video);
+      texture.minFilter = THREE.LinearFilter;
+      texture.magFilter = THREE.LinearFilter;
+      texture.generateMipmaps = false;
+      if (texture.colorSpace !== undefined && THREE.SRGBColorSpace !== undefined) texture.colorSpace = THREE.SRGBColorSpace;
+      return texture;
+    }
+
+    function createVideoMaterial(texture) {
+      return new THREE.MeshBasicMaterial({ map: texture, side: THREE.BackSide, toneMapped: false });
+    }
+
+    function configureStereoLayers() {
+      const camera = sceneEl.camera;
+      if (!camera) return;
+      camera.layers.enable(0); camera.layers.enable(1); camera.layers.enable(2);
+      const renderer = sceneEl.renderer;
+      if (!renderer || !renderer.xr || !renderer.xr.getCamera) return;
+      const xrCamera = renderer.xr.getCamera();
+      if (!xrCamera || !xrCamera.cameras || xrCamera.cameras.length < 2) return;
+      xrCamera.cameras[0].layers.enable(0); xrCamera.cameras[0].layers.enable(1); xrCamera.cameras[0].layers.disable(2);
+      xrCamera.cameras[1].layers.enable(0); xrCamera.cameras[1].layers.enable(2); xrCamera.cameras[1].layers.disable(1);
+    }
+
+    function updateSurfaceVisibility() {
+      if (!state.meshes) return;
+      const useStereo = state.currentMode.stereo !== 'mono' && state.isImmersive;
+      state.meshes.preview.visible = !useStereo;
+      state.meshes.left.visible = useStereo;
+      state.meshes.right.visible = useStereo;
+      configureStereoLayers();
+    }
+
+    function applyMode(nextModeId) {
+      state.currentMode = MODES_BY_ID[nextModeId] || MODES_BY_ID['360-mono'];
+      if (!state.meshes || !state.materials) {
+        updateModeUi();
+        return;
+      }
+      if (state.meshes.currentProjection !== state.currentMode.projection) {
+        const geometry = buildProjectionGeometry(state.currentMode);
+        state.meshes.preview.geometry.dispose();
+        state.meshes.left.geometry.dispose();
+        state.meshes.right.geometry.dispose();
+        state.meshes.preview.geometry = geometry.clone();
+        state.meshes.left.geometry = geometry.clone();
+        state.meshes.right.geometry = geometry.clone();
+        state.meshes.currentProjection = state.currentMode.projection;
+      }
+      const leftEye = state.swapEyes ? 'right' : 'left';
+      const rightEye = state.swapEyes ? 'left' : 'right';
+      applyProjectionPlacement(state.currentMode);
+      applyProjectionMaterialSettings(state.currentMode);
+      applyViewport(state.materials.preview, getPreviewViewport(state.currentMode, leftEye));
+      applyViewport(state.materials.left, getViewportForEye(state.currentMode, leftEye));
+      applyViewport(state.materials.right, getViewportForEye(state.currentMode, rightEye));
+      updateModeUi();
+      updateSurfaceVisibility();
+    }
+
+    function reportXrAvailability() {
+      if (!navigator.xr) {
+        setStatus('WebXR unavailable in this page', true);
+        return;
+      }
+      if (!navigator.xr.isSessionSupported) {
+        setStatus('WebXR API detected', false);
+        return;
+      }
+      navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+        if (!supported) setStatus('Immersive VR unsupported here', true);
+        else setStatus('Ready - tap Enter VR', true);
+      }).catch((error) => {
+        setStatus(`WebXR check failed: ${error && error.message ? error.message : 'unknown error'}`, true);
+      });
+    }
+
+    function requestEnterVr() {
+      if (!navigator.xr) {
+        setStatus('WebXR unavailable in this page', true);
+        return;
+      }
+      if (!sceneEl.enterVR) {
+        setStatus('VR scene is still loading', true);
+        return;
+      }
+      setStatus('Requesting immersive VR...', true);
+      try {
+        const result = sceneEl.enterVR();
+        if (result && typeof result.catch === 'function') {
+          result.catch((error) => {
+            setStatus(`Immersive VR failed: ${error && error.message ? error.message : 'requestSession failed'}`, true);
+          });
+        }
+      } catch (error) {
+        setStatus(`Immersive VR failed: ${error && error.message ? error.message : 'requestSession failed'}`, true);
+      }
+    }
+
+    function togglePlay() {
+      if (!state.video) return;
+      if (state.video.paused) {
+        state.video.play().catch(() => setStatus('Playback blocked by browser', true));
+      } else {
+        state.video.pause();
+      }
+      updateButtonLabels();
+    }
+
+    function toggleMute() {
+      if (!state.video) return;
+      state.video.muted = !state.video.muted;
+      if (!state.video.muted && state.video.volume === 0) {
+        state.video.volume = 0.8;
+        volumeSlider.value = '0.8';
+      }
+      updateButtonLabels();
+    }
+
+    function close() {
+      clearStatusTimers();
+      if (state.isImmersive && sceneEl.exitVR) {
+        try { sceneEl.exitVR(); } catch (error) {}
+      }
+      if (state.materials) {
+        Object.values(state.materials).forEach((material) => {
+          if (material.map) material.map.dispose();
+          material.dispose();
+        });
+      }
+      if (state.meshes) {
+        Object.values(state.meshes).forEach((mesh) => {
+          if (mesh && mesh.geometry && mesh.geometry.dispose) mesh.geometry.dispose();
+        });
+      }
+      state.cleanup.forEach((fn) => fn());
+      state.cleanup = [];
+      overlay.remove();
+      styleEl.remove();
+      if (activeInlinePlayer && activeInlinePlayer.close === close) {
+        activeInlinePlayer = null;
+      }
+    }
+
+    function seekFrom3d(event) {
+      if (!state.video || !Number.isFinite(state.video.duration)) return;
+      if (!event.detail || !event.detail.intersection || !event.detail.intersection.point) return;
+      const point = event.detail.intersection.point.clone();
+      seekTrack3d.object3D.worldToLocal(point);
+      const ratio = clamp((point.x + SEEK_TRACK_WIDTH / 2) / SEEK_TRACK_WIDTH, 0, 1);
+      seekTo(state.video.duration * ratio);
+    }
+
+    function setPanelButtonBehavior(selector, baseColor, hoverColor, handler) {
+      const el = q(selector);
+      el.dataset.baseColor = baseColor;
+      el.setAttribute('material', 'color', baseColor);
+      on(el, 'mouseenter', () => el.setAttribute('material', 'color', hoverColor));
+      on(el, 'mouseleave', () => el.setAttribute('material', 'color', baseColor));
+      on(el, 'click', handler);
+    }
+
+    function bootstrapScene() {
+      sceneEl.removeAttribute('embedded');
+      const surfaceRoot = new THREE.Group();
+      const geometry = buildProjectionGeometry(state.currentMode);
+      const previewMesh = new THREE.Mesh(geometry.clone(), new THREE.MeshBasicMaterial({ color: 0x01070c, side: THREE.BackSide }));
+      const leftMesh = new THREE.Mesh(geometry.clone(), new THREE.MeshBasicMaterial({ color: 0x01070c, side: THREE.BackSide }));
+      const rightMesh = new THREE.Mesh(geometry.clone(), new THREE.MeshBasicMaterial({ color: 0x01070c, side: THREE.BackSide }));
+      previewMesh.layers.set(0);
+      leftMesh.layers.set(1);
+      rightMesh.layers.set(2);
+      surfaceRoot.add(previewMesh); surfaceRoot.add(leftMesh); surfaceRoot.add(rightMesh);
+      sceneEl.object3D.add(surfaceRoot);
+      state.surfaceRoot = surfaceRoot;
+      state.meshes = { preview: previewMesh, left: leftMesh, right: rightMesh, currentProjection: state.currentMode.projection };
+      state.textures = {
+        preview: createVideoTexture(state.video),
+        left: createVideoTexture(state.video),
+        right: createVideoTexture(state.video)
+      };
+      state.materials = {
+        preview: createVideoMaterial(state.textures.preview),
+        left: createVideoMaterial(state.textures.left),
+        right: createVideoMaterial(state.textures.right)
+      };
+      previewMesh.material = state.materials.preview;
+      leftMesh.material = state.materials.left;
+      rightMesh.material = state.materials.right;
+      applyProjectionPlacement(state.currentMode);
+      applyMode(state.currentMode.id);
+      updateTimeUi();
+      updateComfortUi();
+      reportXrAvailability();
+    }
+
+    volumeSlider.value = String(state.video.volume || 1);
+
+    on(closeBtn, 'click', close);
+    on(enterVrBtn, 'click', () => {
+      if (state.isImmersive && sceneEl.exitVR) {
+        sceneEl.exitVR().catch(() => {});
+      } else {
+        requestEnterVr();
+      }
+    });
+    on(playBtn, 'click', togglePlay);
+    on(seekBackBtn, 'click', () => seekTo((state.video ? state.video.currentTime : 0) - 10));
+    on(seekFwdBtn, 'click', () => seekTo((state.video ? state.video.currentTime : 0) + 10));
+    on(muteBtn, 'click', toggleMute);
+    on(volumeSlider, 'input', () => {
+      state.video.volume = parseFloat(volumeSlider.value);
+      if (state.video.volume > 0) state.video.muted = false;
+      updateButtonLabels();
+    });
+    on(seekInput, 'pointerdown', () => { state.isSeeking = true; });
+    on(seekInput, 'pointerup', () => {
+      state.isSeeking = false;
+      if (!state.video || !Number.isFinite(state.video.duration)) return;
+      seekTo(state.video.duration * (parseFloat(seekInput.value) / 1000));
+    });
+    on(seekInput, 'input', () => {
+      if (!state.video || !Number.isFinite(state.video.duration)) return;
+      const previewTime = state.video.duration * (parseFloat(seekInput.value) / 1000);
+      const label = `${formatTime(previewTime)} / ${formatTime(state.video.duration)}`;
+      timeDisplay.textContent = label;
+      setText3d(seekTime3d, label);
+      updateSeekFill(seekPlayed3d, parseFloat(seekInput.value) / 1000, '#38bdf8', '0.03');
+    });
+
+    setPanelButtonBehavior('[data-role="panel-exit"]', '#3b0b19', '#5c1025', close);
+    setPanelButtonBehavior('[data-role="panel-back"]', '#13283a', '#1b3951', () => seekTo((state.video ? state.video.currentTime : 0) - 10));
+    setPanelButtonBehavior('[data-role="panel-play"]', '#11415a', '#15597a', togglePlay);
+    setPanelButtonBehavior('[data-role="panel-forward"]', '#13283a', '#1b3951', () => seekTo((state.video ? state.video.currentTime : 0) + 10));
+    setPanelButtonBehavior('[data-role="panel-vr"]', '#0a4a3d', '#0e6b58', () => {
+      if (state.isImmersive && sceneEl.exitVR) sceneEl.exitVR().catch(() => {});
+      else requestEnterVr();
+    });
+    setPanelButtonBehavior('[data-role="panel-swap"]', '#13283a', '#1b3951', () => {
+      if (state.currentMode.stereo === 'mono') return;
+      state.swapEyes = !state.swapEyes;
+      applyMode(state.currentMode.id);
+      setStatus(state.swapEyes ? 'Stereo eyes swapped' : 'Stereo eyes restored', false);
+    });
+    setPanelButtonBehavior('[data-role="panel-near"]', '#13283a', '#1b3951', () => { state.panelDistance = clamp(state.panelDistance - 0.15, 1.2, 3.4); updateComfortUi(); });
+    setPanelButtonBehavior('[data-role="panel-far"]', '#13283a', '#1b3951', () => { state.panelDistance = clamp(state.panelDistance + 0.15, 1.2, 3.4); updateComfortUi(); });
+    setPanelButtonBehavior('[data-role="panel-scale-down"]', '#13283a', '#1b3951', () => { state.panelScale = clamp(state.panelScale - 0.08, 0.7, 1.55); updateComfortUi(); });
+    setPanelButtonBehavior('[data-role="panel-scale-up"]', '#13283a', '#1b3951', () => { state.panelScale = clamp(state.panelScale + 0.08, 0.7, 1.55); updateComfortUi(); });
+    setPanelButtonBehavior('[data-role="seek-track"]', '#102131', '#163248', seekFrom3d);
+
+    ['loadedmetadata', 'durationchange', 'timeupdate', 'progress', 'volumechange'].forEach((eventName) => on(state.video, eventName, () => {
+      updateTimeUi();
+      updateButtonLabels();
+    }));
+    on(state.video, 'waiting', () => setStatus('Buffering...', true));
+    on(state.video, 'stalled', () => setStatus('Network stalled', true));
+    on(state.video, 'canplay', () => setStatus('Ready - tap Enter VR', true));
+    on(state.video, 'playing', () => { setStatus('Playing', false); updateButtonLabels(); });
+    on(state.video, 'pause', () => { setStatus('Paused', false); updateButtonLabels(); });
+
+    on(sceneEl, 'renderstart', configureStereoLayers);
+    on(sceneEl, 'enter-vr', () => { state.isImmersive = true; updateButtonLabels(); updateSurfaceVisibility(); setStatus('Immersive VR active', false); });
+    on(sceneEl, 'exit-vr', () => { state.isImmersive = false; updateButtonLabels(); updateSurfaceVisibility(); setStatus('Exited immersive VR', false); });
+
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') { event.preventDefault(); close(); return; }
+      if (event.key === ' ') { event.preventDefault(); togglePlay(); }
+      else if (event.key === 'ArrowLeft') { event.preventDefault(); seekTo(state.video.currentTime - 10); }
+      else if (event.key === 'ArrowRight') { event.preventDefault(); seekTo(state.video.currentTime + 10); }
+      else if (event.key === 'm' || event.key === 'M') { event.preventDefault(); toggleMute(); }
+      else if (event.key === 'v' || event.key === 'V') { event.preventDefault(); requestEnterVr(); }
+      else if (event.key === 'x' || event.key === 'X') { event.preventDefault(); if (state.currentMode.stereo !== 'mono') { state.swapEyes = !state.swapEyes; applyMode(state.currentMode.id); } }
+    };
+    on(document, 'keydown', onKeyDown);
+
+    if (sceneEl.hasLoaded) bootstrapScene();
+    else on(sceneEl, 'loaded', bootstrapScene);
+
+    updateComfortUi();
+    updateModeUi();
+    updateTimeUi();
+    setStatus('Initializing VR player...', true);
+
+    return { close };
+  }
+
+  async function openInlinePlayer(modeId) {
+    const jellyfinVideo = getCurrentJellyfinVideo();
+    if (!jellyfinVideo || !(jellyfinVideo.currentSrc || jellyfinVideo.src)) {
+      window.alert('No video is currently playing in Jellyfin. Start playback first.');
+      return;
+    }
+
+    if (activeInlinePlayer) {
+      activeInlinePlayer.close();
+    }
+
+    localStorage.setItem(STORAGE_KEYS.lastMode, modeId);
+
+    try {
+      await ensureAFrameLoaded();
+    } catch (error) {
+      window.alert('Failed to load the VR runtime.');
+      return;
+    }
+
+    const styleEl = document.createElement('style');
+    styleEl.id = 'jfvr-inline-style';
+    styleEl.textContent = INLINE_PLAYER_STYLE;
+    document.head.appendChild(styleEl);
+
+    const overlay = document.createElement('div');
+    overlay.id = 'jfvr-inline-overlay';
+    overlay.innerHTML = INLINE_PLAYER_HTML;
+    document.body.appendChild(overlay);
+
+    activeInlinePlayer = createInlinePlayerRuntime(overlay, styleEl, jellyfinVideo, modeId);
+  }
+
   function requestPlayerState(playerWindow) {
     return new Promise((resolve) => {
       if (!playerWindow || playerWindow.closed) {
@@ -1864,117 +2638,7 @@
   }
 
   function openPlayer(modeId) {
-    const playback = getCurrentPlaybackSnapshot();
-    if (!playback) {
-      window.alert('No video is currently playing in Jellyfin. Start playback first.');
-      return;
-    }
-
-    const mode = MODES_BY_ID[modeId] || MODES_BY_ID['360-mono'];
-    localStorage.setItem(STORAGE_KEYS.lastMode, mode.id);
-
-    const jellyfinVideo = getCurrentJellyfinVideo();
-    const hostSession = createHostSession(jellyfinVideo);
-
-    if (jellyfinVideo && !hostSession) {
-      jellyfinVideo.pause();
-    }
-
-    const playerWindow = window.open('', '_blank');
-    if (!playerWindow) {
-      cleanupHostSession(hostSession ? hostSession.id : null, playback);
-      if (jellyfinVideo) {
-        jellyfinVideo.play().catch(() => {});
-      }
-      window.alert('Failed to open the top-level VR player window. Please allow popups for this Jellyfin site in Quest Browser.');
-      return;
-    }
-
-    try {
-      playerWindow.focus();
-    } catch (error) {
-      // ignored
-    }
-
-    try {
-      playerWindow.document.open();
-      playerWindow.document.write(PLAYER_HTML);
-      playerWindow.document.close();
-    } catch (error) {
-      cleanupHostSession(hostSession ? hostSession.id : null, playback);
-      if (jellyfinVideo && !hostSession) {
-        jellyfinVideo.play().catch(() => {});
-      }
-      try {
-        playerWindow.close();
-      } catch (closeError) {
-        // ignored
-      }
-      window.alert('Failed to initialize the VR player window.');
-      return;
-    }
-
-    const overlayState = {
-      closing: false,
-      onMessage: null,
-      closePoll: null,
-      lastPlayerState: null,
-      hostSessionId: hostSession ? hostSession.id : null,
-      initialPayloadSent: false,
-      playerReady: false
-    };
-
-    overlayState.onMessage = (event) => {
-      if (event.source !== playerWindow) return;
-      const data = event.data || {};
-      if (data.type === 'PLAYER_READY') {
-        overlayState.playerReady = true;
-        sendInitialPayload();
-        return;
-      }
-      if (data.type === 'PLAYER_STATE') {
-        overlayState.lastPlayerState = data;
-        return;
-      }
-      if (data.type === 'CLOSE_PLAYER') {
-        closePlayerWindow(playerWindow, jellyfinVideo, overlayState);
-        return;
-      }
-      if (data.type === 'PLAYER_CLOSED') {
-        closePlayerWindow(playerWindow, jellyfinVideo, overlayState);
-      }
-    };
-    window.addEventListener('message', overlayState.onMessage);
-
-    const sendInitialPayload = () => {
-      if (overlayState.closing || playerWindow.closed || overlayState.initialPayloadSent) return;
-      if (!overlayState.playerReady && (!playerWindow.document || playerWindow.document.readyState !== 'complete')) return;
-      overlayState.initialPayloadSent = true;
-      playerWindow.postMessage({
-        type: 'LOAD_VIDEO',
-        src: playback.src,
-        currentTime: playback.currentTime,
-        paused: playback.paused,
-        volume: playback.volume,
-        muted: playback.muted,
-        sessionId: hostSession ? hostSession.id : null,
-        modeId: mode.id,
-        autoEnterVr: false
-      }, '*');
-    };
-
-    window.setTimeout(sendInitialPayload, 500);
-
-    overlayState.closePoll = window.setInterval(() => {
-      if (overlayState.closing) return;
-      if (playerWindow.closed) {
-        restorePlaybackState(jellyfinVideo, overlayState.lastPlayerState || null);
-        cleanupHostSession(overlayState.hostSessionId, overlayState.lastPlayerState || playback);
-        window.removeEventListener('message', overlayState.onMessage);
-        window.clearInterval(overlayState.closePoll);
-        overlayState.closing = true;
-      }
-    }, 500);
+    openInlinePlayer(modeId);
   }
 
   function createVRButton() {
