@@ -315,28 +315,41 @@
             geometry="primitive: ring; radiusInner: 0.010; radiusOuter: 0.016"
             material="shader: flat; color: #7dd3fc; opacity: 0.92"></a-entity>
 
-          <a-entity data-role="ui-root" position="0 -0.38 -1.90" scale="1 1 1">
-            <a-plane width="1.86" height="0.62" color="#05111a" opacity="0.88" material="shader: flat; transparent: true; opacity: 0.88"></a-plane>
-            <a-plane width="1.80" height="0.56" color="#0b1b2a" opacity="0.12" position="0 0 0.001" material="shader: flat; transparent: true; opacity: 0.12"></a-plane>
-            <a-entity data-role="panel-mode" position="0 0.20 0.01" text="value: 360 Mono; align: center; width: 2.5; color: #f8fbff; wrapCount: 28"></a-entity>
-            <a-entity data-role="panel-status" position="0 0.13 0.01" text="value: Initializing...; align: center; width: 2.1; color: #8fb8d8; wrapCount: 34"></a-entity>
-            <a-entity class="clickable" data-role="panel-exit" position="-0.70 0.03 0.02" geometry="primitive: plane; width: 0.20; height: 0.10" material="shader: flat; color: #3b0b19; opacity: 0.95"><a-entity position="0 0 0.01" text="value: Exit; align: center; width: 0.8; color: #ffffff"></a-entity></a-entity>
-            <a-entity class="clickable" data-role="panel-back" position="-0.42 0.03 0.02" geometry="primitive: plane; width: 0.20; height: 0.10" material="shader: flat; color: #13283a; opacity: 0.95"><a-entity position="0 0 0.01" text="value: -10s; align: center; width: 0.8; color: #ffffff"></a-entity></a-entity>
-            <a-entity class="clickable" data-role="panel-play" position="-0.14 0.03 0.02" geometry="primitive: plane; width: 0.20; height: 0.10" material="shader: flat; color: #11415a; opacity: 0.98"><a-entity data-role="panel-play-label" position="0 0 0.01" text="value: Pause; align: center; width: 0.8; color: #ffffff"></a-entity></a-entity>
-            <a-entity class="clickable" data-role="panel-forward" position="0.14 0.03 0.02" geometry="primitive: plane; width: 0.20; height: 0.10" material="shader: flat; color: #13283a; opacity: 0.95"><a-entity position="0 0 0.01" text="value: +10s; align: center; width: 0.8; color: #ffffff"></a-entity></a-entity>
-            <a-entity class="clickable" data-role="panel-vr" position="0.42 0.03 0.02" geometry="primitive: plane; width: 0.20; height: 0.10" material="shader: flat; color: #0a4a3d; opacity: 0.98"><a-entity data-role="panel-vr-label" position="0 0 0.01" text="value: VR; align: center; width: 0.8; color: #ffffff"></a-entity></a-entity>
-            <a-entity class="clickable" data-role="panel-swap" position="0.70 0.03 0.02" geometry="primitive: plane; width: 0.20; height: 0.10" material="shader: flat; color: #13283a; opacity: 0.95"><a-entity data-role="panel-swap-label" position="0 0 0.01" text="value: Swap; align: center; width: 0.8; color: #ffffff"></a-entity></a-entity>
-            <a-entity data-role="panel-comfort" position="0 -0.07 0.01" text="value: UI 1.90m / 1.00x; align: center; width: 2.1; color: #d0e7ff; wrapCount: 32"></a-entity>
-            <a-entity class="clickable" data-role="panel-near" position="-0.42 -0.07 0.02" geometry="primitive: plane; width: 0.18; height: 0.08" material="shader: flat; color: #13283a; opacity: 0.95"><a-entity position="0 0 0.01" text="value: Near; align: center; width: 0.8; color: #ffffff"></a-entity></a-entity>
-            <a-entity class="clickable" data-role="panel-far" position="-0.18 -0.07 0.02" geometry="primitive: plane; width: 0.18; height: 0.08" material="shader: flat; color: #13283a; opacity: 0.95"><a-entity position="0 0 0.01" text="value: Far; align: center; width: 0.8; color: #ffffff"></a-entity></a-entity>
-            <a-entity class="clickable" data-role="panel-scale-down" position="0.18 -0.07 0.02" geometry="primitive: plane; width: 0.18; height: 0.08" material="shader: flat; color: #13283a; opacity: 0.95"><a-entity position="0 0 0.01" text="value: Scale -; align: center; width: 0.8; color: #ffffff"></a-entity></a-entity>
-            <a-entity class="clickable" data-role="panel-scale-up" position="0.42 -0.07 0.02" geometry="primitive: plane; width: 0.18; height: 0.08" material="shader: flat; color: #13283a; opacity: 0.95"><a-entity position="0 0 0.01" text="value: Scale +; align: center; width: 0.8; color: #ffffff"></a-entity></a-entity>
-            <a-entity class="clickable" data-role="seek-track" position="0 -0.20 0.02" geometry="primitive: plane; width: 1.44; height: 0.06" material="shader: flat; color: #102131; opacity: 0.96"></a-entity>
-            <a-entity data-role="seek-buffered" position="-0.72 -0.20 0.025" geometry="primitive: plane; width: 0.001; height: 0.032" material="shader: flat; color: #33536b; opacity: 0.9"></a-entity>
-            <a-entity data-role="seek-played" position="-0.72 -0.20 0.03" geometry="primitive: plane; width: 0.001; height: 0.032" material="shader: flat; color: #38bdf8; opacity: 1"></a-entity>
-            <a-entity data-role="seek-time-3d" position="0 -0.29 0.01" text="value: 0:00 / 0:00; align: center; width: 2.1; color: #d7e8f7"></a-entity>
-          </a-entity>
-        </a-camera>
+</a-camera>
+
+        <a-entity data-role="ui-root" jfvr-ui-manager position="0 -0.38 -1.90" scale="1 1 1">
+          <a-plane width="2.4" height="1.1" color="#03080e" opacity="0.95" material="shader: flat; transparent: true; opacity: 0.95"></a-plane>
+          <a-plane width="2.34" height="1.04" color="#0b1b2a" opacity="0.25" position="0 0 0.005" material="shader: flat; transparent: true; opacity: 0.25"></a-plane>
+
+          <!-- Top Row -->
+          <a-entity data-role="panel-mode" position="-0.85 0.38 0.01" text="value: 360 Mono; align: left; width: 3.5; color: #f8fbff; wrapCount: 40"></a-entity>
+          <a-entity data-role="panel-status" position="0.85 0.38 0.01" text="value: Initializing...; align: right; width: 3.0; color: #8fb8d8; wrapCount: 45"></a-entity>
+          <a-entity data-role="panel-comfort" position="0 0.38 0.01" text="value: UI 1.90m / 1.00x; align: center; width: 2.5; color: #d0e7ff; wrapCount: 32"></a-entity>
+
+          <!-- Seek bar -->
+          <a-entity class="clickable" data-role="seek-track" position="0 0.15 0.02" geometry="primitive: plane; width: 2.1; height: 0.08" material="shader: flat; color: #102131; opacity: 0.96"></a-entity>
+          <a-entity data-role="seek-buffered" position="-1.05 0.15 0.025" geometry="primitive: plane; width: 0.001; height: 0.04" material="shader: flat; color: #33536b; opacity: 0.9"></a-entity>
+          <a-entity data-role="seek-played" position="-1.05 0.15 0.03" geometry="primitive: plane; width: 0.001; height: 0.04" material="shader: flat; color: #38bdf8; opacity: 1"></a-entity>
+          <a-entity data-role="seek-time-3d" position="0.95 0.03 0.01" text="value: 0:00 / 0:00; align: right; width: 2.5; color: #d7e8f7"></a-entity>
+
+          <!-- Main Play Controls -->
+          <a-entity class="clickable" data-role="panel-back" position="-0.40 -0.12 0.02" geometry="primitive: plane; width: 0.30; height: 0.15" material="shader: flat; color: #13283a; opacity: 0.95"><a-entity position="0 0 0.01" text="value: -10s; align: center; width: 1.2; color: #ffffff"></a-entity></a-entity>
+          <a-entity class="clickable" data-role="panel-play" position="0 -0.12 0.02" geometry="primitive: plane; width: 0.35; height: 0.15" material="shader: flat; color: #11415a; opacity: 0.98"><a-entity data-role="panel-play-label" position="0 0 0.01" text="value: Pause; align: center; width: 1.2; color: #ffffff"></a-entity></a-entity>
+          <a-entity class="clickable" data-role="panel-forward" position="0.40 -0.12 0.02" geometry="primitive: plane; width: 0.30; height: 0.15" material="shader: flat; color: #13283a; opacity: 0.95"><a-entity position="0 0 0.01" text="value: +10s; align: center; width: 1.2; color: #ffffff"></a-entity></a-entity>
+
+          <a-entity class="clickable" data-role="panel-vr" position="0.9 -0.12 0.02" geometry="primitive: plane; width: 0.25; height: 0.10" material="shader: flat; color: #0a4a3d; opacity: 0.98"><a-entity data-role="panel-vr-label" position="0 0 0.01" text="value: VR; align: center; width: 0.9; color: #ffffff"></a-entity></a-entity>
+
+          <!-- Bottom Row -->
+          <a-entity class="clickable" data-role="panel-exit" position="-0.90 -0.40 0.02" geometry="primitive: plane; width: 0.25; height: 0.10" material="shader: flat; color: #3b0b19; opacity: 0.95"><a-entity position="0 0 0.01" text="value: Exit; align: center; width: 0.9; color: #ffffff"></a-entity></a-entity>
+          
+          <a-entity class="clickable" data-role="panel-near" position="-0.45 -0.40 0.02" geometry="primitive: plane; width: 0.20; height: 0.10" material="shader: flat; color: #13283a; opacity: 0.95"><a-entity position="0 0 0.01" text="value: Near; align: center; width: 0.8; color: #ffffff"></a-entity></a-entity>
+          <a-entity class="clickable" data-role="panel-far" position="-0.20 -0.40 0.02" geometry="primitive: plane; width: 0.20; height: 0.10" material="shader: flat; color: #13283a; opacity: 0.95"><a-entity position="0 0 0.01" text="value: Far; align: center; width: 0.8; color: #ffffff"></a-entity></a-entity>
+          
+          <a-entity class="clickable" data-role="panel-scale-down" position="0.20 -0.40 0.02" geometry="primitive: plane; width: 0.20; height: 0.10" material="shader: flat; color: #13283a; opacity: 0.95"><a-entity position="0 0 0.01" text="value: Scale -; align: center; width: 0.8; color: #ffffff"></a-entity></a-entity>
+          <a-entity class="clickable" data-role="panel-scale-up" position="0.45 -0.40 0.02" geometry="primitive: plane; width: 0.20; height: 0.10" material="shader: flat; color: #13283a; opacity: 0.95"><a-entity position="0 0 0.01" text="value: Scale +; align: center; width: 0.8; color: #ffffff"></a-entity></a-entity>
+          
+          <a-entity class="clickable" data-role="panel-swap" position="0.90 -0.40 0.02" geometry="primitive: plane; width: 0.25; height: 0.10" material="shader: flat; color: #13283a; opacity: 0.95"><a-entity data-role="panel-swap-label" position="0 0 0.01" text="value: Swap; align: center; width: 0.9; color: #ffffff"></a-entity></a-entity>
+        </a-entity>
       </a-entity>
       <a-entity data-role="left-hand" laser-controls="hand: left" raycaster="objects: .clickable; far: 20; lineColor: #7dd3fc; lineOpacity: 0.7"></a-entity>
       <a-entity data-role="right-hand" laser-controls="hand: right" raycaster="objects: .clickable; far: 20; lineColor: #7dd3fc; lineOpacity: 0.7"></a-entity>
@@ -616,52 +629,41 @@
                     geometry="primitive: ring; radiusInner: 0.010; radiusOuter: 0.016"
                     material="shader: flat; color: #7dd3fc; opacity: 0.92"></a-entity>
 
-                <a-entity id="uiRoot" position="0 -0.38 -1.90" scale="1 1 1">
-                    <a-plane width="1.86" height="0.62" color="#05111a" opacity="0.88" material="shader: flat; transparent: true; opacity: 0.88"></a-plane>
-                    <a-plane width="1.80" height="0.56" color="#0b1b2a" opacity="0.12" position="0 0 0.001" material="shader: flat; transparent: true; opacity: 0.12"></a-plane>
+                </a-camera>
 
-                    <a-entity id="panelModeText" position="0 0.20 0.01" text="value: 360 Mono; align: center; width: 2.5; color: #f8fbff; wrapCount: 28"></a-entity>
-                    <a-entity id="panelStatusText" position="0 0.13 0.01" text="value: Loading...; align: center; width: 2.1; color: #8fb8d8; wrapCount: 34"></a-entity>
+        <a-entity id="uiRoot" jfvr-ui-manager position="0 -0.38 -1.90" scale="1 1 1">
+          <a-plane width="2.4" height="1.1" color="#03080e" opacity="0.95" material="shader: flat; transparent: true; opacity: 0.95"></a-plane>
+          <a-plane width="2.34" height="1.04" color="#0b1b2a" opacity="0.25" position="0 0 0.005" material="shader: flat; transparent: true; opacity: 0.25"></a-plane>
 
-                    <a-entity id="uiExit3d" class="clickable" position="-0.70 0.03 0.02" geometry="primitive: plane; width: 0.20; height: 0.10" material="shader: flat; color: #3b0b19; opacity: 0.95">
-                        <a-entity id="uiExit3dLabel" position="0 0 0.01" text="value: Exit; align: center; width: 0.8; color: #ffffff"></a-entity>
-                    </a-entity>
-                    <a-entity id="uiSeekBack3d" class="clickable" position="-0.42 0.03 0.02" geometry="primitive: plane; width: 0.20; height: 0.10" material="shader: flat; color: #13283a; opacity: 0.95">
-                        <a-entity id="uiSeekBack3dLabel" position="0 0 0.01" text="value: -10s; align: center; width: 0.8; color: #ffffff"></a-entity>
-                    </a-entity>
-                    <a-entity id="uiPlay3d" class="clickable" position="-0.14 0.03 0.02" geometry="primitive: plane; width: 0.20; height: 0.10" material="shader: flat; color: #11415a; opacity: 0.98">
-                        <a-entity id="uiPlay3dLabel" position="0 0 0.01" text="value: Pause; align: center; width: 0.8; color: #ffffff"></a-entity>
-                    </a-entity>
-                    <a-entity id="uiSeekFwd3d" class="clickable" position="0.14 0.03 0.02" geometry="primitive: plane; width: 0.20; height: 0.10" material="shader: flat; color: #13283a; opacity: 0.95">
-                        <a-entity id="uiSeekFwd3dLabel" position="0 0 0.01" text="value: +10s; align: center; width: 0.8; color: #ffffff"></a-entity>
-                    </a-entity>
-                    <a-entity id="uiEnterVr3d" class="clickable" position="0.42 0.03 0.02" geometry="primitive: plane; width: 0.20; height: 0.10" material="shader: flat; color: #0a4a3d; opacity: 0.98">
-                        <a-entity id="uiEnterVr3dLabel" position="0 0 0.01" text="value: VR; align: center; width: 0.8; color: #ffffff"></a-entity>
-                    </a-entity>
-                    <a-entity id="uiSwap3d" class="clickable" position="0.70 0.03 0.02" geometry="primitive: plane; width: 0.20; height: 0.10" material="shader: flat; color: #13283a; opacity: 0.95">
-                        <a-entity id="uiSwap3dLabel" position="0 0 0.01" text="value: Swap; align: center; width: 0.8; color: #ffffff"></a-entity>
-                    </a-entity>
+          <!-- Top Row -->
+          <a-entity id="panelModeText" position="-0.85 0.38 0.01" text="value: 360 Mono; align: left; width: 3.5; color: #f8fbff; wrapCount: 40"></a-entity>
+          <a-entity id="panelStatusText" position="0.85 0.38 0.01" text="value: Initializing...; align: right; width: 3.0; color: #8fb8d8; wrapCount: 45"></a-entity>
+          <a-entity id="comfortText3d" position="0 0.38 0.01" text="value: UI 1.90m / 1.00x; align: center; width: 2.5; color: #d0e7ff; wrapCount: 32"></a-entity>
 
-                    <a-entity id="comfortText3d" position="0 -0.07 0.01" text="value: UI 1.90m / 1.00x; align: center; width: 2.1; color: #d0e7ff; wrapCount: 32"></a-entity>
-                    <a-entity id="uiNear3d" class="clickable" position="-0.42 -0.07 0.02" geometry="primitive: plane; width: 0.18; height: 0.08" material="shader: flat; color: #13283a; opacity: 0.95">
-                        <a-entity position="0 0 0.01" text="value: Near; align: center; width: 0.8; color: #ffffff"></a-entity>
-                    </a-entity>
-                    <a-entity id="uiFar3d" class="clickable" position="-0.18 -0.07 0.02" geometry="primitive: plane; width: 0.18; height: 0.08" material="shader: flat; color: #13283a; opacity: 0.95">
-                        <a-entity position="0 0 0.01" text="value: Far; align: center; width: 0.8; color: #ffffff"></a-entity>
-                    </a-entity>
-                    <a-entity id="uiScaleDown3d" class="clickable" position="0.18 -0.07 0.02" geometry="primitive: plane; width: 0.18; height: 0.08" material="shader: flat; color: #13283a; opacity: 0.95">
-                        <a-entity position="0 0 0.01" text="value: Scale -; align: center; width: 0.8; color: #ffffff"></a-entity>
-                    </a-entity>
-                    <a-entity id="uiScaleUp3d" class="clickable" position="0.42 -0.07 0.02" geometry="primitive: plane; width: 0.18; height: 0.08" material="shader: flat; color: #13283a; opacity: 0.95">
-                        <a-entity position="0 0 0.01" text="value: Scale +; align: center; width: 0.8; color: #ffffff"></a-entity>
-                    </a-entity>
+          <!-- Seek bar -->
+          <a-entity class="clickable" id="seekTrack3d" position="0 0.15 0.02" geometry="primitive: plane; width: 2.1; height: 0.08" material="shader: flat; color: #102131; opacity: 0.96"></a-entity>
+          <a-entity id="seekBuffered3d" position="-1.05 0.15 0.025" geometry="primitive: plane; width: 0.001; height: 0.04" material="shader: flat; color: #33536b; opacity: 0.9"></a-entity>
+          <a-entity id="seekPlayed3d" position="-1.05 0.15 0.03" geometry="primitive: plane; width: 0.001; height: 0.04" material="shader: flat; color: #38bdf8; opacity: 1"></a-entity>
+          <a-entity id="seekTime3d" position="0.95 0.03 0.01" text="value: 0:00 / 0:00; align: right; width: 2.5; color: #d7e8f7"></a-entity>
 
-                    <a-entity id="seekTrack3d" class="clickable" position="0 -0.20 0.02" geometry="primitive: plane; width: 1.44; height: 0.06" material="shader: flat; color: #102131; opacity: 0.96"></a-entity>
-                    <a-entity id="seekBuffered3d" position="-0.72 -0.20 0.025" geometry="primitive: plane; width: 0.001; height: 0.032" material="shader: flat; color: #33536b; opacity: 0.9"></a-entity>
-                    <a-entity id="seekPlayed3d" position="-0.72 -0.20 0.03" geometry="primitive: plane; width: 0.001; height: 0.032" material="shader: flat; color: #38bdf8; opacity: 1"></a-entity>
-                    <a-entity id="seekTime3d" position="0 -0.29 0.01" text="value: 0:00 / 0:00; align: center; width: 2.1; color: #d7e8f7"></a-entity>
-                </a-entity>
-            </a-camera>
+          <!-- Main Play Controls -->
+          <a-entity class="clickable" id="uiSeekBack3d" position="-0.40 -0.12 0.02" geometry="primitive: plane; width: 0.30; height: 0.15" material="shader: flat; color: #13283a; opacity: 0.95"><a-entity id="uiSeekBack3dLabel" position="0 0 0.01" text="value: -10s; align: center; width: 1.2; color: #ffffff"></a-entity></a-entity>
+          <a-entity class="clickable" id="uiPlay3d" position="0 -0.12 0.02" geometry="primitive: plane; width: 0.35; height: 0.15" material="shader: flat; color: #11415a; opacity: 0.98"><a-entity id="uiPlay3dLabel" position="0 0 0.01" text="value: Pause; align: center; width: 1.2; color: #ffffff"></a-entity></a-entity>
+          <a-entity class="clickable" id="uiSeekFwd3d" position="0.40 -0.12 0.02" geometry="primitive: plane; width: 0.30; height: 0.15" material="shader: flat; color: #13283a; opacity: 0.95"><a-entity id="uiSeekFwd3dLabel" position="0 0 0.01" text="value: +10s; align: center; width: 1.2; color: #ffffff"></a-entity></a-entity>
+
+          <a-entity class="clickable" id="uiEnterVr3d" position="0.9 -0.12 0.02" geometry="primitive: plane; width: 0.25; height: 0.10" material="shader: flat; color: #0a4a3d; opacity: 0.98"><a-entity id="uiEnterVr3dLabel" position="0 0 0.01" text="value: VR; align: center; width: 0.9; color: #ffffff"></a-entity></a-entity>
+
+          <!-- Bottom Row -->
+          <a-entity class="clickable" id="uiExit3d" position="-0.90 -0.40 0.02" geometry="primitive: plane; width: 0.25; height: 0.10" material="shader: flat; color: #3b0b19; opacity: 0.95"><a-entity id="uiExit3dLabel" position="0 0 0.01" text="value: Exit; align: center; width: 0.9; color: #ffffff"></a-entity></a-entity>
+          
+          <a-entity class="clickable" id="uiNear3d" position="-0.45 -0.40 0.02" geometry="primitive: plane; width: 0.20; height: 0.10" material="shader: flat; color: #13283a; opacity: 0.95"><a-entity position="0 0 0.01" text="value: Near; align: center; width: 0.8; color: #ffffff"></a-entity></a-entity>
+          <a-entity class="clickable" id="uiFar3d" position="-0.20 -0.40 0.02" geometry="primitive: plane; width: 0.20; height: 0.10" material="shader: flat; color: #13283a; opacity: 0.95"><a-entity position="0 0 0.01" text="value: Far; align: center; width: 0.8; color: #ffffff"></a-entity></a-entity>
+          
+          <a-entity class="clickable" id="uiScaleDown3d" position="0.20 -0.40 0.02" geometry="primitive: plane; width: 0.20; height: 0.10" material="shader: flat; color: #13283a; opacity: 0.95"><a-entity position="0 0 0.01" text="value: Scale -; align: center; width: 0.8; color: #ffffff"></a-entity></a-entity>
+          <a-entity class="clickable" id="uiScaleUp3d" position="0.45 -0.40 0.02" geometry="primitive: plane; width: 0.20; height: 0.10" material="shader: flat; color: #13283a; opacity: 0.95"><a-entity position="0 0 0.01" text="value: Scale +; align: center; width: 0.8; color: #ffffff"></a-entity></a-entity>
+          
+          <a-entity class="clickable" id="uiSwap3d" position="0.90 -0.40 0.02" geometry="primitive: plane; width: 0.25; height: 0.10" material="shader: flat; color: #13283a; opacity: 0.95"><a-entity id="uiSwap3dLabel" position="0 0 0.01" text="value: Swap; align: center; width: 0.9; color: #ffffff"></a-entity></a-entity>
+        </a-entity>\n        </a-camera>
         </a-entity>
 
         <a-entity id="leftHand" laser-controls="hand: left" raycaster="objects: .clickable; far: 20; lineColor: #7dd3fc; lineOpacity: 0.7"></a-entity>
@@ -726,6 +728,85 @@
             var seekBuffered3d = document.getElementById('seekBuffered3d');
             var seekPlayed3d = document.getElementById('seekPlayed3d');
             var seekTime3d = document.getElementById('seekTime3d');
+
+            
+            if (typeof AFRAME !== 'undefined' && !AFRAME.components['jfvr-ui-manager']) {
+                AFRAME.registerComponent('jfvr-ui-manager', {
+                    schema: { distance: {type: 'number', default: 1.9} },
+                    init: function () {
+                        this.lastInteraction = Date.now();
+                        this.uiVisible = true;
+                        
+                        var self = this;
+                        var wake = function() {
+                            self.lastInteraction = Date.now();
+                            if (!self.uiVisible) {
+                                self.uiVisible = true;
+                                self.el.object3D.visible = true;
+                                self.recenter(); // Recenter on wake
+                            }
+                        };
+                        
+                        this.el.sceneEl.addEventListener('enter-vr', function() {
+                            setTimeout(wake, 300);
+                            setTimeout(function(){ self.recenter(); }, 500);
+                        });
+
+                        document.addEventListener('mousemove', wake);
+                        document.addEventListener('mousedown', wake);
+                        document.addEventListener('keydown', function(e) {
+                            if (e.code === 'Space') self.recenter();
+                            wake();
+                        });
+
+                        this.el.sceneEl.addEventListener('bbuttondown', wake);
+                        this.el.sceneEl.addEventListener('ybuttondown', wake);
+                        this.el.sceneEl.addEventListener('triggerdown', wake); // Trigger on canvas wakes too
+                        this.el.sceneEl.addEventListener('thumbstickdown', function(){ self.recenter(); wake(); });
+
+                        setTimeout(function() {
+                            var hands = document.querySelectorAll('[laser-controls]');
+                            hands.forEach(function(hand) {
+                                hand.addEventListener('bbuttondown', function(){ self.recenter(); wake(); });
+                                hand.addEventListener('ybuttondown', function(){ self.recenter(); wake(); });
+                                hand.addEventListener('gripdown', function(){ self.recenter(); wake(); });
+                                hand.addEventListener('triggerdown', wake);
+                            });
+                        }, 1000);
+                        
+                        this.el.object3D.visible = true;
+                        setTimeout(function() { self.recenter(); }, 500);
+                    },
+                    recenter: function() {
+                        var cam = this.el.sceneEl.camera.el;
+                        if (!cam) return;
+                        var cam3D = cam.object3D;
+                        var euler = new THREE.Euler().setFromQuaternion(cam3D.getWorldQuaternion(new THREE.Quaternion()), 'YXZ');
+                        
+                        this.el.object3D.rotation.set(0, euler.y, 0);
+                        var pos = new THREE.Vector3();
+                        cam3D.getWorldPosition(pos);
+                        
+                        var d = parseFloat(localStorage.getItem('jfvr:ui-distance')) || this.data.distance;
+                        pos.y -= 0.38;
+                        pos.x -= Math.sin(euler.y) * d;
+                        pos.z -= Math.cos(euler.y) * d;
+                        
+                        if (this.el.object3D.parent) {
+                            this.el.object3D.parent.worldToLocal(pos);
+                        }
+                        this.el.object3D.position.copy(pos);
+                    },
+                    tick: function() {
+                        var now = Date.now();
+                        // Auto-hide after 4 seconds of inactivity
+                        if (this.uiVisible && (now - this.lastInteraction > 4000)) {
+                            this.uiVisible = false;
+                            this.el.object3D.visible = false;
+                        }
+                    }
+                });
+            }
 
             var playerState = {
                 currentMode: MODE_MAP['360-mono'],
@@ -836,10 +917,17 @@
                 var comfortText = 'UI ' + panelDistance.toFixed(2) + 'm / ' + panelScale.toFixed(2) + 'x';
                 comfortDisplay.textContent = comfortText;
                 setEntityText(comfortText3d, comfortText);
-                uiRoot.setAttribute('position', '0 -0.38 -' + panelDistance.toFixed(2));
                 uiRoot.object3D.scale.set(panelScale, panelScale, panelScale);
                 localStorage.setItem(STORAGE_KEYS.uiDistance, String(panelDistance));
                 localStorage.setItem(STORAGE_KEYS.uiScale, String(panelScale));
+                
+                // Trigger recenter to adjust the distance appropriately
+                if (uiRoot && uiRoot.components && uiRoot.components['jfvr-ui-manager']) {
+                    uiRoot.components['jfvr-ui-manager'].recenter();
+                } else if (uiRoot && uiRoot.getObject3D && uiRoot.object3D) {
+                    // Fallback to update Z manually if component isn't bound yet
+                    uiRoot.object3D.position.z = -panelDistance;
+                }
             }
 
             function updateButtonLabels() {
@@ -2016,6 +2104,83 @@
   }
 
   function createInlinePlayerRuntime(overlay, styleEl, jellyfinVideo, modeId) {
+    if (typeof AFRAME !== 'undefined' && !AFRAME.components['jfvr-ui-manager']) {
+        AFRAME.registerComponent('jfvr-ui-manager', {
+            schema: { distance: {type: 'number', default: 1.9} },
+            init: function () {
+                this.lastInteraction = Date.now();
+                this.uiVisible = true;
+                
+                var self = this;
+                var wake = function() {
+                    self.lastInteraction = Date.now();
+                    if (!self.uiVisible) {
+                        self.uiVisible = true;
+                        self.el.object3D.visible = true;
+                        self.recenter();
+                    }
+                };
+                
+                this.el.sceneEl.addEventListener('enter-vr', function() {
+                    setTimeout(wake, 300);
+                    setTimeout(function(){ self.recenter(); }, 500);
+                });
+
+                document.addEventListener('mousemove', wake);
+                document.addEventListener('mousedown', wake);
+                document.addEventListener('keydown', function(e) {
+                    if (e.code === 'Space') self.recenter();
+                    wake();
+                });
+
+                this.el.sceneEl.addEventListener('bbuttondown', wake);
+                this.el.sceneEl.addEventListener('ybuttondown', wake);
+                this.el.sceneEl.addEventListener('triggerdown', wake);
+                this.el.sceneEl.addEventListener('thumbstickdown', function(){ self.recenter(); wake(); });
+
+                setTimeout(function() {
+                    var hands = document.querySelectorAll('[laser-controls]');
+                    hands.forEach(function(hand) {
+                        hand.addEventListener('bbuttondown', function(){ self.recenter(); wake(); });
+                        hand.addEventListener('ybuttondown', function(){ self.recenter(); wake(); });
+                        hand.addEventListener('gripdown', function(){ self.recenter(); wake(); });
+                        hand.addEventListener('triggerdown', wake);
+                    });
+                }, 1000);
+                
+                this.el.object3D.visible = true;
+                setTimeout(function() { self.recenter(); }, 500);
+            },
+            recenter: function() {
+                var cam = this.el.sceneEl.camera.el;
+                if (!cam) return;
+                var cam3D = cam.object3D;
+                var euler = new THREE.Euler().setFromQuaternion(cam3D.getWorldQuaternion(new THREE.Quaternion()), 'YXZ');
+                
+                this.el.object3D.rotation.set(0, euler.y, 0);
+                var pos = new THREE.Vector3();
+                cam3D.getWorldPosition(pos);
+                
+                var d = parseFloat(localStorage.getItem('jfvr:ui-distance')) || this.data.distance;
+                pos.y -= 0.38;
+                pos.x -= Math.sin(euler.y) * d;
+                pos.z -= Math.cos(euler.y) * d;
+                
+                if (this.el.object3D.parent) {
+                    this.el.object3D.parent.worldToLocal(pos);
+                }
+                this.el.object3D.position.copy(pos);
+            },
+            tick: function() {
+                var now = Date.now();
+                if (this.uiVisible && (now - this.lastInteraction > 4000)) {
+                    this.uiVisible = false;
+                    this.el.object3D.visible = false;
+                }
+            }
+        });
+    }
+
     const state = {
       currentMode: MODES_BY_ID[modeId] || MODES_BY_ID['360-mono'],
       video: jellyfinVideo,
@@ -2106,10 +2271,15 @@
       const text = `UI ${state.panelDistance.toFixed(2)}m / ${state.panelScale.toFixed(2)}x`;
       comfortDisplay.textContent = text;
       setText3d(panelComfortText, text);
-      uiRoot.setAttribute('position', `0 -0.38 -${state.panelDistance.toFixed(2)}`);
       uiRoot.object3D.scale.set(state.panelScale, state.panelScale, state.panelScale);
       localStorage.setItem(STORAGE_KEYS.uiDistance, String(state.panelDistance));
       localStorage.setItem(STORAGE_KEYS.uiScale, String(state.panelScale));
+      
+      if (uiRoot && uiRoot.components && uiRoot.components['jfvr-ui-manager']) {
+          uiRoot.components['jfvr-ui-manager'].recenter();
+      } else if (uiRoot && uiRoot.getObject3D && uiRoot.object3D) {
+          uiRoot.object3D.position.z = -state.panelDistance;
+      }
     }
 
     function updateButtonLabels() {
