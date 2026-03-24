@@ -302,7 +302,7 @@
       background="color: #000"
       renderer="antialias: true; colorManagement: true"
       xr-mode-ui="enabled: true"
-      webxr="optionalFeatures: local-floor,bounded-floor,unbounded,hand-tracking"
+      webxr="referenceSpaceType: local; optionalFeatures: local-floor,bounded-floor,hand-tracking"
       cursor__mouse="rayOrigin: mouse"
       raycaster__mouse="objects: .clickable; far: 30">
       <a-entity data-role="camera-rig" position="0 0 0">
@@ -601,7 +601,7 @@
         renderer="antialias: true; colorManagement: true"
         embedded
         xr-mode-ui="enabled: true"
-        webxr="requiredFeatures: local-floor; optionalFeatures: bounded-floor,unbounded"
+        webxr="referenceSpaceType: local; optionalFeatures: local-floor,bounded-floor,hand-tracking"
         cursor__mouse="rayOrigin: mouse"
         raycaster__mouse="objects: .clickable; far: 30">
         <a-assets id="assets"></a-assets>
@@ -1161,12 +1161,16 @@
                     var result = sceneEl.enterVR();
                     if (result && typeof result.catch === 'function') {
                         result.catch(function (error) {
-                            var reason = error && error.message ? error.message : 'Tap Enter VR again to retry';
+                            var reason = error && error.cause && error.cause.message
+                                ? error.cause.message
+                                : (error && error.message ? error.message : 'Tap Enter VR again to retry');
                             setStatus('Immersive VR failed: ' + reason, true);
                         });
                     }
                 } catch (error) {
-                    var reason = error && error.message ? error.message : 'Tap Enter VR again to retry';
+                    var reason = error && error.cause && error.cause.message
+                        ? error.cause.message
+                        : (error && error.message ? error.message : 'Tap Enter VR again to retry');
                     setStatus('Immersive VR failed: ' + reason, true);
                 }
             }
@@ -2301,27 +2305,33 @@
       });
     }
 
-    function requestEnterVr() {
-      if (!navigator.xr) {
-        setStatus('WebXR unavailable in this page', true);
-        return;
-      }
+            function requestEnterVr() {
+                if (!navigator.xr) {
+                    setStatus('WebXR unavailable in this page', true);
+                    return;
+                }
       if (!sceneEl.enterVR) {
         setStatus('VR scene is still loading', true);
         return;
       }
-      setStatus('Requesting immersive VR...', true);
-      try {
-        const result = sceneEl.enterVR();
-        if (result && typeof result.catch === 'function') {
-          result.catch((error) => {
-            setStatus(`Immersive VR failed: ${error && error.message ? error.message : 'requestSession failed'}`, true);
-          });
-        }
-      } catch (error) {
-        setStatus(`Immersive VR failed: ${error && error.message ? error.message : 'requestSession failed'}`, true);
-      }
-    }
+                setStatus('Requesting immersive VR...', true);
+                try {
+                    const result = sceneEl.enterVR();
+                    if (result && typeof result.catch === 'function') {
+                        result.catch((error) => {
+                            const reason = error && error.cause && error.cause.message
+                              ? error.cause.message
+                              : (error && error.message ? error.message : 'requestSession failed');
+                            setStatus(`Immersive VR failed: ${reason}`, true);
+                        });
+                    }
+                } catch (error) {
+                    const reason = error && error.cause && error.cause.message
+                      ? error.cause.message
+                      : (error && error.message ? error.message : 'requestSession failed');
+                    setStatus(`Immersive VR failed: ${reason}`, true);
+                }
+            }
 
     function togglePlay() {
       if (!state.video) return;
