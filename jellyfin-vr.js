@@ -1485,11 +1485,11 @@
 
         console.log('[Extended VR] Searching for player controls...');
 
-        // Find the right-side control button container, which is a more stable selector.
-        const controlsContainer = document.querySelector('.player-control-right');
+        // Find the main buttons container based on the user's provided HTML structure.
+        const controlsContainer = document.querySelector('.buttons.focuscontainer-x');
 
         if (!controlsContainer) {
-            console.log('[Extended VR] Could not find controls container (.player-control-right). Aborting button creation.');
+            console.log('[Extended VR] Could not find controls container (.buttons.focuscontainer-x). Aborting button creation.');
             return;
         }
 
@@ -1498,13 +1498,16 @@
         // Create a new button mimicking Jellyfin's native buttons
         const btn = document.createElement('button');
         btn.id = 'vr360-toggleplay';
-        btn.classList.add('button-flat', 'btn-vr'); // Use existing classes for base styling
+        btn.setAttribute('is', 'paper-icon-button-light');
+        // Use classes from other buttons for consistency
+        btn.classList.add('autoSize');
         btn.type = 'button';
         btn.title = 'Extended VR Player';
 
         // Use Material Icons for consistency
         const icon = document.createElement('span');
-        icon.classList.add('material-icons', 'vr_button_icon');
+        // Use classes from other icons for consistency
+        icon.classList.add('xlargePaperIconButton', 'material-icons');
         icon.textContent = 'view_in_ar'; // A fitting icon for VR
         icon.setAttribute('aria-hidden', 'true');
 
@@ -1514,19 +1517,21 @@
         // Add some specific styles for our button
         const style = document.createElement('style');
         style.textContent = `
-            .btn-vr .material-icons {
-                color: #00a4dc; /* Jellyfin blue accent */
-                font-size: 2em; /* Make it a bit larger */
-            }
-            .btn-vr:hover .material-icons {
-                color: #fff;
+            #vr360-toggleplay .material-icons {
+                color: #00a4dc !important; /* Jellyfin blue accent */
             }
         `;
         document.head.appendChild(style);
 
 
-        // Insert the button at the beginning of the right-side controls
-        controlsContainer.insertBefore(btn, controlsContainer.firstChild);
+        // Find the fullscreen button to insert our button before it for a consistent position.
+        const fullscreenButton = controlsContainer.querySelector('.btnFullscreen');
+        if (fullscreenButton) {
+            controlsContainer.insertBefore(btn, fullscreenButton);
+        } else {
+            // Fallback if the fullscreen button isn't found for some reason.
+            controlsContainer.appendChild(btn);
+        }
 
         console.log('[Extended VR] VR button created and injected successfully.');
     }
