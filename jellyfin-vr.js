@@ -1483,65 +1483,52 @@
     function createVRstuff() {
         if (document.getElementById('vr360-toggleplay')) return;
 
-        console.log('[Extended VR] Looking for fullscreen button...');
-        
-        const fullscreenBtn = document.querySelector('.btnFullscreen');
-        console.log('[Extended VR] .btnFullscreen:', fullscreenBtn);
-        
-        const osdButtons = document.querySelector('.osdButtons');
-        console.log('[Extended VR] .osdButtons:', osdButtons);
-        
-        const videoOsd = document.querySelector('.videoOsd');
-        console.log('[Extended VR] .videoOsd:', videoOsd);
-        
-        const endOfScreen = document.querySelector('.endOfScreen');
-        console.log('[Extended VR] .endOfScreen:', endOfScreen);
-        
-        const btnContainer = fullscreenBtn?.parentNode || osdButtons?.parentNode || videoOsd || endOfScreen?.parentNode;
-        
-        if (!btnContainer) {
-            console.log('[Extended VR] Could not find button container');
+        console.log('[Extended VR] Searching for player controls...');
+
+        // Find the right-side control button container, which is a more stable selector.
+        const controlsContainer = document.querySelector('.player-control-right');
+
+        if (!controlsContainer) {
+            console.log('[Extended VR] Could not find controls container (.player-control-right). Aborting button creation.');
             return;
         }
-        
-        console.log('[Extended VR] Using container:', btnContainer);
 
+        console.log('[Extended VR] Found controls container:', controlsContainer);
+
+        // Create a new button mimicking Jellyfin's native buttons
         const btn = document.createElement('button');
         btn.id = 'vr360-toggleplay';
-        btn.setAttribute('is', 'paper-icon-button-light');
-        btn.className = 'autoSize paper-icon-button-light';
+        btn.classList.add('button-flat', 'btn-vr'); // Use existing classes for base styling
+        btn.type = 'button';
         btn.title = 'Extended VR Player';
-        btn.setAttribute('aria-label', 'Extended VR Player');
-        btn.style.cssText = `
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        `;
 
-        const span = document.createElement('span');
-        span.className = 'largePaperIconButton';
-        span.setAttribute('aria-hidden', 'true');
-        span.textContent = 'VR';
-        span.style.cssText = `
-            font-family: 'Noto Sans', sans-serif;
-            font-size: 13px;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-            color: #00a4dc;
-        `;
+        // Use Material Icons for consistency
+        const icon = document.createElement('span');
+        icon.classList.add('material-icons', 'vr_button_icon');
+        icon.textContent = 'view_in_ar'; // A fitting icon for VR
+        icon.setAttribute('aria-hidden', 'true');
 
-        btn.appendChild(span);
+        btn.appendChild(icon);
         btn.onclick = opentheplayer;
-        
-        if (fullscreenBtn && fullscreenBtn.parentNode) {
-            fullscreenBtn.parentNode.insertBefore(btn, fullscreenBtn);
-        } else if (btnContainer.firstChild) {
-            btnContainer.insertBefore(btn, btnContainer.firstChild);
-        } else {
-            btnContainer.appendChild(btn);
-        }
-        
-        console.log('[Extended VR] VR button created successfully');
+
+        // Add some specific styles for our button
+        const style = document.createElement('style');
+        style.textContent = `
+            .btn-vr .material-icons {
+                color: #00a4dc; /* Jellyfin blue accent */
+                font-size: 2em; /* Make it a bit larger */
+            }
+            .btn-vr:hover .material-icons {
+                color: #fff;
+            }
+        `;
+        document.head.appendChild(style);
+
+
+        // Insert the button at the beginning of the right-side controls
+        controlsContainer.insertBefore(btn, controlsContainer.firstChild);
+
+        console.log('[Extended VR] VR button created and injected successfully.');
     }
 
     function removeVRstuff() {
