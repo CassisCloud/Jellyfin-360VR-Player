@@ -509,12 +509,14 @@
                 currentMode: MODE_MAP['360-mono'],
                 video: null,
                 currentSrc: '',
+                hostSessionId: '',
                 textures: null,
                 materials: null,
                 meshes: null,
                 surfaceRoot: null,
                 isImmersive: false,
                 isSeeking: false,
+                syncTimer: null,
                 requestedCurrentTime: 0,
                 lastStatus: 'Loading...',
                 statusSticky: false
@@ -539,6 +541,29 @@
 
             function setEntityText(el, value) {
                 el.setAttribute('text', 'value', value);
+            }
+
+            function getHostSession() {
+                var hostWindow = getHostWindow();
+                if (!hostWindow || !playerState.hostSessionId) return null;
+                var store = hostWindow.__JFVRHostSessions;
+                if (!store) return null;
+                return store[playerState.hostSessionId] || null;
+            }
+
+            function getMasterVideo() {
+                var hostSession = getHostSession();
+                if (hostSession && hostSession.video) {
+                    return hostSession.video;
+                }
+                return playerState.video;
+            }
+
+            function getVolumeTargetVideo() {
+                if (playerState.video) {
+                    return playerState.video;
+                }
+                return getMasterVideo();
             }
 
             function setStatus(text, sticky) {
@@ -573,11 +598,12 @@
             }
 
             function updateButtonLabels() {
-                var video = playerState.video;
+                var video = getMasterVideo();
+                var audioVideo = getVolumeTargetVideo();
                 var paused = !video || video.paused;
                 playPauseBtn.textContent = paused ? 'Play' : 'Pause';
                 setEntityText(uiPlay3dLabel, paused ? 'Play' : 'Pause');
-                muteBtn.textContent = video && video.muted ? 'Unmute' : 'Mute';
+                muteBtn.textContent = audioVideo && audioVideo.muted ? 'Unmute' : 'Mute';
                 var inVr = playerState.isImmersive;
                 enterVrBtn.textContent = inVr ? 'Exit VR' : 'Enter VR';
                 setEntityText(uiEnterVr3dLabel, inVr ? 'Exit VR' : 'VR');
@@ -597,7 +623,7 @@
             }
 
             function updateTimeUi() {
-                var video = playerState.video;
+                var video = getMasterVideo();
                 var duration = video && Number.isFinite(video.duration) ? video.duration : 0;
                 var currentTime = video ? video.currentTime : 0;
                 var ratio = duration > 0 ? currentTime / duration : 0;
@@ -634,7 +660,7 @@
             }
 
             function seekTo(nextTime) {
-                var video = playerState.video;
+                var video = getMasterVideo();
                 if (!video || !Number.isFinite(video.duration)) return;
                 var clampedTime = clamp(nextTime, 0, video.duration);
                 video.currentTime = clampedTime;
@@ -812,8 +838,14 @@
             }
 
             function destroyVideoResources() {
+                if (playerState.syncTimer) {
+                    clearInterval(playerState.syncTimer);
+                    playerState.syncTimer = null;
+                }
+
                 if (playerState.video) {
                     playerState.video.pause();
+                    playerState.video.srcObject = null;
                     playerState.video.removeAttribute('src');
                     playerState.video.load();
                     if (playerState.video.parentNode) {
@@ -830,6 +862,7 @@
                 }
 
                 playerState.video = null;
+                playerState.hostSessionId = '';
                 playerState.materials = null;
                 playerState.textures = null;
             }
@@ -892,6 +925,7 @@
                 swapEyes = false;
                 playerState.requestedCurrentTime = Number(payload.currentTime) || 0;
                 playerState.currentSrc = payload.src || '';
+                playerState.hostSessionId = payload.sessionId || '';
 
                 var video = document.createElement('video');
                 video.id = 'jfvr-video';
@@ -907,7 +941,13 @@
                 video.volume = clamp(Number.isFinite(initialVolume) ? initialVolume : (parseFloat(volumeSlider.value) || 1), 0, 1);
                 video.muted = Boolean(payload.muted);
                 volumeSlider.value = String(video.volume || 0);
-                video.src = payload.src;
+
+                var hostSession = getHostSession();
+                if (hostSession && hostSession.stream) {
+                    video.srcObject = hostSession.stream;
+                } else {
+                    video.src = payload.src;
+                }
 
                 assetsEl.appendChild(video);
                 wireVideoEvents(video);
@@ -931,7 +971,12 @@
                 applyMode(payload.modeId || '360-mono');
                 updateTimeUi();
                 updateButtonLabels();
-                setStatus('Loading stream...', true);
+                setStatus(hostSession && hostSession.stream ? 'Mirroring Jellyfin playback...' : 'Loading stream...', true);
+
+                playerState.syncTimer = setInterval(function () {
+                    updateTimeUi();
+                    updateButtonLabels();
+                }, 250);
 
                 if (payload.paused) {
                     video.pause();
@@ -976,20 +1021,21 @@
             }
 
             function sendPlayerState() {
-                var video = playerState.video;
+                var video = getMasterVideo();
+                var audioVideo = getVolumeTargetVideo();
                 postToHost({
                     type: 'PLAYER_STATE',
                     currentTime: video ? video.currentTime : 0,
                     paused: video ? video.paused : true,
-                    volume: video ? video.volume : 1,
-                    muted: video ? video.muted : false,
+                    volume: audioVideo ? audioVideo.volume : 1,
+                    muted: audioVideo ? audioVideo.muted : false,
                     playbackRate: video ? video.playbackRate : 1,
                     modeId: playerState.currentMode ? playerState.currentMode.id : '360-mono'
                 }, '*');
             }
 
             function togglePlay() {
-                var video = playerState.video;
+                var video = getMasterVideo();
                 if (!video) return;
                 if (video.paused) {
                     var playAttempt = video.play();
@@ -998,14 +1044,20 @@
                             setStatus('Playback blocked by browser', true);
                         });
                     }
+                    if (playerState.video && playerState.video !== video && playerState.video.paused) {
+                        playerState.video.play().catch(function () {});
+                    }
                 } else {
                     video.pause();
+                    if (playerState.video && playerState.video !== video && !playerState.video.paused) {
+                        playerState.video.pause();
+                    }
                 }
                 updateButtonLabels();
             }
 
             function toggleMute() {
-                var video = playerState.video;
+                var video = getVolumeTargetVideo();
                 if (!video) return;
                 video.muted = !video.muted;
                 if (!video.muted && video.volume === 0) {
@@ -1058,7 +1110,7 @@
             }
 
             function seekFrom3dEvent(event) {
-                var video = playerState.video;
+                var video = getMasterVideo();
                 if (!video || !Number.isFinite(video.duration)) return;
                 if (!event.detail || !event.detail.intersection || !event.detail.intersection.point) return;
 
@@ -1099,11 +1151,13 @@
 
                 registerPanelButton(uiExit3d, '#3b0b19', '#5c1025', closePlayer);
                 registerPanelButton(uiSeekBack3d, '#13283a', '#1b3951', function () {
-                    seekTo((playerState.video ? playerState.video.currentTime : 0) - 10);
+                    var video = getMasterVideo();
+                    seekTo((video ? video.currentTime : 0) - 10);
                 });
                 registerPanelButton(uiPlay3d, '#11415a', '#15597a', togglePlay);
                 registerPanelButton(uiSeekFwd3d, '#13283a', '#1b3951', function () {
-                    seekTo((playerState.video ? playerState.video.currentTime : 0) + 10);
+                    var video = getMasterVideo();
+                    seekTo((video ? video.currentTime : 0) + 10);
                 });
                 registerPanelButton(uiEnterVr3d, '#0a4a3d', '#0e6b58', toggleVrSession);
                 registerPanelButton(uiSwap3d, '#13283a', '#1b3951', function () {
@@ -1143,20 +1197,23 @@
 
             playPauseBtn.addEventListener('click', togglePlay);
             seekBackBtn.addEventListener('click', function () {
-                seekTo((playerState.video ? playerState.video.currentTime : 0) - 10);
+                var video = getMasterVideo();
+                seekTo((video ? video.currentTime : 0) - 10);
             });
             seekFwdBtn.addEventListener('click', function () {
-                seekTo((playerState.video ? playerState.video.currentTime : 0) + 10);
+                var video = getMasterVideo();
+                seekTo((video ? video.currentTime : 0) + 10);
             });
             muteBtn.addEventListener('click', toggleMute);
             closeBtn.addEventListener('click', closePlayer);
             enterVrBtn.addEventListener('click', toggleVrSession);
 
             volumeSlider.addEventListener('input', function () {
-                if (!playerState.video) return;
-                playerState.video.volume = parseFloat(volumeSlider.value);
-                if (playerState.video.volume > 0) {
-                    playerState.video.muted = false;
+                var video = getVolumeTargetVideo();
+                if (!video) return;
+                video.volume = parseFloat(volumeSlider.value);
+                if (video.volume > 0) {
+                    video.muted = false;
                 }
                 updateButtonLabels();
             });
@@ -1166,13 +1223,15 @@
             });
             seekInput.addEventListener('pointerup', function () {
                 playerState.isSeeking = false;
-                if (!playerState.video || !Number.isFinite(playerState.video.duration)) return;
-                seekTo(playerState.video.duration * (parseFloat(seekInput.value) / 1000));
+                var video = getMasterVideo();
+                if (!video || !Number.isFinite(video.duration)) return;
+                seekTo(video.duration * (parseFloat(seekInput.value) / 1000));
             });
             seekInput.addEventListener('input', function () {
-                if (!playerState.video || !Number.isFinite(playerState.video.duration)) return;
-                var previewTime = playerState.video.duration * (parseFloat(seekInput.value) / 1000);
-                var label = formatTime(previewTime) + ' / ' + formatTime(playerState.video.duration);
+                var video = getMasterVideo();
+                if (!video || !Number.isFinite(video.duration)) return;
+                var previewTime = video.duration * (parseFloat(seekInput.value) / 1000);
+                var label = formatTime(previewTime) + ' / ' + formatTime(video.duration);
                 timeDisplay.textContent = label;
                 setEntityText(seekTime3d, label);
                 updateSeekFill(seekPlayed3d, parseFloat(seekInput.value) / 1000, '#38bdf8');
@@ -1185,17 +1244,18 @@
                     return;
                 }
 
-                if (!playerState.video) return;
+                var video = getMasterVideo();
+                if (!video) return;
 
                 if (event.key === ' ') {
                     event.preventDefault();
                     togglePlay();
                 } else if (event.key === 'ArrowLeft') {
                     event.preventDefault();
-                    seekTo(playerState.video.currentTime - 10);
+                    seekTo(video.currentTime - 10);
                 } else if (event.key === 'ArrowRight') {
                     event.preventDefault();
-                    seekTo(playerState.video.currentTime + 10);
+                    seekTo(video.currentTime + 10);
                 } else if (event.key === 'm' || event.key === 'M') {
                     event.preventDefault();
                     toggleMute();
@@ -1483,14 +1543,84 @@
 
   function getCurrentPlaybackSnapshot() {
     const video = getCurrentJellyfinVideo();
-    if (!video || !video.src) return null;
+    const currentSrc = video ? (video.currentSrc || video.src) : '';
+    if (!video || !currentSrc) return null;
     return {
-      src: video.src,
+      src: currentSrc,
       currentTime: Number(video.currentTime) || 0,
       paused: video.paused,
       volume: Number(video.volume),
       muted: Boolean(video.muted)
     };
+  }
+
+  function getHostSessionStore() {
+    if (!window.__JFVRHostSessions) {
+      window.__JFVRHostSessions = {};
+    }
+    return window.__JFVRHostSessions;
+  }
+
+  function createHostSession(video) {
+    if (!video) return null;
+
+    const capture = typeof video.captureStream === 'function'
+      ? video.captureStream.bind(video)
+      : (typeof video.mozCaptureStream === 'function' ? video.mozCaptureStream.bind(video) : null);
+
+    if (!capture) {
+      return null;
+    }
+
+    let stream = null;
+    try {
+      stream = capture();
+    } catch (error) {
+      stream = null;
+    }
+
+    if (!stream) {
+      return null;
+    }
+
+    const sessionId = `jfvr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const session = {
+      id: sessionId,
+      video,
+      stream,
+      originalMuted: Boolean(video.muted),
+      originalVolume: Number(video.volume),
+      usingCapture: true
+    };
+
+    video.volume = 0;
+    getHostSessionStore()[sessionId] = session;
+    return session;
+  }
+
+  function cleanupHostSession(sessionId, finalState) {
+    if (!sessionId) return;
+
+    const store = getHostSessionStore();
+    const session = store[sessionId];
+    if (!session) return;
+
+    const video = session.video;
+    if (video) {
+      if (finalState && typeof finalState.volume === 'number') {
+        video.volume = Math.min(1, Math.max(0, finalState.volume));
+      } else if (typeof session.originalVolume === 'number') {
+        video.volume = session.originalVolume;
+      }
+
+      if (finalState && typeof finalState.muted !== 'undefined') {
+        video.muted = Boolean(finalState.muted);
+      } else {
+        video.muted = session.originalMuted;
+      }
+    }
+
+    delete store[sessionId];
   }
 
   function createModeMenuButton(mode) {
@@ -1682,6 +1812,7 @@
     }
 
     restorePlaybackState(jellyfinVideo, playerState);
+    cleanupHostSession(overlayState.hostSessionId, playerState);
 
     window.removeEventListener('message', overlayState.onMessage);
     if (overlayState.closePoll) {
@@ -1708,7 +1839,9 @@
     localStorage.setItem(STORAGE_KEYS.lastMode, mode.id);
 
     const jellyfinVideo = getCurrentJellyfinVideo();
-    if (jellyfinVideo) {
+    const hostSession = createHostSession(jellyfinVideo);
+
+    if (jellyfinVideo && !hostSession) {
       jellyfinVideo.pause();
     }
 
@@ -1717,6 +1850,7 @@
 
     const playerWindow = window.open(blobUrl, '_blank');
     if (!playerWindow) {
+      cleanupHostSession(hostSession ? hostSession.id : null, playback);
       URL.revokeObjectURL(blobUrl);
       if (jellyfinVideo) {
         jellyfinVideo.play().catch(() => {});
@@ -1735,7 +1869,8 @@
       closing: false,
       onMessage: null,
       closePoll: null,
-      lastPlayerState: null
+      lastPlayerState: null,
+      hostSessionId: hostSession ? hostSession.id : null
     };
 
     overlayState.onMessage = (event) => {
@@ -1764,6 +1899,7 @@
         paused: playback.paused,
         volume: playback.volume,
         muted: playback.muted,
+        sessionId: hostSession ? hostSession.id : null,
         modeId: mode.id,
         autoEnterVr: false
       }, '*');
@@ -1776,6 +1912,7 @@
       if (overlayState.closing) return;
       if (playerWindow.closed) {
         restorePlaybackState(jellyfinVideo, overlayState.lastPlayerState || null);
+        cleanupHostSession(overlayState.hostSessionId, overlayState.lastPlayerState || playback);
         window.removeEventListener('message', overlayState.onMessage);
         window.clearInterval(overlayState.closePoll);
         URL.revokeObjectURL(blobUrl);
