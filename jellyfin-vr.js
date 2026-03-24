@@ -843,7 +843,7 @@
             }
 
             function setEntityText(el, value) {
-                el.setAttribute('text', 'value', value);
+                if (el) el.setAttribute('text', { value: value });
             }
 
             function reportXrAvailability() {
@@ -2245,7 +2245,7 @@
     }
 
     function setText3d(el, value) {
-      el.setAttribute('text', 'value', value);
+      if (el) el.setAttribute('text', { value: value });
     }
 
     function clearStatusTimers() {
