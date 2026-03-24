@@ -95,6 +95,24 @@
       projection: '180',
       stereo: 'ou',
       variant: 'half'
+    },
+    {
+      id: '3d-sbs-full',
+      label: '3D Full SBS',
+      shortLabel: '3D SBS',
+      description: 'Stereo theater screen for full side-by-side 3D video.',
+      projection: 'screen',
+      stereo: 'sbs',
+      variant: 'full'
+    },
+    {
+      id: '3d-sbs-half',
+      label: '3D Half SBS',
+      shortLabel: '3D SBS',
+      description: 'Stereo theater screen for half side-by-side 3D video.',
+      projection: 'screen',
+      stereo: 'sbs',
+      variant: 'half'
     }
   ];
 
@@ -350,7 +368,7 @@
                     <div id="timeDisplay">0:00 / 0:00</div>
                 </div>
 
-                <div id="hintText">Quest: tap Enter VR after load. Keyboard: Space play, arrows seek, X swap stereo</div>
+                <div id="hintText">Quest: tap Enter VR after load. X swaps stereo. 3D SBS modes open as a theater screen.</div>
             </div>
         </div>
     </div>
@@ -624,6 +642,16 @@
             }
 
             function getViewportForEye(mode, eye) {
+                if (mode.projection === 'screen') {
+                    if (mode.stereo === 'sbs') {
+                        if (eye === 'right') {
+                            return { offsetX: 0.5, repeatX: 0.5, offsetY: 0, repeatY: 1 };
+                        }
+                        return { offsetX: 0, repeatX: 0.5, offsetY: 0, repeatY: 1 };
+                    }
+                    return { offsetX: 0, repeatX: 1, offsetY: 0, repeatY: 1 };
+                }
+
                 var stereo = mode.stereo;
                 if (stereo === 'mono') {
                     return { offsetX: 1, repeatX: -1, offsetY: 0, repeatY: 1 };
@@ -642,6 +670,13 @@
                 return { offsetX: 1, repeatX: -1, offsetY: 0.5, repeatY: 0.5 };
             }
 
+            function getPreviewViewport(mode, leftEye) {
+                if (mode.projection === 'screen') {
+                    return { offsetX: 0, repeatX: 1, offsetY: 0, repeatY: 1 };
+                }
+                return getViewportForEye(mode, leftEye);
+            }
+
             function applyViewport(material, viewport) {
                 if (!material || !material.map) return;
                 material.map.wrapS = THREE.ClampToEdgeWrapping;
@@ -653,11 +688,37 @@
             }
 
             function buildProjectionGeometry(mode) {
+                if (mode.projection === 'screen') {
+                    return new THREE.PlaneGeometry(18, 10.125, 1, 1);
+                }
                 var radius = 32;
                 if (mode.projection === '180') {
                     return new THREE.SphereGeometry(radius, 96, 64, 0, Math.PI, 0, Math.PI);
                 }
                 return new THREE.SphereGeometry(radius, 96, 64);
+            }
+
+            function applyProjectionPlacement(mode) {
+                if (!playerState.surfaceRoot) return;
+
+                if (mode.projection === 'screen') {
+                    playerState.surfaceRoot.position.set(0, 1.6, -12);
+                    playerState.surfaceRoot.rotation.set(0, 0, 0);
+                    return;
+                }
+
+                playerState.surfaceRoot.position.set(0, 0, 0);
+                playerState.surfaceRoot.rotation.set(0, Math.PI, 0);
+            }
+
+            function applyProjectionMaterialSettings(mode) {
+                if (!playerState.materials) return;
+
+                var side = mode.projection === 'screen' ? THREE.FrontSide : THREE.BackSide;
+                Object.keys(playerState.materials).forEach(function (key) {
+                    playerState.materials[key].side = side;
+                    playerState.materials[key].needsUpdate = true;
+                });
             }
 
             function createVideoTexture(video) {
@@ -740,7 +801,9 @@
 
                 var leftEye = swapEyes ? 'right' : 'left';
                 var rightEye = swapEyes ? 'left' : 'right';
-                applyViewport(playerState.materials.preview, getViewportForEye(mode, leftEye));
+                applyProjectionPlacement(mode);
+                applyProjectionMaterialSettings(mode);
+                applyViewport(playerState.materials.preview, getPreviewViewport(mode, leftEye));
                 applyViewport(playerState.materials.left, getViewportForEye(mode, leftEye));
                 applyViewport(playerState.materials.right, getViewportForEye(mode, rightEye));
 
@@ -984,7 +1047,6 @@
             function bootstrapSurfaces() {
                 if (surfacesReady) return;
                 var surfaceRoot = new THREE.Group();
-                surfaceRoot.rotation.y = Math.PI;
 
                 var geometry = buildProjectionGeometry(playerState.currentMode);
                 var fallbackMaterial = new THREE.MeshBasicMaterial({ color: 0x01070c, side: THREE.BackSide });
@@ -1008,6 +1070,8 @@
                     right: rightMesh,
                     currentProjection: playerState.currentMode.projection
                 };
+
+                applyProjectionPlacement(playerState.currentMode);
 
                 registerPanelButton(uiExit3d, '#3b0b19', '#5c1025', closePlayer);
                 registerPanelButton(uiSeekBack3d, '#13283a', '#1b3951', function () {
@@ -1190,19 +1254,32 @@
     const style = document.createElement('style');
     style.id = 'jfvr-style';
     style.textContent = `
-      #jfvr-mode-menu {
+      #jfvr-mode-backdrop {
         position: fixed;
-        z-index: 100001;
-        width: min(92vw, 430px);
-        max-height: min(78vh, 740px);
-        overflow: auto;
-        border-radius: 22px;
+        inset: 0;
+        z-index: 100000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 18px;
+        background: rgba(2, 6, 12, 0.56);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+      }
+
+      #jfvr-mode-menu {
+        width: min(96vw, 980px);
+        max-height: min(86vh, 860px);
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+        overflow: hidden;
+        border-radius: 26px;
         border: 1px solid rgba(103, 132, 162, 0.28);
         background:
-          radial-gradient(circle at top, rgba(56, 189, 248, 0.18), transparent 32%),
+          radial-gradient(circle at top, rgba(56, 189, 248, 0.16), transparent 34%),
           linear-gradient(180deg, rgba(4, 11, 18, 0.98), rgba(2, 8, 14, 0.98));
         color: #eef7ff;
-        box-shadow: 0 26px 60px rgba(0, 0, 0, 0.52);
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.56);
         backdrop-filter: blur(18px);
         -webkit-backdrop-filter: blur(18px);
       }
@@ -1212,8 +1289,17 @@
       }
 
       .jfvr-menu-head {
-        padding: 18px 20px 12px;
+        display: grid;
+        gap: 10px;
+        padding: 18px 20px 16px;
         border-bottom: 1px solid rgba(103, 132, 162, 0.16);
+      }
+
+      .jfvr-menu-head-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
       }
 
       .jfvr-menu-title {
@@ -1222,21 +1308,44 @@
       }
 
       .jfvr-menu-subtitle {
-        margin-top: 7px;
         color: rgba(211, 227, 242, 0.76);
         font: 500 13px/1.5 "Segoe UI", Arial, sans-serif;
       }
 
-      .jfvr-menu-section {
-        padding: 12px 12px 14px;
+      .jfvr-menu-recommend {
+        align-self: start;
+        border-radius: 999px;
+        padding: 8px 12px;
+        border: 1px solid rgba(56, 189, 248, 0.26);
+        background: rgba(12, 30, 46, 0.78);
+        color: #cdefff;
+        font: 700 11px/1.1 "Segoe UI", Arial, sans-serif;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        white-space: nowrap;
       }
 
-      .jfvr-menu-section + .jfvr-menu-section {
-        border-top: 1px solid rgba(103, 132, 162, 0.12);
+      .jfvr-menu-body {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+        padding: 14px;
+        overflow: auto;
+        align-items: start;
+      }
+
+      .jfvr-menu-section {
+        display: grid;
+        gap: 8px;
+        align-content: start;
+        padding: 12px;
+        border: 1px solid rgba(103, 132, 162, 0.12);
+        border-radius: 18px;
+        background: rgba(8, 16, 25, 0.56);
       }
 
       .jfvr-menu-label {
-        padding: 0 8px 10px;
+        padding: 0 2px 4px;
         color: #7dd3fc;
         font: 700 12px/1 "Segoe UI", Arial, sans-serif;
         letter-spacing: 0.08em;
@@ -1244,12 +1353,11 @@
       }
 
       .jfvr-mode-option {
-        width: 100%;
         display: grid;
-        gap: 5px;
-        padding: 14px 14px;
+        gap: 4px;
+        padding: 12px 12px 11px;
         border: 1px solid rgba(103, 132, 162, 0.16);
-        border-radius: 16px;
+        border-radius: 14px;
         background: rgba(6, 14, 22, 0.78);
         color: inherit;
         cursor: pointer;
@@ -1258,7 +1366,7 @@
       }
 
       .jfvr-mode-option + .jfvr-mode-option {
-        margin-top: 10px;
+        margin-top: 0;
       }
 
       .jfvr-mode-option:hover,
@@ -1273,17 +1381,17 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 10px;
+        gap: 8px;
       }
 
       .jfvr-mode-name {
-        font: 700 15px/1.2 "Segoe UI", Arial, sans-serif;
+        font: 700 14px/1.2 "Segoe UI", Arial, sans-serif;
       }
 
       .jfvr-mode-tag {
         border-radius: 999px;
-        padding: 5px 10px;
-        font: 700 11px/1 "Segoe UI", Arial, sans-serif;
+        padding: 4px 8px;
+        font: 700 10px/1 "Segoe UI", Arial, sans-serif;
         letter-spacing: 0.06em;
         text-transform: uppercase;
         color: #04111b;
@@ -1292,17 +1400,48 @@
 
       .jfvr-mode-desc {
         color: rgba(211, 227, 242, 0.76);
-        font: 500 13px/1.45 "Segoe UI", Arial, sans-serif;
+        font: 500 12px/1.4 "Segoe UI", Arial, sans-serif;
       }
 
       .jfvr-mode-meta {
         color: rgba(148, 163, 184, 0.92);
-        font: 600 12px/1.4 "Segoe UI", Arial, sans-serif;
+        font: 600 11px/1.35 "Segoe UI", Arial, sans-serif;
+      }
+
+      @media (max-width: 960px) {
+        .jfvr-menu-body {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
       }
 
       @media (max-width: 640px) {
+        #jfvr-mode-backdrop {
+          padding: 12px;
+          align-items: stretch;
+        }
+
         #jfvr-mode-menu {
-          width: calc(100vw - 24px);
+          width: 100%;
+          max-height: 100%;
+        }
+
+        .jfvr-menu-head-top {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .jfvr-menu-recommend {
+          white-space: normal;
+        }
+
+        .jfvr-menu-body {
+          grid-template-columns: minmax(0, 1fr);
+          gap: 10px;
+          padding: 10px;
+        }
+
+        .jfvr-menu-section {
+          padding: 10px;
         }
       }
     `;
@@ -1331,7 +1470,9 @@
     button.className = 'jfvr-mode-option';
     button.dataset.modeId = mode.id;
 
-    const modeTag = mode.stereo === 'mono' ? mode.projection + ' Mono' : mode.projection + ' ' + mode.stereo.toUpperCase();
+    const modeTag = mode.projection === 'screen'
+      ? '3D ' + mode.stereo.toUpperCase()
+      : (mode.stereo === 'mono' ? mode.projection + ' Mono' : mode.projection + ' ' + mode.stereo.toUpperCase());
     const variantLabel = mode.variant === 'mono' ? 'Mono' : mode.variant === 'full' ? 'Full layout' : 'Half layout';
 
     button.innerHTML = `
@@ -1358,37 +1499,8 @@
   function removeModeMenu() {
     const existing = document.getElementById('jfvr-mode-menu');
     if (existing) existing.remove();
-    document.removeEventListener('click', onParentDocumentClick, true);
-    window.removeEventListener('resize', positionExistingModeMenu);
-  }
-
-  function positionExistingModeMenu() {
-    const menu = document.getElementById('jfvr-mode-menu');
-    if (!menu || !menu._anchorButton) return;
-    positionModeMenu(menu, menu._anchorButton);
-  }
-
-  function onParentDocumentClick(event) {
-    const menu = document.getElementById('jfvr-mode-menu');
-    if (!menu) return;
-    if (menu.contains(event.target) || (menu._anchorButton && menu._anchorButton.contains(event.target))) {
-      return;
-    }
-    removeModeMenu();
-  }
-
-  function positionModeMenu(menu, anchorButton) {
-    const rect = anchorButton.getBoundingClientRect();
-    const width = Math.min(window.innerWidth - 24, 430);
-    const left = clampNumber(rect.right - width, 12, Math.max(12, window.innerWidth - width - 12));
-    const preferredTop = rect.bottom + 12;
-    const top = preferredTop + 420 > window.innerHeight ? Math.max(12, rect.top - 24) : preferredTop;
-    menu.style.left = `${left}px`;
-    menu.style.top = `${top}px`;
-  }
-
-  function clampNumber(value, min, max) {
-    return Math.min(max, Math.max(min, value));
+    const backdrop = document.getElementById('jfvr-mode-backdrop');
+    if (backdrop) backdrop.remove();
   }
 
   function openModeMenu(anchorButton) {
@@ -1400,16 +1512,24 @@
       return;
     }
 
+    const backdrop = document.createElement('div');
+    backdrop.id = 'jfvr-mode-backdrop';
+
     const menu = document.createElement('div');
     menu.id = 'jfvr-mode-menu';
-    menu._anchorButton = anchorButton;
     const lastMode = localStorage.getItem(STORAGE_KEYS.lastMode) || '180-sbs-half';
 
-    const groups = ['180', '360'].map((projection) => {
+    const groupDefinitions = [
+      { projection: '180', title: '180 VR Modes' },
+      { projection: '360', title: '360 VR Modes' },
+      { projection: 'screen', title: '3D Screen Modes' }
+    ];
+
+    const groups = groupDefinitions.map(({ projection, title }) => {
       const options = VIEW_MODES.filter((mode) => mode.projection === projection);
       const section = document.createElement('div');
       section.className = 'jfvr-menu-section';
-      section.innerHTML = `<div class="jfvr-menu-label">${projection} VR Modes</div>`;
+      section.innerHTML = `<div class="jfvr-menu-label">${title}</div>`;
       options.forEach((mode) => {
         const optionButton = createModeMenuButton(mode);
         if (mode.id === lastMode) {
@@ -1427,16 +1547,31 @@
     const recommended = MODES_BY_ID[lastMode] || MODES_BY_ID['180-sbs-half'];
     menu.innerHTML = `
       <div class="jfvr-menu-head">
-        <div class="jfvr-menu-title">Choose a VR projection</div>
-        <div class="jfvr-menu-subtitle">Pick the layout that matches the video file. Recommended recent mode: <strong>${escapeHtml(recommended.label)}</strong>.</div>
+        <div class="jfvr-menu-head-top">
+          <div>
+            <div class="jfvr-menu-title">Choose a VR projection</div>
+            <div class="jfvr-menu-subtitle">Pick the layout that matches the file. 180 and 360 stay immersive, while 3D SBS opens as a stereo theater screen.</div>
+          </div>
+          <div class="jfvr-menu-recommend">Recommended: ${escapeHtml(recommended.label)}</div>
+        </div>
       </div>
+      <div class="jfvr-menu-body"></div>
     `;
-    groups.forEach((section) => menu.appendChild(section));
+    const body = menu.querySelector('.jfvr-menu-body');
+    groups.forEach((section) => body.appendChild(section));
 
-    document.body.appendChild(menu);
-    positionModeMenu(menu, anchorButton);
-    document.addEventListener('click', onParentDocumentClick, true);
-    window.addEventListener('resize', positionExistingModeMenu);
+    backdrop.addEventListener('click', (event) => {
+      if (event.target === backdrop) {
+        removeModeMenu();
+      }
+    });
+
+    menu.addEventListener('click', (event) => {
+      event.stopPropagation();
+    });
+
+    backdrop.appendChild(menu);
+    document.body.appendChild(backdrop);
   }
 
   function requestPlayerState(iframe) {
