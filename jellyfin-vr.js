@@ -543,6 +543,29 @@
                 el.setAttribute('text', 'value', value);
             }
 
+            function reportXrAvailability() {
+                if (!navigator.xr) {
+                    setStatus('WebXR unavailable in this window', true);
+                    return;
+                }
+
+                if (!navigator.xr.isSessionSupported) {
+                    setStatus('WebXR API is present', false);
+                    return;
+                }
+
+                navigator.xr.isSessionSupported('immersive-vr').then(function (supported) {
+                    if (!supported) {
+                        setStatus('Immersive VR unsupported here', true);
+                    } else if (!playerState.video) {
+                        setStatus('Waiting for stream...', true);
+                    }
+                }).catch(function (error) {
+                    var reason = error && error.message ? error.message : 'XR availability check failed';
+                    setStatus('WebXR check failed: ' + reason, true);
+                });
+            }
+
             function getHostSession() {
                 var hostWindow = getHostWindow();
                 if (!hostWindow || !playerState.hostSessionId) return null;
@@ -903,7 +926,14 @@
             }
 
             function requestEnterVr() {
-                if (!sceneEl.enterVR) return;
+                if (!navigator.xr) {
+                    setStatus('WebXR unavailable in this window', true);
+                    return;
+                }
+                if (!sceneEl.enterVR) {
+                    setStatus('VR scene is still loading', true);
+                    return;
+                }
                 setStatus('Requesting immersive VR...', true);
                 try {
                     var result = sceneEl.enterVR();
@@ -939,11 +969,14 @@
                 video.disableRemotePlayback = true;
                 var initialVolume = parseFloat(payload.volume);
                 video.volume = clamp(Number.isFinite(initialVolume) ? initialVolume : (parseFloat(volumeSlider.value) || 1), 0, 1);
+                video.defaultMuted = Boolean(payload.muted);
                 video.muted = Boolean(payload.muted);
                 volumeSlider.value = String(video.volume || 0);
 
                 var hostSession = getHostSession();
                 if (hostSession && hostSession.stream) {
+                    video.defaultMuted = true;
+                    video.muted = true;
                     video.srcObject = hostSession.stream;
                 } else {
                     video.src = payload.src;
@@ -971,7 +1004,7 @@
                 applyMode(payload.modeId || '360-mono');
                 updateTimeUi();
                 updateButtonLabels();
-                setStatus(hostSession && hostSession.stream ? 'Mirroring Jellyfin playback...' : 'Loading stream...', true);
+                setStatus(hostSession && hostSession.stream ? 'Mirroring Jellyfin playback - audio starts muted' : 'Loading stream...', true);
 
                 playerState.syncTimer = setInterval(function () {
                     updateTimeUi();
@@ -1307,6 +1340,8 @@
                 bootstrapSurfaces();
             }
 
+            reportXrAvailability();
+
             window.addEventListener('message', function (event) {
                 var data = event.data || {};
                 if (data.type === 'LOAD_VIDEO') {
@@ -1331,7 +1366,8 @@
             updateComfortUi();
             updateButtonLabels();
             updateModeUi();
-            setStatus('Waiting for stream...', true);
+            setStatus('Initializing VR player...', true);
+            postToHost({ type: 'PLAYER_READY' });
         })();
     </script>
 </body>
@@ -1798,7 +1834,7 @@
     }
   }
 
-  async function closePlayerWindow(playerWindow, blobUrl, jellyfinVideo, overlayState) {
+  async function closePlayerWindow(playerWindow, jellyfinVideo, overlayState) {
     if (overlayState.closing) return;
     overlayState.closing = true;
 
@@ -1825,7 +1861,6 @@
         // ignored
       }
     }
-    URL.revokeObjectURL(blobUrl);
   }
 
   function openPlayer(modeId) {
@@ -1845,13 +1880,9 @@
       jellyfinVideo.pause();
     }
 
-    const blob = new Blob([PLAYER_HTML], { type: 'text/html' });
-    const blobUrl = URL.createObjectURL(blob);
-
-    const playerWindow = window.open(blobUrl, '_blank');
+    const playerWindow = window.open('', '_blank');
     if (!playerWindow) {
       cleanupHostSession(hostSession ? hostSession.id : null, playback);
-      URL.revokeObjectURL(blobUrl);
       if (jellyfinVideo) {
         jellyfinVideo.play().catch(() => {});
       }
@@ -1865,33 +1896,60 @@
       // ignored
     }
 
+    try {
+      playerWindow.document.open();
+      playerWindow.document.write(PLAYER_HTML);
+      playerWindow.document.close();
+    } catch (error) {
+      cleanupHostSession(hostSession ? hostSession.id : null, playback);
+      if (jellyfinVideo && !hostSession) {
+        jellyfinVideo.play().catch(() => {});
+      }
+      try {
+        playerWindow.close();
+      } catch (closeError) {
+        // ignored
+      }
+      window.alert('Failed to initialize the VR player window.');
+      return;
+    }
+
     const overlayState = {
       closing: false,
       onMessage: null,
       closePoll: null,
       lastPlayerState: null,
-      hostSessionId: hostSession ? hostSession.id : null
+      hostSessionId: hostSession ? hostSession.id : null,
+      initialPayloadSent: false,
+      playerReady: false
     };
 
     overlayState.onMessage = (event) => {
       if (event.source !== playerWindow) return;
       const data = event.data || {};
+      if (data.type === 'PLAYER_READY') {
+        overlayState.playerReady = true;
+        sendInitialPayload();
+        return;
+      }
       if (data.type === 'PLAYER_STATE') {
         overlayState.lastPlayerState = data;
         return;
       }
       if (data.type === 'CLOSE_PLAYER') {
-        closePlayerWindow(playerWindow, blobUrl, jellyfinVideo, overlayState);
+        closePlayerWindow(playerWindow, jellyfinVideo, overlayState);
         return;
       }
       if (data.type === 'PLAYER_CLOSED') {
-        closePlayerWindow(playerWindow, blobUrl, jellyfinVideo, overlayState);
+        closePlayerWindow(playerWindow, jellyfinVideo, overlayState);
       }
     };
     window.addEventListener('message', overlayState.onMessage);
 
     const sendInitialPayload = () => {
-      if (overlayState.closing || playerWindow.closed) return;
+      if (overlayState.closing || playerWindow.closed || overlayState.initialPayloadSent) return;
+      if (!overlayState.playerReady && (!playerWindow.document || playerWindow.document.readyState !== 'complete')) return;
+      overlayState.initialPayloadSent = true;
       playerWindow.postMessage({
         type: 'LOAD_VIDEO',
         src: playback.src,
@@ -1905,8 +1963,7 @@
       }, '*');
     };
 
-    playerWindow.addEventListener('load', sendInitialPayload, { once: true });
-    window.setTimeout(sendInitialPayload, 350);
+    window.setTimeout(sendInitialPayload, 500);
 
     overlayState.closePoll = window.setInterval(() => {
       if (overlayState.closing) return;
@@ -1915,7 +1972,6 @@
         cleanupHostSession(overlayState.hostSessionId, overlayState.lastPlayerState || playback);
         window.removeEventListener('message', overlayState.onMessage);
         window.clearInterval(overlayState.closePoll);
-        URL.revokeObjectURL(blobUrl);
         overlayState.closing = true;
       }
     }, 500);
