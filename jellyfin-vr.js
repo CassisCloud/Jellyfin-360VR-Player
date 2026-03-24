@@ -1,6 +1,8 @@
 (function () {
 
-const PLAYER_HTML = `<!DOCTYPE html>
+    console.log('[Extended VR] Script loading...');
+
+    const PLAYER_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -1481,8 +1483,28 @@ const PLAYER_HTML = `<!DOCTYPE html>
     function createVRstuff() {
         if (document.getElementById('vr360-toggleplay')) return;
 
+        console.log('[Extended VR] Looking for fullscreen button...');
+        
         const fullscreenBtn = document.querySelector('.btnFullscreen');
-        if (!fullscreenBtn) return;
+        console.log('[Extended VR] .btnFullscreen:', fullscreenBtn);
+        
+        const osdButtons = document.querySelector('.osdButtons');
+        console.log('[Extended VR] .osdButtons:', osdButtons);
+        
+        const videoOsd = document.querySelector('.videoOsd');
+        console.log('[Extended VR] .videoOsd:', videoOsd);
+        
+        const endOfScreen = document.querySelector('.endOfScreen');
+        console.log('[Extended VR] .endOfScreen:', endOfScreen);
+        
+        const btnContainer = fullscreenBtn?.parentNode || osdButtons?.parentNode || videoOsd || endOfScreen?.parentNode;
+        
+        if (!btnContainer) {
+            console.log('[Extended VR] Could not find button container');
+            return;
+        }
+        
+        console.log('[Extended VR] Using container:', btnContainer);
 
         const btn = document.createElement('button');
         btn.id = 'vr360-toggleplay';
@@ -1490,6 +1512,11 @@ const PLAYER_HTML = `<!DOCTYPE html>
         btn.className = 'autoSize paper-icon-button-light';
         btn.title = 'Extended VR Player';
         btn.setAttribute('aria-label', 'Extended VR Player');
+        btn.style.cssText = `
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
 
         const span = document.createElement('span');
         span.className = 'largePaperIconButton';
@@ -1500,28 +1527,42 @@ const PLAYER_HTML = `<!DOCTYPE html>
             font-size: 13px;
             font-weight: 700;
             letter-spacing: 0.5px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
+            color: #00a4dc;
         `;
 
         btn.appendChild(span);
         btn.onclick = opentheplayer;
         
-        fullscreenBtn.parentNode.insertBefore(btn, fullscreenBtn);
+        if (fullscreenBtn && fullscreenBtn.parentNode) {
+            fullscreenBtn.parentNode.insertBefore(btn, fullscreenBtn);
+        } else if (btnContainer.firstChild) {
+            btnContainer.insertBefore(btn, btnContainer.firstChild);
+        } else {
+            btnContainer.appendChild(btn);
+        }
+        
+        console.log('[Extended VR] VR button created successfully');
     }
 
     function removeVRstuff() {
         const el = document.getElementById('vr360-toggleplay');
-        if (el) el.remove();
+        if (el) {
+            console.log('[Extended VR] Removing VR button');
+            el.remove();
+        }
     }
 
     function checkForVideo() {
         const vid = document.querySelector('video');
-        const hasVideo = vid && vid.src;
+        const hasVideo = vid && (vid.src || vid.currentSrc || vid.querySelector('source'));
+        
+        console.log('[Extended VR] checkForVideo - video found:', !!vid, 'has source:', !!hasVideo);
         
         if (hasVideo) {
-            if (!document.getElementById('vr360-toggleplay')) createVRstuff();
+            if (!document.getElementById('vr360-toggleplay')) {
+                console.log('[Extended VR] Creating VR button...');
+                createVRstuff();
+            }
         } else {
             removeVRstuff();
         }
@@ -1530,8 +1571,14 @@ const PLAYER_HTML = `<!DOCTYPE html>
     const observer = new MutationObserver(checkForVideo);
 
     function init() {
-        checkForVideo();
-        observer.observe(document.body, { childList: true, subtree: true });
+        try {
+            console.log('[Extended VR] Initializing...');
+            checkForVideo();
+            observer.observe(document.body, { childList: true, subtree: true });
+            console.log('[Extended VR] Observer started');
+        } catch (e) {
+            console.error('[Extended VR] Init error:', e);
+        }
     }
 
     if (document.readyState === 'complete') {
@@ -1539,4 +1586,6 @@ const PLAYER_HTML = `<!DOCTYPE html>
     } else {
         window.addEventListener('load', init);
     }
+    
+    console.log('[Extended VR] Script initialization complete');
 })();
