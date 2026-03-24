@@ -350,7 +350,7 @@
                     <div id="timeDisplay">0:00 / 0:00</div>
                 </div>
 
-                <div id="hintText">Space play/pause, arrows seek, V enter VR, X swap stereo</div>
+                <div id="hintText">Quest: tap Enter VR after load. Keyboard: Space play, arrows seek, X swap stereo</div>
             </div>
         </div>
     </div>
@@ -445,7 +445,7 @@
             var statusTimers = [];
             var pendingPayload = null;
             var surfacesReady = false;
-            var autoEnterRequested = false;
+            var isQuestBrowser = /OculusBrowser/i.test(navigator.userAgent || '');
             var swapEyes = false;
             var panelDistance = clamp(parseFloat(localStorage.getItem(STORAGE_KEYS.uiDistance)) || 1.9, 1.2, 3.4);
             var panelScale = clamp(parseFloat(localStorage.getItem(STORAGE_KEYS.uiScale)) || 1.0, 0.7, 1.55);
@@ -782,7 +782,7 @@
                     }
                     updateTimeUi();
                     updateButtonLabels();
-                    setStatus('Metadata ready', false);
+                    setStatus(isQuestBrowser ? 'Metadata ready - tap Enter VR' : 'Metadata ready', isQuestBrowser);
                 });
 
                 video.addEventListener('durationchange', updateTimeUi);
@@ -806,16 +806,20 @@
                 });
             }
 
-            function requestAutoEnterVr() {
-                if (!autoEnterRequested || !sceneEl.enterVR) return;
-                autoEnterRequested = false;
+            function requestEnterVr() {
+                if (!sceneEl.enterVR) return;
+                setStatus('Requesting immersive VR...', true);
                 try {
                     var result = sceneEl.enterVR();
                     if (result && typeof result.catch === 'function') {
-                        result.catch(function () {});
+                        result.catch(function (error) {
+                            var reason = error && error.message ? error.message : 'Tap Enter VR again to retry';
+                            setStatus('Immersive VR failed: ' + reason, true);
+                        });
                     }
                 } catch (error) {
-                    // ignored - explicit button remains available
+                    var reason = error && error.message ? error.message : 'Tap Enter VR again to retry';
+                    setStatus('Immersive VR failed: ' + reason, true);
                 }
             }
 
@@ -825,7 +829,6 @@
                 swapEyes = false;
                 playerState.requestedCurrentTime = Number(payload.currentTime) || 0;
                 playerState.currentSrc = payload.src || '';
-                autoEnterRequested = Boolean(payload.autoEnterVr);
 
                 var video = document.createElement('video');
                 video.id = 'jfvr-video';
@@ -869,8 +872,7 @@
 
                 if (payload.paused) {
                     video.pause();
-                    setStatus('Paused', false);
-                    requestAutoEnterVr();
+                    setStatus(isQuestBrowser ? 'Paused - tap Enter VR when ready' : 'Paused', isQuestBrowser);
                     return;
                 }
 
@@ -880,8 +882,6 @@
                         setStatus('Tap Play to start video', true);
                     });
                 }
-
-                requestAutoEnterVr();
             }
 
             function closePlayer() {
@@ -936,8 +936,7 @@
                     }
                     return;
                 }
-                autoEnterRequested = true;
-                requestAutoEnterVr();
+                requestEnterVr();
             }
 
             function setClickableState(el, enabled) {
@@ -1153,7 +1152,7 @@
                 playerState.isImmersive = false;
                 updateButtonLabels();
                 updateSurfaceVisibility();
-                setStatus('Exited immersive VR', false);
+                setStatus(isQuestBrowser ? 'Exited immersive VR - tap Enter VR to re-enter' : 'Exited immersive VR', isQuestBrowser);
             });
 
             if (sceneEl.hasLoaded) {
@@ -1600,7 +1599,7 @@
         volume: playback.volume,
         muted: playback.muted,
         modeId: mode.id,
-        autoEnterVr: true
+        autoEnterVr: false
       }, '*');
     });
 
