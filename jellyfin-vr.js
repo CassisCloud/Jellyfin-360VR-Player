@@ -947,13 +947,37 @@
                 }
             }
 
+            function getHostWindow() {
+                if (window.opener && !window.opener.closed) {
+                    return window.opener;
+                }
+                if (window.parent && window.parent !== window) {
+                    return window.parent;
+                }
+                return null;
+            }
+
+            function postToHost(message) {
+                var hostWindow = getHostWindow();
+                if (!hostWindow) return;
+                hostWindow.postMessage(message, '*');
+            }
+
             function closePlayer() {
-                parent.postMessage({ type: 'CLOSE_PLAYER' }, '*');
+                sendPlayerState();
+                postToHost({ type: 'CLOSE_PLAYER' });
+                setTimeout(function () {
+                    try {
+                        window.close();
+                    } catch (error) {
+                        // ignored
+                    }
+                }, 40);
             }
 
             function sendPlayerState() {
                 var video = playerState.video;
-                parent.postMessage({
+                postToHost({
                     type: 'PLAYER_STATE',
                     currentTime: video ? video.currentTime : 0,
                     paused: video ? video.paused : true,
@@ -1237,6 +1261,11 @@
                 if (data.type === 'REQUEST_STATE') {
                     sendPlayerState();
                 }
+            });
+
+            window.addEventListener('pagehide', function () {
+                sendPlayerState();
+                postToHost({ type: 'PLAYER_CLOSED' });
             });
 
             updateComfortUi();
@@ -1574,9 +1603,9 @@
     document.body.appendChild(backdrop);
   }
 
-  function requestPlayerState(iframe) {
+  function requestPlayerState(playerWindow) {
     return new Promise((resolve) => {
-      if (!iframe || !iframe.contentWindow) {
+      if (!playerWindow || playerWindow.closed) {
         resolve(null);
         return;
       }
@@ -1588,7 +1617,7 @@
       }, 500);
 
       const onMessage = (event) => {
-        if (event.source !== iframe.contentWindow) return;
+        if (event.source !== playerWindow) return;
         const data = event.data || {};
         if (data.type !== 'PLAYER_STATE') return;
         cleanup();
@@ -1603,22 +1632,14 @@
       };
 
       window.addEventListener('message', onMessage);
-      iframe.contentWindow.postMessage({ type: 'REQUEST_STATE' }, '*');
+      playerWindow.postMessage({ type: 'REQUEST_STATE' }, '*');
     });
   }
 
-  async function closeOverlay(overlay, iframe, blobUrl, jellyfinVideo, overlayState) {
-    if (overlayState.closing) return;
-    overlayState.closing = true;
+  function restorePlaybackState(jellyfinVideo, playerState) {
+    if (!jellyfinVideo) return;
 
-    let playerState = null;
-    try {
-      playerState = await requestPlayerState(iframe);
-    } catch (error) {
-      playerState = null;
-    }
-
-    if (jellyfinVideo && playerState) {
+    if (playerState) {
       if (Number.isFinite(playerState.currentTime)) {
         try {
           jellyfinVideo.currentTime = playerState.currentTime;
@@ -1642,13 +1663,37 @@
       } else {
         jellyfinVideo.play().catch(() => {});
       }
-    } else if (jellyfinVideo) {
+    } else {
       jellyfinVideo.play().catch(() => {});
     }
+  }
+
+  async function closePlayerWindow(playerWindow, blobUrl, jellyfinVideo, overlayState) {
+    if (overlayState.closing) return;
+    overlayState.closing = true;
+
+    let playerState = overlayState.lastPlayerState || null;
+    if (!playerState) {
+      try {
+        playerState = await requestPlayerState(playerWindow);
+      } catch (error) {
+        playerState = null;
+      }
+    }
+
+    restorePlaybackState(jellyfinVideo, playerState);
 
     window.removeEventListener('message', overlayState.onMessage);
-    document.removeEventListener('keydown', overlayState.onKeyDown);
-    overlay.remove();
+    if (overlayState.closePoll) {
+      window.clearInterval(overlayState.closePoll);
+    }
+    if (playerWindow && !playerWindow.closed) {
+      try {
+        playerWindow.close();
+      } catch (error) {
+        // ignored
+      }
+    }
     URL.revokeObjectURL(blobUrl);
   }
 
@@ -1670,63 +1715,49 @@
     const blob = new Blob([PLAYER_HTML], { type: 'text/html' });
     const blobUrl = URL.createObjectURL(blob);
 
-    const overlay = document.createElement('div');
-    overlay.id = 'jfvr-overlay';
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:100000;background:#000;';
+    const playerWindow = window.open(blobUrl, '_blank');
+    if (!playerWindow) {
+      URL.revokeObjectURL(blobUrl);
+      if (jellyfinVideo) {
+        jellyfinVideo.play().catch(() => {});
+      }
+      window.alert('Failed to open the top-level VR player window. Please allow popups for this Jellyfin site in Quest Browser.');
+      return;
+    }
 
-    const emergencyCloseButton = document.createElement('button');
-    emergencyCloseButton.type = 'button';
-    emergencyCloseButton.textContent = 'Back';
-    emergencyCloseButton.style.cssText = [
-      'position:absolute',
-      'top:16px',
-      'left:16px',
-      'z-index:100001',
-      'padding:10px 16px',
-      'border-radius:999px',
-      'border:1px solid rgba(148,163,184,0.24)',
-      'background:rgba(4,12,20,0.82)',
-      'color:#eef7ff',
-      'font:600 14px "Segoe UI", Arial, sans-serif',
-      'cursor:pointer',
-      'backdrop-filter:blur(14px)',
-      '-webkit-backdrop-filter:blur(14px)'
-    ].join(';');
-
-    const iframe = document.createElement('iframe');
-    iframe.src = blobUrl;
-    iframe.allow = 'autoplay; fullscreen; xr-spatial-tracking';
-    iframe.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none;background:#000;';
+    try {
+      playerWindow.focus();
+    } catch (error) {
+      // ignored
+    }
 
     const overlayState = {
       closing: false,
       onMessage: null,
-      onKeyDown: null
+      closePoll: null,
+      lastPlayerState: null
     };
 
     overlayState.onMessage = (event) => {
-      if (event.source !== iframe.contentWindow) return;
+      if (event.source !== playerWindow) return;
       const data = event.data || {};
+      if (data.type === 'PLAYER_STATE') {
+        overlayState.lastPlayerState = data;
+        return;
+      }
       if (data.type === 'CLOSE_PLAYER') {
-        closeOverlay(overlay, iframe, blobUrl, jellyfinVideo, overlayState);
+        closePlayerWindow(playerWindow, blobUrl, jellyfinVideo, overlayState);
+        return;
+      }
+      if (data.type === 'PLAYER_CLOSED') {
+        closePlayerWindow(playerWindow, blobUrl, jellyfinVideo, overlayState);
       }
     };
     window.addEventListener('message', overlayState.onMessage);
 
-    overlayState.onKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        closeOverlay(overlay, iframe, blobUrl, jellyfinVideo, overlayState);
-      }
-    };
-    document.addEventListener('keydown', overlayState.onKeyDown);
-
-    emergencyCloseButton.addEventListener('click', () => {
-      closeOverlay(overlay, iframe, blobUrl, jellyfinVideo, overlayState);
-    });
-
-    iframe.addEventListener('load', () => {
-      iframe.contentWindow.postMessage({
+    const sendInitialPayload = () => {
+      if (overlayState.closing || playerWindow.closed) return;
+      playerWindow.postMessage({
         type: 'LOAD_VIDEO',
         src: playback.src,
         currentTime: playback.currentTime,
@@ -1736,11 +1767,21 @@
         modeId: mode.id,
         autoEnterVr: false
       }, '*');
-    });
+    };
 
-    overlay.appendChild(emergencyCloseButton);
-    overlay.appendChild(iframe);
-    document.body.appendChild(overlay);
+    playerWindow.addEventListener('load', sendInitialPayload, { once: true });
+    window.setTimeout(sendInitialPayload, 350);
+
+    overlayState.closePoll = window.setInterval(() => {
+      if (overlayState.closing) return;
+      if (playerWindow.closed) {
+        restorePlaybackState(jellyfinVideo, overlayState.lastPlayerState || null);
+        window.removeEventListener('message', overlayState.onMessage);
+        window.clearInterval(overlayState.closePoll);
+        URL.revokeObjectURL(blobUrl);
+        overlayState.closing = true;
+      }
+    }, 500);
   }
 
   function createVRButton() {
