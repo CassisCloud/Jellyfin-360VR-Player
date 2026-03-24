@@ -109,7 +109,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jellyfin VR Player</title>
-    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"><\/script>
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <style>
         :root {
             color-scheme: dark;
@@ -319,7 +319,7 @@
                 width: 80px;
             }
         }
-    <\/style>
+    </style>
 </head>
 <body>
     <div id="hud">
@@ -1181,7 +1181,7 @@
             updateModeUi();
             setStatus('Waiting for stream...', true);
         })();
-    <\/script>
+    </script>
 </body>
 </html>`;
 
