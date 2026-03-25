@@ -293,7 +293,7 @@
           <div class="jfvr-meta" data-role="time">0:00 / 0:00</div>
         </div>
 
-        <div class="jfvr-meta">Quest: tap Enter VR after load. X swaps stereo. 3D SBS opens as a theater screen.</div>
+        <div class="jfvr-meta"></div>
       </div>
     </div>
 
@@ -306,175 +306,224 @@
       cursor__mouse="rayOrigin: mouse"
       raycaster__mouse="objects: .clickable; far: 30">
       <a-entity data-role="camera-rig" position="0 0 0">
-        <a-camera data-role="camera" position="0 1.6 0" look-controls="enabled: true" wasd-controls-enabled="false">
-          <a-entity
-            data-role="gaze-cursor"
-            cursor="fuse: true; fuseTimeout: 800"
-            raycaster="objects: .clickable; far: 20"
-            position="0 0 -1.2"
-            geometry="primitive: ring; radiusInner: 0.008; radiusOuter: 0.012"
-            material="shader: flat; color: #38bdf8; opacity: 0.9"
-            animation__click="property: scale; startEvents: click; easing: easeInCubic; dur: 150; from: 0.1 0.1 0.1; to: 1 1 1"
-            animation__fusing="property: scale; startEvents: fusing; easing: easeInCubic; dur: 800; from: 1 1 1; to: 0.1 0.1 0.1"
-            animation__leave="property: scale; startEvents: mouseleave; easing: easeInCubic; dur: 200; to: 1 1 1"></a-entity>
-        </a-camera>
+        <a-camera data-role="camera" position="0 1.6 0" look-controls="enabled: true" wasd-controls-enabled="false"></a-camera>
 
         <a-entity data-role="ui-root" jfvr-ui-manager position="0 -0.3 -1.6" scale="1 1 1" visible="false">
-          <!-- Main Panel Background with glass morphism effect -->
           <a-entity data-role="ui-panel">
-            <!-- Outer glow effect -->
-            <a-plane width="2.6" height="1.3" color="#0ea5e9" opacity="0.08" 
-              material="shader: flat; transparent: true; opacity: 0.08; blending: additive"
+            <a-plane width="2.2" height="0.88" color="#0ea5e9" opacity="0.06"
+              material="shader: flat; transparent: true; opacity: 0.06; blending: additive"
               position="0 0 -0.02"></a-plane>
-            <!-- Main panel background -->
-            <a-plane width="2.5" height="1.2" color="#0a1520" opacity="0.92" 
-              material="shader: flat; transparent: true; opacity: 0.92"
+            <a-plane width="2.1" height="0.82" color="#060e16" opacity="0.94"
+              material="shader: flat; transparent: true; opacity: 0.94"
               position="0 0 -0.01"></a-plane>
-            <!-- Inner accent border -->
-            <a-plane width="2.46" height="1.16" color="none" 
-              material="shader: flat; wireframe: true; color: #38bdf8; transparent: true; opacity: 0.3"
+            <a-plane width="2.08" height="0.80"
+              material="shader: flat; wireframe: true; color: #1e3a5f; transparent: true; opacity: 0.25"
               position="0 0 0"></a-plane>
           </a-entity>
 
-          <!-- Top Row - Title & Status -->
-          <a-entity data-role="panel-mode" position="-1.05 0.50 0.02" 
-            text="value: 360 Mono; align: left; width: 4; color: #f8fbff; wrapCount: 35; font: dejavu; shader: msdf"></a-entity>
-          <a-entity data-role="panel-status" position="1.05 0.50 0.02" 
-            text="value: Ready; align: right; width: 3.5; color: #7dd3fc; wrapCount: 40; font: dejavu; shader: msdf"></a-entity>
-          <a-entity data-role="panel-comfort" position="0 0.50 0.02" 
-            text="value: UI 1.60m / 1.00x; align: center; width: 3; color: #94a3b8; wrapCount: 28; font: dejavu; shader: msdf"></a-entity>
+          <!-- Row 1: Mode selector + Status -->
+          <a-entity class="clickable" data-role="panel-mode-prev" position="-0.72 0.30 0.02"
+            geometry="primitive: plane; width: 0.16; height: 0.13"
+            material="shader: flat; color: #0f172a; opacity: 0.95; transparent: true"
+            animation__hover="property: scale; to: 1.15 1.15 1; dur: 100; startEvents: mouseenter"
+            animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
+            <a-entity position="0 0 0.01"
+              geometry="primitive: triangle; vertexA: 0.025 0.03 0; vertexB: 0.025 -0.03 0; vertexC: -0.025 0 0"
+              material="shader: flat; color: #7dd3fc; side: double"></a-entity>
+          </a-entity>
 
-          <!-- Seek Bar -->
-          <a-entity class="clickable" data-role="seek-track" position="0 0.28 0.02" 
-            geometry="primitive: plane; width: 2.2; height: 0.06" 
+          <a-troika-text data-role="panel-mode" value="360 Mono" color="#f0f6ff" font-size="0.048"
+            anchor="center" baseline="center" position="0 0.30 0.02" max-width="1.2"
+            outline-width="0.003" outline-color="#000000"></a-troika-text>
+
+          <a-entity class="clickable" data-role="panel-mode-next" position="0.72 0.30 0.02"
+            geometry="primitive: plane; width: 0.16; height: 0.13"
+            material="shader: flat; color: #0f172a; opacity: 0.95; transparent: true"
+            animation__hover="property: scale; to: 1.15 1.15 1; dur: 100; startEvents: mouseenter"
+            animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
+            <a-entity position="0 0 0.01"
+              geometry="primitive: triangle; vertexA: -0.025 0.03 0; vertexB: -0.025 -0.03 0; vertexC: 0.025 0 0"
+              material="shader: flat; color: #7dd3fc; side: double"></a-entity>
+          </a-entity>
+
+          <a-troika-text data-role="panel-status" value="Ready" color="#7dd3fc" font-size="0.032"
+            anchor="right" baseline="center" position="0.98 0.30 0.02" max-width="0.5"
+            outline-width="0.002" outline-color="#000000"></a-troika-text>
+
+          <!-- Row 2: Seek bar + Time -->
+          <a-entity class="clickable" data-role="seek-track" position="0 0.12 0.02"
+            geometry="primitive: plane; width: 1.80; height: 0.05"
             material="shader: flat; color: #1e293b; opacity: 0.98; transparent: true"
-            animation__hover="property: scale; to: 1.02 1.3 1; dur: 150; startEvents: mouseenter"
+            animation__hover="property: scale; to: 1.02 1.4 1; dur: 150; startEvents: mouseenter"
             animation__leave="property: scale; to: 1 1 1; dur: 150; startEvents: mouseleave"></a-entity>
-          <a-entity data-role="seek-buffered" position="-1.1 0.28 0.03" 
-            geometry="primitive: plane; width: 0.001; height: 0.06" 
+          <a-entity data-role="seek-buffered" position="-0.9 0.12 0.025"
+            geometry="primitive: plane; width: 0.001; height: 0.05"
             material="shader: flat; color: #475569; opacity: 0.8"></a-entity>
-          <a-entity data-role="seek-played" position="-1.1 0.28 0.04" 
-            geometry="primitive: plane; width: 0.001; height: 0.06" 
+          <a-entity data-role="seek-played" position="-0.9 0.12 0.03"
+            geometry="primitive: plane; width: 0.001; height: 0.05"
             material="shader: flat; color: #38bdf8; opacity: 1"></a-entity>
-          <a-entity data-role="seek-time-3d" position="1.0 0.18 0.02" 
-            text="value: 0:00 / 0:00; align: right; width: 2.8; color: #d7e8f7; font: dejavu; shader: msdf"></a-entity>
+          <a-troika-text data-role="seek-time-3d" value="0:00 / 0:00" color="#c8ddf0" font-size="0.032"
+            anchor="right" baseline="center" position="0.98 0.03 0.02" max-width="1.0"
+            outline-width="0.002" outline-color="#000000"></a-troika-text>
 
-          <!-- Playback Controls Row -->
-          <a-entity class="clickable" data-role="panel-exit" position="-1.05 -0.08 0.02" 
-            geometry="primitive: plane; width: 0.28; height: 0.18" 
+          <!-- Row 3: Main controls -->
+          <a-entity class="clickable" data-role="panel-exit" position="-0.88 -0.10 0.02"
+            geometry="primitive: plane; width: 0.20; height: 0.17"
             material="shader: flat; color: #450a0a; opacity: 0.95; transparent: true"
-            animation__hover="property: scale; to: 1.1 1.1 1; dur: 100; startEvents: mouseenter"
+            animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
             animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-            <a-entity position="0 0 0.01" 
-              text="value: Exit; align: center; width: 1.4; color: #fecaca; font: dejavu; shader: msdf"></a-entity>
+            <a-entity position="0 0 0.01" rotation="0 0 45"
+              geometry="primitive: plane; width: 0.06; height: 0.012"
+              material="shader: flat; color: #fca5a5; side: double"></a-entity>
+            <a-entity position="0 0 0.01" rotation="0 0 -45"
+              geometry="primitive: plane; width: 0.06; height: 0.012"
+              material="shader: flat; color: #fca5a5; side: double"></a-entity>
           </a-entity>
 
-          <a-entity class="clickable" data-role="panel-back" position="-0.55 -0.08 0.02" 
-            geometry="primitive: plane; width: 0.32; height: 0.18" 
+          <a-entity class="clickable" data-role="panel-back" position="-0.56 -0.10 0.02"
+            geometry="primitive: plane; width: 0.22; height: 0.17"
             material="shader: flat; color: #0f172a; opacity: 0.95; transparent: true"
-            animation__hover="property: scale; to: 1.1 1.1 1; dur: 100; startEvents: mouseenter"
+            animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
             animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-            <a-entity position="0 0 0.01" 
-              text="value: -10s; align: center; width: 1.4; color: #e2e8f0; font: dejavu; shader: msdf"></a-entity>
+            <a-entity position="-0.01 0 0.01"
+              geometry="primitive: triangle; vertexA: 0.02 0.03 0; vertexB: 0.02 -0.03 0; vertexC: -0.02 0 0"
+              material="shader: flat; color: #94a3b8; side: double"></a-entity>
+            <a-entity position="0.03 0 0.01"
+              geometry="primitive: triangle; vertexA: 0.02 0.03 0; vertexB: 0.02 -0.03 0; vertexC: -0.02 0 0"
+              material="shader: flat; color: #94a3b8; side: double"></a-entity>
           </a-entity>
 
-          <a-entity class="clickable" data-role="panel-play" position="0 -0.08 0.02" 
-            geometry="primitive: plane; width: 0.38; height: 0.20" 
+          <a-entity class="clickable" data-role="panel-play" position="-0.22 -0.10 0.02"
+            geometry="primitive: plane; width: 0.26; height: 0.19"
             material="shader: flat; color: #0c4a6e; opacity: 0.98; transparent: true"
-            animation__hover="property: scale; to: 1.1 1.1 1; dur: 100; startEvents: mouseenter"
+            animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
             animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-            <a-entity data-role="panel-play-label" position="0 0 0.01" 
-              text="value: Play; align: center; width: 1.6; color: #7dd3fc; font: dejavu; shader: msdf"></a-entity>
+            <a-entity data-role="play-icon" position="0 0 0.01"
+              geometry="primitive: triangle; vertexA: -0.025 0.035 0; vertexB: -0.025 -0.035 0; vertexC: 0.03 0 0"
+              material="shader: flat; color: #7dd3fc; side: double"></a-entity>
+            <a-entity data-role="pause-icon" position="0 0 0.01" visible="false">
+              <a-entity geometry="primitive: plane; width: 0.014; height: 0.06"
+                material="shader: flat; color: #7dd3fc" position="-0.016 0 0"></a-entity>
+              <a-entity geometry="primitive: plane; width: 0.014; height: 0.06"
+                material="shader: flat; color: #7dd3fc" position="0.016 0 0"></a-entity>
+            </a-entity>
           </a-entity>
 
-          <a-entity class="clickable" data-role="panel-forward" position="0.55 -0.08 0.02" 
-            geometry="primitive: plane; width: 0.32; height: 0.18" 
+          <a-entity class="clickable" data-role="panel-forward" position="0.12 -0.10 0.02"
+            geometry="primitive: plane; width: 0.22; height: 0.17"
             material="shader: flat; color: #0f172a; opacity: 0.95; transparent: true"
-            animation__hover="property: scale; to: 1.1 1.1 1; dur: 100; startEvents: mouseenter"
+            animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
             animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-            <a-entity position="0 0 0.01" 
-              text="value: +10s; align: center; width: 1.4; color: #e2e8f0; font: dejavu; shader: msdf"></a-entity>
+            <a-entity position="-0.03 0 0.01"
+              geometry="primitive: triangle; vertexA: -0.02 0.03 0; vertexB: -0.02 -0.03 0; vertexC: 0.02 0 0"
+              material="shader: flat; color: #94a3b8; side: double"></a-entity>
+            <a-entity position="0.01 0 0.01"
+              geometry="primitive: triangle; vertexA: -0.02 0.03 0; vertexB: -0.02 -0.03 0; vertexC: 0.02 0 0"
+              material="shader: flat; color: #94a3b8; side: double"></a-entity>
           </a-entity>
 
-          <a-entity class="clickable" data-role="panel-vr" position="1.05 -0.08 0.02" 
-            geometry="primitive: plane; width: 0.28; height: 0.18" 
+          <a-entity class="clickable" data-role="panel-vr" position="0.44 -0.10 0.02"
+            geometry="primitive: plane; width: 0.22; height: 0.17"
             material="shader: flat; color: #064e3b; opacity: 0.98; transparent: true"
-            animation__hover="property: scale; to: 1.1 1.1 1; dur: 100; startEvents: mouseenter"
+            animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
             animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-            <a-entity data-role="panel-vr-label" position="0 0 0.01" 
-              text="value: Enter VR; align: center; width: 1.2; color: #6ee7b7; font: dejavu; shader: msdf"></a-entity>
+            <a-troika-text data-role="panel-vr-label" value="VR" color="#6ee7b7" font-size="0.055"
+              anchor="center" baseline="center" position="0 0 0.01"
+              outline-width="0.002" outline-color="#000000"></a-troika-text>
           </a-entity>
 
-          <!-- Bottom Row - Secondary Controls -->
-          <a-entity class="clickable" data-role="panel-mute" position="-0.85 -0.42 0.02" 
-            geometry="primitive: plane; width: 0.26; height: 0.14" 
+          <a-entity class="clickable" data-role="panel-mute" position="0.72 -0.10 0.02"
+            geometry="primitive: plane; width: 0.20; height: 0.17"
             material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
-            animation__hover="property: scale; to: 1.1 1.1 1; dur: 100; startEvents: mouseenter"
+            animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
             animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-            <a-entity data-role="panel-mute-label" position="0 0 0.01" 
-              text="value: Mute; align: center; width: 1.0; color: #cbd5e1; font: dejavu; shader: msdf"></a-entity>
+            <a-entity data-role="mute-icon" position="0 0 0.01">
+              <a-entity geometry="primitive: plane; width: 0.025; height: 0.04"
+                material="shader: flat; color: #cbd5e1" position="-0.012 0 0"></a-entity>
+              <a-entity geometry="primitive: triangle; vertexA: 0 0.025 0; vertexB: 0 -0.025 0; vertexC: 0.03 0 0"
+                material="shader: flat; color: #cbd5e1; side: double" position="0.005 0 0"></a-entity>
+            </a-entity>
+            <a-entity data-role="muted-icon" position="0 0 0.01" visible="false">
+              <a-entity geometry="primitive: plane; width: 0.025; height: 0.04"
+                material="shader: flat; color: #64748b" position="-0.012 0 0"></a-entity>
+              <a-entity geometry="primitive: triangle; vertexA: 0 0.025 0; vertexB: 0 -0.025 0; vertexC: 0.03 0 0"
+                material="shader: flat; color: #64748b; side: double" position="0.005 0 0"></a-entity>
+              <a-entity geometry="primitive: plane; width: 0.06; height: 0.008" rotation="0 0 45"
+                material="shader: flat; color: #fb7185; side: double" position="0 0 0.005"></a-entity>
+            </a-entity>
           </a-entity>
 
-          <a-entity class="clickable" data-role="panel-near" position="-0.40 -0.42 0.02" 
-            geometry="primitive: plane; width: 0.22; height: 0.14" 
+          <a-entity class="clickable" data-role="panel-swap" position="0.98 -0.10 0.02"
+            geometry="primitive: plane; width: 0.20; height: 0.17"
             material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
-            animation__hover="property: scale; to: 1.1 1.1 1; dur: 100; startEvents: mouseenter"
+            animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
             animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-            <a-entity position="0 0 0.01" 
-              text="value: Near; align: center; width: 0.9; color: #cbd5e1; font: dejavu; shader: msdf"></a-entity>
+            <a-entity data-role="swap-icon" position="0 0 0.01">
+              <a-entity geometry="primitive: plane; width: 0.045; height: 0.008"
+                material="shader: flat; color: #cbd5e1" position="0 0.01 0"></a-entity>
+              <a-entity geometry="primitive: triangle; vertexA: -0.008 0.01 0; vertexB: -0.008 -0.01 0; vertexC: 0.008 0 0"
+                material="shader: flat; color: #cbd5e1; side: double" position="0.025 0.01 0"></a-entity>
+              <a-entity geometry="primitive: plane; width: 0.045; height: 0.008"
+                material="shader: flat; color: #cbd5e1" position="0 -0.01 0"></a-entity>
+              <a-entity geometry="primitive: triangle; vertexA: 0.008 0.01 0; vertexB: 0.008 -0.01 0; vertexC: -0.008 0 0"
+                material="shader: flat; color: #cbd5e1; side: double" position="-0.025 -0.01 0"></a-entity>
+            </a-entity>
           </a-entity>
 
-          <a-entity class="clickable" data-role="panel-far" position="-0.12 -0.42 0.02" 
-            geometry="primitive: plane; width: 0.22; height: 0.14" 
+          <!-- Row 4: Settings -->
+          <a-entity class="clickable" data-role="panel-near" position="-0.56 -0.32 0.02"
+            geometry="primitive: plane; width: 0.18; height: 0.13"
             material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
-            animation__hover="property: scale; to: 1.1 1.1 1; dur: 100; startEvents: mouseenter"
+            animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
             animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-            <a-entity position="0 0 0.01" 
-              text="value: Far; align: center; width: 0.9; color: #cbd5e1; font: dejavu; shader: msdf"></a-entity>
+            <a-entity position="0 0 0.01"
+              geometry="primitive: triangle; vertexA: 0.018 0.022 0; vertexB: 0.018 -0.022 0; vertexC: -0.012 0 0"
+              material="shader: flat; color: #94a3b8; side: double"></a-entity>
           </a-entity>
 
-          <a-entity class="clickable" data-role="panel-scale-down" position="0.35 -0.42 0.02" 
-            geometry="primitive: plane; width: 0.22; height: 0.14" 
+          <a-entity class="clickable" data-role="panel-far" position="-0.32 -0.32 0.02"
+            geometry="primitive: plane; width: 0.18; height: 0.13"
             material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
-            animation__hover="property: scale; to: 1.1 1.1 1; dur: 100; startEvents: mouseenter"
+            animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
             animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-            <a-entity position="0 0 0.01" 
-              text="value: -Size; align: center; width: 0.9; color: #cbd5e1; font: dejavu; shader: msdf"></a-entity>
+            <a-entity position="0 0 0.01"
+              geometry="primitive: triangle; vertexA: -0.018 0.022 0; vertexB: -0.018 -0.022 0; vertexC: 0.012 0 0"
+              material="shader: flat; color: #94a3b8; side: double"></a-entity>
           </a-entity>
 
-          <a-entity class="clickable" data-role="panel-scale-up" position="0.62 -0.42 0.02" 
-            geometry="primitive: plane; width: 0.22; height: 0.14" 
+          <a-entity class="clickable" data-role="panel-scale-down" position="0.32 -0.32 0.02"
+            geometry="primitive: plane; width: 0.18; height: 0.13"
             material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
-            animation__hover="property: scale; to: 1.1 1.1 1; dur: 100; startEvents: mouseenter"
+            animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
             animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-            <a-entity position="0 0 0.01" 
-              text="value: +Size; align: center; width: 0.9; color: #cbd5e1; font: dejavu; shader: msdf"></a-entity>
+            <a-entity geometry="primitive: plane; width: 0.035; height: 0.008"
+              material="shader: flat; color: #94a3b8" position="0 0 0.01"></a-entity>
           </a-entity>
 
-          <a-entity class="clickable" data-role="panel-swap" position="1.05 -0.42 0.02" 
-            geometry="primitive: plane; width: 0.28; height: 0.14" 
+          <a-entity class="clickable" data-role="panel-scale-up" position="0.56 -0.32 0.02"
+            geometry="primitive: plane; width: 0.18; height: 0.13"
             material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
-            animation__hover="property: scale; to: 1.1 1.1 1; dur: 100; startEvents: mouseenter"
+            animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
             animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-            <a-entity data-role="panel-swap-label" position="0 0 0.01" 
-              text="value: Swap; align: center; width: 1.0; color: #cbd5e1; font: dejavu; shader: msdf"></a-entity>
+            <a-entity geometry="primitive: plane; width: 0.035; height: 0.008"
+              material="shader: flat; color: #94a3b8" position="0 0 0.01"></a-entity>
+            <a-entity geometry="primitive: plane; width: 0.008; height: 0.035"
+              material="shader: flat; color: #94a3b8" position="0 0 0.01"></a-entity>
           </a-entity>
         </a-entity>
       </a-entity>
 
-      <!-- Controller and Hand Tracking Support -->
-      <a-entity data-role="left-controller" laser-controls="hand: left" 
+      <!-- Laser Controllers -->
+      <a-entity data-role="left-controller" laser-controls="hand: left"
         raycaster="objects: .clickable; far: 20; lineColor: #7dd3fc; lineOpacity: 0.6; showLine: true"
-        cursor="fuse: false"
-        meta-touch-controls="hand: left"
-        hand-controls="hand: left"
-        visible="true"></a-entity>
-      <a-entity data-role="right-controller" laser-controls="hand: right" 
+        cursor="fuse: false"></a-entity>
+      <a-entity data-role="right-controller" laser-controls="hand: right"
         raycaster="objects: .clickable; far: 20; lineColor: #7dd3fc; lineOpacity: 0.6; showLine: true"
-        cursor="fuse: false"
-        meta-touch-controls="hand: right"
-        hand-controls="hand: right"
-        visible="true"></a-entity>
+        cursor="fuse: false"></a-entity>
+
+      <!-- Hand Tracking -->
+      <a-entity data-role="left-hand" hand-tracking-controls="hand: left; modelColor: #394d63"></a-entity>
+      <a-entity data-role="right-hand" hand-tracking-controls="hand: right; modelColor: #394d63"></a-entity>
     </a-scene>
   `;
 
@@ -484,7 +533,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jellyfin VR Player</title>
-    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
+    <script src="https://unpkg.com/aframe-troika-text/dist/aframe-troika-text.min.js"></script>
     <style>
         :root {
             color-scheme: dark;
@@ -725,7 +775,7 @@
                     <div id="timeDisplay">0:00 / 0:00</div>
                 </div>
 
-                <div id="hintText">Quest: tap Enter VR after load. X swaps stereo. 3D SBS modes open as a theater screen.</div>
+                <div id="hintText"></div>
             </div>
         </div>
     </div>
@@ -742,172 +792,224 @@
         <a-assets id="assets"></a-assets>
 
         <a-entity id="cameraRig" position="0 0 0">
-            <a-camera id="camera" position="0 1.6 0" look-controls="enabled: true" wasd-controls-enabled="false">
-                <a-entity
-                    id="gazeCursor"
-                    cursor="fuse: true; fuseTimeout: 800"
-                    raycaster="objects: .clickable; far: 20"
-                    position="0 0 -1.2"
-                    geometry="primitive: ring; radiusInner: 0.008; radiusOuter: 0.012"
-                    material="shader: flat; color: #38bdf8; opacity: 0.9"
-                    animation__click="property: scale; startEvents: click; easing: easeInCubic; dur: 150; from: 0.1 0.1 0.1; to: 1 1 1"
-                    animation__fusing="property: scale; startEvents: fusing; easing: easeInCubic; dur: 800; from: 1 1 1; to: 0.1 0.1 0.1"
-                    animation__leave="property: scale; startEvents: mouseleave; easing: easeInCubic; dur: 200; to: 1 1 1"></a-entity>
-            </a-camera>
+            <a-camera id="camera" position="0 1.6 0" look-controls="enabled: true" wasd-controls-enabled="false"></a-camera>
 
             <a-entity id="uiRoot" jfvr-ui-manager position="0 -0.3 -1.6" scale="1 1 1" visible="false">
-                <!-- Panel Background with glass morphism effect -->
                 <a-entity id="uiPanel">
-                    <a-plane width="2.6" height="1.3" color="#0ea5e9" opacity="0.08" 
-                        material="shader: flat; transparent: true; opacity: 0.08; blending: additive"
+                    <a-plane width="2.2" height="0.88" color="#0ea5e9" opacity="0.06"
+                        material="shader: flat; transparent: true; opacity: 0.06; blending: additive"
                         position="0 0 -0.02"></a-plane>
-                    <a-plane width="2.5" height="1.2" color="#0a1520" opacity="0.92" 
-                        material="shader: flat; transparent: true; opacity: 0.92"
+                    <a-plane width="2.1" height="0.82" color="#060e16" opacity="0.94"
+                        material="shader: flat; transparent: true; opacity: 0.94"
                         position="0 0 -0.01"></a-plane>
-                    <a-plane width="2.46" height="1.16" color="none" 
-                        material="shader: flat; wireframe: true; color: #38bdf8; transparent: true; opacity: 0.3"
+                    <a-plane width="2.08" height="0.80"
+                        material="shader: flat; wireframe: true; color: #1e3a5f; transparent: true; opacity: 0.25"
                         position="0 0 0"></a-plane>
                 </a-entity>
 
-                <!-- Top Row -->
-                <a-entity id="panelModeText" position="-1.05 0.50 0.02" 
-                    text="value: 360 Mono; align: left; width: 4; color: #f8fbff; wrapCount: 35; font: dejavu; shader: msdf"></a-entity>
-                <a-entity id="panelStatusText" position="1.05 0.50 0.02" 
-                    text="value: Ready; align: right; width: 3.5; color: #7dd3fc; wrapCount: 40; font: dejavu; shader: msdf"></a-entity>
-                <a-entity id="comfortText3d" position="0 0.50 0.02" 
-                    text="value: UI 1.60m / 1.00x; align: center; width: 3; color: #94a3b8; wrapCount: 28; font: dejavu; shader: msdf"></a-entity>
+                <!-- Row 1: Mode selector + Status -->
+                <a-entity class="clickable" id="uiModePrev3d" position="-0.72 0.30 0.02"
+                    geometry="primitive: plane; width: 0.16; height: 0.13"
+                    material="shader: flat; color: #0f172a; opacity: 0.95; transparent: true"
+                    animation__hover="property: scale; to: 1.15 1.15 1; dur: 100; startEvents: mouseenter"
+                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
+                    <a-entity position="0 0 0.01"
+                        geometry="primitive: triangle; vertexA: 0.025 0.03 0; vertexB: 0.025 -0.03 0; vertexC: -0.025 0 0"
+                        material="shader: flat; color: #7dd3fc; side: double"></a-entity>
+                </a-entity>
 
-                <!-- Seek bar -->
-                <a-entity class="clickable" id="seekTrack3d" position="0 0.28 0.02" 
-                    geometry="primitive: plane; width: 2.2; height: 0.06" 
+                <a-troika-text id="panelModeText" value="360 Mono" color="#f0f6ff" font-size="0.048"
+                    anchor="center" baseline="center" position="0 0.30 0.02" max-width="1.2"
+                    outline-width="0.003" outline-color="#000000"></a-troika-text>
+
+                <a-entity class="clickable" id="uiModeNext3d" position="0.72 0.30 0.02"
+                    geometry="primitive: plane; width: 0.16; height: 0.13"
+                    material="shader: flat; color: #0f172a; opacity: 0.95; transparent: true"
+                    animation__hover="property: scale; to: 1.15 1.15 1; dur: 100; startEvents: mouseenter"
+                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
+                    <a-entity position="0 0 0.01"
+                        geometry="primitive: triangle; vertexA: -0.025 0.03 0; vertexB: -0.025 -0.03 0; vertexC: 0.025 0 0"
+                        material="shader: flat; color: #7dd3fc; side: double"></a-entity>
+                </a-entity>
+
+                <a-troika-text id="panelStatusText" value="Ready" color="#7dd3fc" font-size="0.032"
+                    anchor="right" baseline="center" position="0.98 0.30 0.02" max-width="0.5"
+                    outline-width="0.002" outline-color="#000000"></a-troika-text>
+
+                <!-- Row 2: Seek bar + Time -->
+                <a-entity class="clickable" id="seekTrack3d" position="0 0.12 0.02"
+                    geometry="primitive: plane; width: 1.80; height: 0.05"
                     material="shader: flat; color: #1e293b; opacity: 0.98; transparent: true"
-                    animation__hover="property: scale; to: 1.02 1.3 1; dur: 150; startEvents: mouseenter"
+                    animation__hover="property: scale; to: 1.02 1.4 1; dur: 150; startEvents: mouseenter"
                     animation__leave="property: scale; to: 1 1 1; dur: 150; startEvents: mouseleave"></a-entity>
-                <a-entity id="seekBuffered3d" position="-1.1 0.28 0.03" 
-                    geometry="primitive: plane; width: 0.001; height: 0.06" 
+                <a-entity id="seekBuffered3d" position="-0.9 0.12 0.025"
+                    geometry="primitive: plane; width: 0.001; height: 0.05"
                     material="shader: flat; color: #475569; opacity: 0.8"></a-entity>
-                <a-entity id="seekPlayed3d" position="-1.1 0.28 0.04" 
-                    geometry="primitive: plane; width: 0.001; height: 0.06" 
+                <a-entity id="seekPlayed3d" position="-0.9 0.12 0.03"
+                    geometry="primitive: plane; width: 0.001; height: 0.05"
                     material="shader: flat; color: #38bdf8; opacity: 1"></a-entity>
-                <a-entity id="seekTime3d" position="1.0 0.18 0.02" 
-                    text="value: 0:00 / 0:00; align: right; width: 2.8; color: #d7e8f7; font: dejavu; shader: msdf"></a-entity>
+                <a-troika-text id="seekTime3d" value="0:00 / 0:00" color="#c8ddf0" font-size="0.032"
+                    anchor="right" baseline="center" position="0.98 0.03 0.02" max-width="1.0"
+                    outline-width="0.002" outline-color="#000000"></a-troika-text>
 
-                <!-- Main Play Controls -->
-                <a-entity class="clickable" id="uiExit3d" position="-1.05 -0.08 0.02" 
-                    geometry="primitive: plane; width: 0.28; height: 0.18" 
+                <!-- Row 3: Main controls -->
+                <a-entity class="clickable" id="uiExit3d" position="-0.88 -0.10 0.02"
+                    geometry="primitive: plane; width: 0.20; height: 0.17"
                     material="shader: flat; color: #450a0a; opacity: 0.95; transparent: true"
-                    animation__hover="property: scale; to: 1.1 1.1 1; dur: 100; startEvents: mouseenter"
+                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
                     animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-                    <a-entity id="uiExit3dLabel" position="0 0 0.01" 
-                        text="value: Exit; align: center; width: 1.4; color: #fecaca; font: dejavu; shader: msdf"></a-entity>
+                    <a-entity position="0 0 0.01" rotation="0 0 45"
+                        geometry="primitive: plane; width: 0.06; height: 0.012"
+                        material="shader: flat; color: #fca5a5; side: double"></a-entity>
+                    <a-entity position="0 0 0.01" rotation="0 0 -45"
+                        geometry="primitive: plane; width: 0.06; height: 0.012"
+                        material="shader: flat; color: #fca5a5; side: double"></a-entity>
                 </a-entity>
 
-                <a-entity class="clickable" id="uiSeekBack3d" position="-0.55 -0.08 0.02" 
-                    geometry="primitive: plane; width: 0.32; height: 0.18" 
+                <a-entity class="clickable" id="uiSeekBack3d" position="-0.56 -0.10 0.02"
+                    geometry="primitive: plane; width: 0.22; height: 0.17"
                     material="shader: flat; color: #0f172a; opacity: 0.95; transparent: true"
-                    animation__hover="property: scale; to: 1.1 1.1 1; dur: 100; startEvents: mouseenter"
+                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
                     animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-                    <a-entity id="uiSeekBack3dLabel" position="0 0 0.01" 
-                        text="value: -10s; align: center; width: 1.4; color: #e2e8f0; font: dejavu; shader: msdf"></a-entity>
+                    <a-entity position="-0.01 0 0.01"
+                        geometry="primitive: triangle; vertexA: 0.02 0.03 0; vertexB: 0.02 -0.03 0; vertexC: -0.02 0 0"
+                        material="shader: flat; color: #94a3b8; side: double"></a-entity>
+                    <a-entity position="0.03 0 0.01"
+                        geometry="primitive: triangle; vertexA: 0.02 0.03 0; vertexB: 0.02 -0.03 0; vertexC: -0.02 0 0"
+                        material="shader: flat; color: #94a3b8; side: double"></a-entity>
                 </a-entity>
 
-                <a-entity class="clickable" id="uiPlay3d" position="0 -0.08 0.02" 
-                    geometry="primitive: plane; width: 0.38; height: 0.20" 
+                <a-entity class="clickable" id="uiPlay3d" position="-0.22 -0.10 0.02"
+                    geometry="primitive: plane; width: 0.26; height: 0.19"
                     material="shader: flat; color: #0c4a6e; opacity: 0.98; transparent: true"
-                    animation__hover="property: scale; to: 1.1 1.1 1; dur: 100; startEvents: mouseenter"
+                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
                     animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-                    <a-entity id="uiPlay3dLabel" position="0 0 0.01" 
-                        text="value: Pause; align: center; width: 1.6; color: #7dd3fc; font: dejavu; shader: msdf"></a-entity>
+                    <a-entity id="uiPlayIcon" position="0 0 0.01"
+                        geometry="primitive: triangle; vertexA: -0.025 0.035 0; vertexB: -0.025 -0.035 0; vertexC: 0.03 0 0"
+                        material="shader: flat; color: #7dd3fc; side: double"></a-entity>
+                    <a-entity id="uiPauseIcon" position="0 0 0.01" visible="false">
+                        <a-entity geometry="primitive: plane; width: 0.014; height: 0.06"
+                            material="shader: flat; color: #7dd3fc" position="-0.016 0 0"></a-entity>
+                        <a-entity geometry="primitive: plane; width: 0.014; height: 0.06"
+                            material="shader: flat; color: #7dd3fc" position="0.016 0 0"></a-entity>
+                    </a-entity>
                 </a-entity>
 
-                <a-entity class="clickable" id="uiSeekFwd3d" position="0.55 -0.08 0.02" 
-                    geometry="primitive: plane; width: 0.32; height: 0.18" 
+                <a-entity class="clickable" id="uiSeekFwd3d" position="0.12 -0.10 0.02"
+                    geometry="primitive: plane; width: 0.22; height: 0.17"
                     material="shader: flat; color: #0f172a; opacity: 0.95; transparent: true"
-                    animation__hover="property: scale; to: 1.1 1.1 1; dur: 100; startEvents: mouseenter"
+                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
                     animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-                    <a-entity id="uiSeekFwd3dLabel" position="0 0 0.01" 
-                        text="value: +10s; align: center; width: 1.4; color: #e2e8f0; font: dejavu; shader: msdf"></a-entity>
+                    <a-entity position="-0.03 0 0.01"
+                        geometry="primitive: triangle; vertexA: -0.02 0.03 0; vertexB: -0.02 -0.03 0; vertexC: 0.02 0 0"
+                        material="shader: flat; color: #94a3b8; side: double"></a-entity>
+                    <a-entity position="0.01 0 0.01"
+                        geometry="primitive: triangle; vertexA: -0.02 0.03 0; vertexB: -0.02 -0.03 0; vertexC: 0.02 0 0"
+                        material="shader: flat; color: #94a3b8; side: double"></a-entity>
                 </a-entity>
 
-                <a-entity class="clickable" id="uiEnterVr3d" position="1.05 -0.08 0.02" 
-                    geometry="primitive: plane; width: 0.28; height: 0.18" 
+                <a-entity class="clickable" id="uiEnterVr3d" position="0.44 -0.10 0.02"
+                    geometry="primitive: plane; width: 0.22; height: 0.17"
                     material="shader: flat; color: #064e3b; opacity: 0.98; transparent: true"
-                    animation__hover="property: scale; to: 1.1 1.1 1; dur: 100; startEvents: mouseenter"
+                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
                     animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-                    <a-entity id="uiEnterVr3dLabel" position="0 0 0.01" 
-                        text="value: VR; align: center; width: 1.2; color: #6ee7b7; font: dejavu; shader: msdf"></a-entity>
+                    <a-troika-text id="uiEnterVr3dLabel" value="VR" color="#6ee7b7" font-size="0.055"
+                        anchor="center" baseline="center" position="0 0 0.01"
+                        outline-width="0.002" outline-color="#000000"></a-troika-text>
                 </a-entity>
 
-                <!-- Bottom Row -->
-                <a-entity class="clickable" id="uiMute3d" position="-0.85 -0.42 0.02" 
-                    geometry="primitive: plane; width: 0.26; height: 0.14" 
+                <a-entity class="clickable" id="uiMute3d" position="0.72 -0.10 0.02"
+                    geometry="primitive: plane; width: 0.20; height: 0.17"
                     material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
-                    animation__hover="property: scale; to: 1.1 1.1 1; dur: 100; startEvents: mouseenter"
+                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
                     animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-                    <a-entity id="uiMute3dLabel" position="0 0 0.01" 
-                        text="value: Mute; align: center; width: 1.0; color: #cbd5e1; font: dejavu; shader: msdf"></a-entity>
+                    <a-entity id="uiMuteIcon" position="0 0 0.01">
+                        <a-entity geometry="primitive: plane; width: 0.025; height: 0.04"
+                            material="shader: flat; color: #cbd5e1" position="-0.012 0 0"></a-entity>
+                        <a-entity geometry="primitive: triangle; vertexA: 0 0.025 0; vertexB: 0 -0.025 0; vertexC: 0.03 0 0"
+                            material="shader: flat; color: #cbd5e1; side: double" position="0.005 0 0"></a-entity>
+                    </a-entity>
+                    <a-entity id="uiMutedIcon" position="0 0 0.01" visible="false">
+                        <a-entity geometry="primitive: plane; width: 0.025; height: 0.04"
+                            material="shader: flat; color: #64748b" position="-0.012 0 0"></a-entity>
+                        <a-entity geometry="primitive: triangle; vertexA: 0 0.025 0; vertexB: 0 -0.025 0; vertexC: 0.03 0 0"
+                            material="shader: flat; color: #64748b; side: double" position="0.005 0 0"></a-entity>
+                        <a-entity geometry="primitive: plane; width: 0.06; height: 0.008" rotation="0 0 45"
+                            material="shader: flat; color: #fb7185; side: double" position="0 0 0.005"></a-entity>
+                    </a-entity>
                 </a-entity>
 
-                <a-entity class="clickable" id="uiNear3d" position="-0.40 -0.42 0.02" 
-                    geometry="primitive: plane; width: 0.22; height: 0.14" 
+                <a-entity class="clickable" id="uiSwap3d" position="0.98 -0.10 0.02"
+                    geometry="primitive: plane; width: 0.20; height: 0.17"
                     material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
-                    animation__hover="property: scale; to: 1.1 1.1 1; dur: 100; startEvents: mouseenter"
+                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
                     animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-                    <a-entity position="0 0 0.01" 
-                        text="value: Near; align: center; width: 0.9; color: #cbd5e1; font: dejavu; shader: msdf"></a-entity>
+                    <a-entity id="uiSwapIcon" position="0 0 0.01">
+                        <a-entity geometry="primitive: plane; width: 0.045; height: 0.008"
+                            material="shader: flat; color: #cbd5e1" position="0 0.01 0"></a-entity>
+                        <a-entity geometry="primitive: triangle; vertexA: -0.008 0.01 0; vertexB: -0.008 -0.01 0; vertexC: 0.008 0 0"
+                            material="shader: flat; color: #cbd5e1; side: double" position="0.025 0.01 0"></a-entity>
+                        <a-entity geometry="primitive: plane; width: 0.045; height: 0.008"
+                            material="shader: flat; color: #cbd5e1" position="0 -0.01 0"></a-entity>
+                        <a-entity geometry="primitive: triangle; vertexA: 0.008 0.01 0; vertexB: 0.008 -0.01 0; vertexC: -0.008 0 0"
+                            material="shader: flat; color: #cbd5e1; side: double" position="-0.025 -0.01 0"></a-entity>
+                    </a-entity>
                 </a-entity>
 
-                <a-entity class="clickable" id="uiFar3d" position="-0.12 -0.42 0.02" 
-                    geometry="primitive: plane; width: 0.22; height: 0.14" 
+                <!-- Row 4: Settings -->
+                <a-entity class="clickable" id="uiNear3d" position="-0.56 -0.32 0.02"
+                    geometry="primitive: plane; width: 0.18; height: 0.13"
                     material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
-                    animation__hover="property: scale; to: 1.1 1.1 1; dur: 100; startEvents: mouseenter"
+                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
                     animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-                    <a-entity position="0 0 0.01" 
-                        text="value: Far; align: center; width: 0.9; color: #cbd5e1; font: dejavu; shader: msdf"></a-entity>
+                    <a-entity position="0 0 0.01"
+                        geometry="primitive: triangle; vertexA: 0.018 0.022 0; vertexB: 0.018 -0.022 0; vertexC: -0.012 0 0"
+                        material="shader: flat; color: #94a3b8; side: double"></a-entity>
                 </a-entity>
 
-                <a-entity class="clickable" id="uiScaleDown3d" position="0.35 -0.42 0.02" 
-                    geometry="primitive: plane; width: 0.22; height: 0.14" 
+                <a-entity class="clickable" id="uiFar3d" position="-0.32 -0.32 0.02"
+                    geometry="primitive: plane; width: 0.18; height: 0.13"
                     material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
-                    animation__hover="property: scale; to: 1.1 1.1 1; dur: 100; startEvents: mouseenter"
+                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
                     animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-                    <a-entity position="0 0 0.01" 
-                        text="value: -Size; align: center; width: 0.9; color: #cbd5e1; font: dejavu; shader: msdf"></a-entity>
+                    <a-entity position="0 0 0.01"
+                        geometry="primitive: triangle; vertexA: -0.018 0.022 0; vertexB: -0.018 -0.022 0; vertexC: 0.012 0 0"
+                        material="shader: flat; color: #94a3b8; side: double"></a-entity>
                 </a-entity>
 
-                <a-entity class="clickable" id="uiScaleUp3d" position="0.62 -0.42 0.02" 
-                    geometry="primitive: plane; width: 0.22; height: 0.14" 
+                <a-entity class="clickable" id="uiScaleDown3d" position="0.32 -0.32 0.02"
+                    geometry="primitive: plane; width: 0.18; height: 0.13"
                     material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
-                    animation__hover="property: scale; to: 1.1 1.1 1; dur: 100; startEvents: mouseenter"
+                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
                     animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-                    <a-entity position="0 0 0.01" 
-                        text="value: +Size; align: center; width: 0.9; color: #cbd5e1; font: dejavu; shader: msdf"></a-entity>
+                    <a-entity geometry="primitive: plane; width: 0.035; height: 0.008"
+                        material="shader: flat; color: #94a3b8" position="0 0 0.01"></a-entity>
                 </a-entity>
 
-                <a-entity class="clickable" id="uiSwap3d" position="1.05 -0.42 0.02" 
-                    geometry="primitive: plane; width: 0.28; height: 0.14" 
+                <a-entity class="clickable" id="uiScaleUp3d" position="0.56 -0.32 0.02"
+                    geometry="primitive: plane; width: 0.18; height: 0.13"
                     material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
-                    animation__hover="property: scale; to: 1.1 1.1 1; dur: 100; startEvents: mouseenter"
+                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
                     animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-                    <a-entity id="uiSwap3dLabel" position="0 0 0.01" 
-                        text="value: Swap; align: center; width: 1.0; color: #cbd5e1; font: dejavu; shader: msdf"></a-entity>
+                    <a-entity geometry="primitive: plane; width: 0.035; height: 0.008"
+                        material="shader: flat; color: #94a3b8" position="0 0 0.01"></a-entity>
+                    <a-entity geometry="primitive: plane; width: 0.008; height: 0.035"
+                        material="shader: flat; color: #94a3b8" position="0 0 0.01"></a-entity>
                 </a-entity>
             </a-entity>
         </a-entity>
 
-        <!-- Controller and Hand Tracking Support -->
-        <a-entity id="leftController" laser-controls="hand: left" 
+        <!-- Laser Controllers -->
+        <a-entity id="leftController" laser-controls="hand: left"
             raycaster="objects: .clickable; far: 20; lineColor: #7dd3fc; lineOpacity: 0.6; showLine: true"
-            cursor="fuse: false"
-            meta-touch-controls="hand: left"
-            hand-controls="hand: left"
-            visible="true"></a-entity>
-        <a-entity id="rightController" laser-controls="hand: right" 
+            cursor="fuse: false"></a-entity>
+        <a-entity id="rightController" laser-controls="hand: right"
             raycaster="objects: .clickable; far: 20; lineColor: #7dd3fc; lineOpacity: 0.6; showLine: true"
-            cursor="fuse: false"
-            meta-touch-controls="hand: right"
-            hand-controls="hand: right"
-            visible="true"></a-entity>
+            cursor="fuse: false"></a-entity>
+
+        <!-- Hand Tracking -->
+        <a-entity id="leftHand" hand-tracking-controls="hand: left; modelColor: #394d63"></a-entity>
+        <a-entity id="rightHand" hand-tracking-controls="hand: right; modelColor: #394d63"></a-entity>
     </a-scene>
 
     <script>
@@ -923,7 +1025,7 @@
                 uiScale: 'jfvr:ui-scale'
             };
 
-            var SEEK_TRACK_WIDTH = 1.44;
+            var SEEK_TRACK_WIDTH = 1.80;
             var statusTimers = [];
             var pendingPayload = null;
             var surfacesReady = false;
@@ -950,18 +1052,20 @@
             var uiRoot = document.getElementById('uiRoot');
             var panelModeText = document.getElementById('panelModeText');
             var panelStatusText = document.getElementById('panelStatusText');
-            var comfortText3d = document.getElementById('comfortText3d');
+            var uiModePrev3d = document.getElementById('uiModePrev3d');
+            var uiModeNext3d = document.getElementById('uiModeNext3d');
             var uiExit3d = document.getElementById('uiExit3d');
             var uiSeekBack3d = document.getElementById('uiSeekBack3d');
             var uiPlay3d = document.getElementById('uiPlay3d');
-            var uiPlay3dLabel = document.getElementById('uiPlay3dLabel');
+            var uiPlayIcon = document.getElementById('uiPlayIcon');
+            var uiPauseIcon = document.getElementById('uiPauseIcon');
             var uiSeekFwd3d = document.getElementById('uiSeekFwd3d');
             var uiEnterVr3d = document.getElementById('uiEnterVr3d');
             var uiEnterVr3dLabel = document.getElementById('uiEnterVr3dLabel');
             var uiSwap3d = document.getElementById('uiSwap3d');
-            var uiSwap3dLabel = document.getElementById('uiSwap3dLabel');
             var uiMute3d = document.getElementById('uiMute3d');
-            var uiMute3dLabel = document.getElementById('uiMute3dLabel');
+            var uiMuteIcon = document.getElementById('uiMuteIcon');
+            var uiMutedIcon = document.getElementById('uiMutedIcon');
             var uiNear3d = document.getElementById('uiNear3d');
             var uiFar3d = document.getElementById('uiFar3d');
             var uiScaleDown3d = document.getElementById('uiScaleDown3d');
@@ -1007,12 +1111,17 @@
                         this.el.sceneEl.addEventListener('thumbstickdown', function(){ self.recenter(); wake(); });
 
                         setTimeout(function() {
-                            var hands = document.querySelectorAll('[laser-controls]');
-                            hands.forEach(function(hand) {
-                                hand.addEventListener('bbuttondown', function(){ self.recenter(); wake(); });
-                                hand.addEventListener('ybuttondown', function(){ self.recenter(); wake(); });
-                                hand.addEventListener('gripdown', function(){ self.recenter(); wake(); });
-                                hand.addEventListener('triggerdown', wake);
+                            var controllers = document.querySelectorAll('[laser-controls]');
+                            controllers.forEach(function(ctrl) {
+                                ctrl.addEventListener('bbuttondown', function(){ self.recenter(); wake(); });
+                                ctrl.addEventListener('ybuttondown', function(){ self.recenter(); wake(); });
+                                ctrl.addEventListener('gripdown', function(){ self.recenter(); wake(); });
+                                ctrl.addEventListener('triggerdown', wake);
+                            });
+                            var handEls = document.querySelectorAll('[hand-tracking-controls]');
+                            handEls.forEach(function(h) {
+                                h.addEventListener('pinchstarted', wake);
+                                h.addEventListener('pinchended', wake);
                             });
                         }, 1000);
                         
@@ -1085,7 +1194,12 @@
             }
 
             function setEntityText(el, value) {
-                if (el) el.setAttribute('text', { value: value });
+                if (!el) return;
+                if (el.hasAttribute('troika-text') || el.tagName === 'A-TROIKA-TEXT') {
+                    el.setAttribute('troika-text', 'value', value);
+                } else {
+                    el.setAttribute('text', { value: value });
+                }
             }
 
             function reportXrAvailability() {
@@ -1158,7 +1272,6 @@
             function updateComfortUi() {
                 var comfortText = 'UI ' + panelDistance.toFixed(2) + 'm / ' + panelScale.toFixed(2) + 'x';
                 comfortDisplay.textContent = comfortText;
-                setEntityText(comfortText3d, comfortText);
                 uiRoot.object3D.scale.set(panelScale, panelScale, panelScale);
                 localStorage.setItem(STORAGE_KEYS.uiDistance, String(panelDistance));
                 localStorage.setItem(STORAGE_KEYS.uiScale, String(panelScale));
@@ -1177,13 +1290,25 @@
                 var audioVideo = getVolumeTargetVideo();
                 var paused = !video || video.paused;
                 playPauseBtn.textContent = paused ? 'Play' : 'Pause';
-                setEntityText(uiPlay3dLabel, paused ? 'Play' : 'Pause');
+                if (uiPlayIcon) uiPlayIcon.object3D.visible = paused;
+                if (uiPauseIcon) uiPauseIcon.object3D.visible = !paused;
                 muteBtn.textContent = audioVideo && audioVideo.muted ? 'Unmute' : 'Mute';
-                setEntityText(uiMute3dLabel, audioVideo && audioVideo.muted ? 'Unmute' : 'Mute');
+                if (uiMuteIcon) uiMuteIcon.object3D.visible = !(audioVideo && audioVideo.muted);
+                if (uiMutedIcon) uiMutedIcon.object3D.visible = !!(audioVideo && audioVideo.muted);
                 var inVr = playerState.isImmersive;
                 enterVrBtn.textContent = inVr ? 'Exit VR' : 'Enter VR';
                 setEntityText(uiEnterVr3dLabel, inVr ? 'Exit VR' : 'VR');
-                setEntityText(uiSwap3dLabel, swapEyes ? 'Swap On' : 'Swap');
+            }
+
+            function cycleMode(direction) {
+                var currentId = playerState.currentMode ? playerState.currentMode.id : '360-mono';
+                var idx = 0;
+                for (var i = 0; i < MODE_LIST.length; i++) {
+                    if (MODE_LIST[i].id === currentId) { idx = i; break; }
+                }
+                idx = (idx + direction + MODE_LIST.length) % MODE_LIST.length;
+                applyMode(MODE_LIST[idx].id);
+                setStatus(MODE_LIST[idx].label, false);
             }
 
             function updateModeUi() {
@@ -1196,6 +1321,13 @@
                     swapEyes = false;
                 }
                 updateButtonLabels();
+            }
+
+            function updateSeekFill(el, ratio, color) {
+                var width = Math.max(0.001, SEEK_TRACK_WIDTH * clamp(ratio, 0, 1));
+                el.setAttribute('geometry', 'width', width);
+                el.setAttribute('material', 'color', color);
+                el.setAttribute('position', (-SEEK_TRACK_WIDTH / 2 + width / 2) + ' 0.12 ' + (el === seekPlayed3d ? '0.03' : '0.025'));
             }
 
             function updateTimeUi() {
@@ -1226,13 +1358,6 @@
 
                 updateSeekFill(seekPlayed3d, ratio, '#38bdf8');
                 updateSeekFill(seekBuffered3d, bufferedRatio, '#33536b');
-            }
-
-            function updateSeekFill(el, ratio, color) {
-                var width = Math.max(0.001, SEEK_TRACK_WIDTH * clamp(ratio, 0, 1));
-                el.setAttribute('geometry', 'width', width);
-                el.setAttribute('material', 'color', color);
-                el.setAttribute('position', (-SEEK_TRACK_WIDTH / 2 + width / 2) + ' -0.20 ' + (el === seekPlayed3d ? '0.03' : '0.025'));
             }
 
             function seekTo(nextTime) {
@@ -1739,6 +1864,8 @@
 
                 applyProjectionPlacement(playerState.currentMode);
 
+                registerPanelButton(uiModePrev3d, '#0f172a', '#1b2a40', function () { cycleMode(-1); });
+                registerPanelButton(uiModeNext3d, '#0f172a', '#1b2a40', function () { cycleMode(1); });
                 registerPanelButton(uiExit3d, '#3b0b19', '#5c1025', closePlayer);
                 registerPanelButton(uiSeekBack3d, '#13283a', '#1b3951', function () {
                     var video = getMasterVideo();
@@ -2346,8 +2473,14 @@
 
     window.__JFVRAFramePromise = new Promise((resolve, reject) => {
       const script = document.createElement('script');
-      script.src = 'https://aframe.io/releases/1.5.0/aframe.min.js';
-      script.onload = () => resolve();
+      script.src = 'https://aframe.io/releases/1.7.0/aframe.min.js';
+      script.onload = () => {
+        const troika = document.createElement('script');
+        troika.src = 'https://unpkg.com/aframe-troika-text/dist/aframe-troika-text.min.js';
+        troika.onload = () => resolve();
+        troika.onerror = () => resolve();
+        document.head.appendChild(troika);
+      };
       script.onerror = () => reject(new Error('Failed to load A-Frame'));
       document.head.appendChild(script);
     });
@@ -2391,12 +2524,17 @@
                 this.el.sceneEl.addEventListener('thumbstickdown', function(){ self.recenter(); wake(); });
 
                 setTimeout(function() {
-                    var hands = document.querySelectorAll('[laser-controls]');
-                    hands.forEach(function(hand) {
-                        hand.addEventListener('bbuttondown', function(){ self.recenter(); wake(); });
-                        hand.addEventListener('ybuttondown', function(){ self.recenter(); wake(); });
-                        hand.addEventListener('gripdown', function(){ self.recenter(); wake(); });
-                        hand.addEventListener('triggerdown', wake);
+                    var controllers = document.querySelectorAll('[laser-controls]');
+                    controllers.forEach(function(ctrl) {
+                        ctrl.addEventListener('bbuttondown', function(){ self.recenter(); wake(); });
+                        ctrl.addEventListener('ybuttondown', function(){ self.recenter(); wake(); });
+                        ctrl.addEventListener('gripdown', function(){ self.recenter(); wake(); });
+                        ctrl.addEventListener('triggerdown', wake);
+                    });
+                    var handEls = document.querySelectorAll('[hand-tracking-controls]');
+                    handEls.forEach(function(h) {
+                        h.addEventListener('pinchstarted', wake);
+                        h.addEventListener('pinchended', wake);
                     });
                 }, 1000);
                 
@@ -2449,7 +2587,7 @@
       panelScale: Math.min(1.55, Math.max(0.7, parseFloat(localStorage.getItem(STORAGE_KEYS.uiScale)) || 1.0))
     };
 
-    const SEEK_TRACK_WIDTH = 1.44;
+    const SEEK_TRACK_WIDTH = 1.80;
     const q = (selector) => overlay.querySelector(selector);
     const sceneEl = q('[data-role="scene"]');
     const modeChip = q('[data-role="mode"]');
@@ -2467,11 +2605,13 @@
     const uiRoot = q('[data-role="ui-root"]');
     const panelModeText = q('[data-role="panel-mode"]');
     const panelStatusText = q('[data-role="panel-status"]');
-    const panelComfortText = q('[data-role="panel-comfort"]');
-    const panelPlayLabel = q('[data-role="panel-play-label"]');
+    const panelModePrev = q('[data-role="panel-mode-prev"]');
+    const panelModeNext = q('[data-role="panel-mode-next"]');
+    const panelPlayIcon = q('[data-role="play-icon"]');
+    const panelPauseIcon = q('[data-role="pause-icon"]');
     const panelVrLabel = q('[data-role="panel-vr-label"]');
-    const panelSwapLabel = q('[data-role="panel-swap-label"]');
-    const panelMuteLabel = q('[data-role="panel-mute-label"]');
+    const panelMuteIcon = q('[data-role="mute-icon"]');
+    const panelMutedIcon = q('[data-role="muted-icon"]');
     const seekTrack3d = q('[data-role="seek-track"]');
     const seekBuffered3d = q('[data-role="seek-buffered"]');
     const seekPlayed3d = q('[data-role="seek-played"]');
@@ -2498,7 +2638,12 @@
     }
 
     function setText3d(el, value) {
-      if (el) el.setAttribute('text', { value: value });
+      if (!el) return;
+      if (el.hasAttribute('troika-text') || el.tagName === 'A-TROIKA-TEXT') {
+        el.setAttribute('troika-text', 'value', value);
+      } else {
+        el.setAttribute('text', { value: value });
+      }
     }
 
     function clearStatusTimers() {
@@ -2523,7 +2668,6 @@
     function updateComfortUi() {
       const text = `UI ${state.panelDistance.toFixed(2)}m / ${state.panelScale.toFixed(2)}x`;
       comfortDisplay.textContent = text;
-      setText3d(panelComfortText, text);
       uiRoot.object3D.scale.set(state.panelScale, state.panelScale, state.panelScale);
       localStorage.setItem(STORAGE_KEYS.uiDistance, String(state.panelDistance));
       localStorage.setItem(STORAGE_KEYS.uiScale, String(state.panelScale));
@@ -2538,12 +2682,22 @@
     function updateButtonLabels() {
       const paused = !state.video || state.video.paused;
       playBtn.textContent = paused ? 'Play' : 'Pause';
-      setText3d(panelPlayLabel, paused ? 'Play' : 'Pause');
+      if (panelPlayIcon) panelPlayIcon.object3D.visible = paused;
+      if (panelPauseIcon) panelPauseIcon.object3D.visible = !paused;
       muteBtn.textContent = state.video && state.video.muted ? 'Unmute' : 'Mute';
-      setText3d(panelMuteLabel, state.video && state.video.muted ? 'Unmute' : 'Mute');
+      if (panelMuteIcon) panelMuteIcon.object3D.visible = !(state.video && state.video.muted);
+      if (panelMutedIcon) panelMutedIcon.object3D.visible = !!(state.video && state.video.muted);
       enterVrBtn.textContent = state.isImmersive ? 'Exit VR' : 'Enter VR';
       setText3d(panelVrLabel, state.isImmersive ? 'Exit VR' : 'VR');
-      setText3d(panelSwapLabel, state.swapEyes ? 'Swap On' : 'Swap');
+    }
+
+    function cycleMode(direction) {
+      const currentId = state.currentMode ? state.currentMode.id : '360-mono';
+      let idx = VIEW_MODES.findIndex(m => m.id === currentId);
+      if (idx < 0) idx = 0;
+      idx = (idx + direction + VIEW_MODES.length) % VIEW_MODES.length;
+      applyMode(VIEW_MODES[idx].id);
+      setStatus(VIEW_MODES[idx].label, false);
     }
 
     function updateModeUi() {
@@ -2556,7 +2710,7 @@
       const width = Math.max(0.001, SEEK_TRACK_WIDTH * clamp(ratio, 0, 1));
       el.setAttribute('geometry', 'width', width);
       el.setAttribute('material', 'color', color);
-      el.setAttribute('position', `${-SEEK_TRACK_WIDTH / 2 + width / 2} -0.20 ${z}`);
+      el.setAttribute('position', `${-SEEK_TRACK_WIDTH / 2 + width / 2} 0.12 ${z}`);
     }
 
     function updateTimeUi() {
@@ -2888,6 +3042,8 @@
       updateSeekFill(seekPlayed3d, parseFloat(seekInput.value) / 1000, '#38bdf8', '0.03');
     });
 
+    setPanelButtonBehavior('[data-role="panel-mode-prev"]', '#0f172a', '#1b2a40', () => cycleMode(-1));
+    setPanelButtonBehavior('[data-role="panel-mode-next"]', '#0f172a', '#1b2a40', () => cycleMode(1));
     setPanelButtonBehavior('[data-role="panel-exit"]', '#3b0b19', '#5c1025', close);
     setPanelButtonBehavior('[data-role="panel-back"]', '#13283a', '#1b3951', () => seekTo((state.video ? state.video.currentTime : 0) - 10));
     setPanelButtonBehavior('[data-role="panel-play"]', '#11415a', '#15597a', togglePlay);
