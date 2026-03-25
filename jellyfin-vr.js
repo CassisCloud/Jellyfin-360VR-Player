@@ -538,10 +538,10 @@
       <!-- Hand Tracking -->
       <a-entity data-role="left-hand" hand-tracking-controls="hand: left; modelColor: #394d63"
         raycaster="objects: .clickable; far: 5; lineColor: #7dd3fc; lineOpacity: 0.4; showLine: true"
-        cursor="fuse: false"></a-entity>
+        cursor="fuse: false; downEvents: pinchstarted; upEvents: pinchended"></a-entity>
       <a-entity data-role="right-hand" hand-tracking-controls="hand: right; modelColor: #394d63"
         raycaster="objects: .clickable; far: 5; lineColor: #7dd3fc; lineOpacity: 0.4; showLine: true"
-        cursor="fuse: false"></a-entity>
+        cursor="fuse: false; downEvents: pinchstarted; upEvents: pinchended"></a-entity>
     </a-scene>
   `;
 
@@ -1042,10 +1042,10 @@
         <!-- Hand Tracking -->
         <a-entity id="leftHand" hand-tracking-controls="hand: left; modelColor: #394d63"
             raycaster="objects: .clickable; far: 5; lineColor: #7dd3fc; lineOpacity: 0.4; showLine: true"
-            cursor="fuse: false"></a-entity>
+            cursor="fuse: false; downEvents: pinchstarted; upEvents: pinchended"></a-entity>
         <a-entity id="rightHand" hand-tracking-controls="hand: right; modelColor: #394d63"
             raycaster="objects: .clickable; far: 5; lineColor: #7dd3fc; lineOpacity: 0.4; showLine: true"
-            cursor="fuse: false"></a-entity>
+            cursor="fuse: false; downEvents: pinchstarted; upEvents: pinchended"></a-entity>
     </a-scene>
 
     <script>
@@ -1211,6 +1211,21 @@
                         if (this.uiVisible && (now - this.lastInteraction > 6000)) {
                             this.uiVisible = false;
                             this.el.object3D.visible = false;
+                        }
+                        if (playerState.isImmersive && playerState.currentMode && playerState.currentMode.stereo !== 'mono') {
+                            var renderer = this.el.sceneEl.renderer;
+                            if (renderer && renderer.xr && renderer.xr.isPresenting) {
+                                var xrCam = typeof renderer.xr.getCamera === 'function' ? renderer.xr.getCamera() : null;
+                                if (xrCam && xrCam.cameras && xrCam.cameras.length >= 2) {
+                                    xrCam.layers.enable(0);
+                                    xrCam.layers.enable(1);
+                                    xrCam.layers.enable(2);
+                                    xrCam.cameras[0].layers.set(0);
+                                    xrCam.cameras[0].layers.enable(1);
+                                    xrCam.cameras[1].layers.set(0);
+                                    xrCam.cameras[1].layers.enable(2);
+                                }
+                            }
                         }
                     }
                 });
@@ -2742,6 +2757,21 @@
                 if (this.uiVisible && (now - this.lastInteraction > 6000)) {
                     this.uiVisible = false;
                     this.el.object3D.visible = false;
+                }
+                if (state.isImmersive && state.currentMode && state.currentMode.stereo !== 'mono') {
+                    var renderer = this.el.sceneEl.renderer;
+                    if (renderer && renderer.xr && renderer.xr.isPresenting) {
+                        var xrCam = typeof renderer.xr.getCamera === 'function' ? renderer.xr.getCamera() : null;
+                        if (xrCam && xrCam.cameras && xrCam.cameras.length >= 2) {
+                            xrCam.layers.enable(0);
+                            xrCam.layers.enable(1);
+                            xrCam.layers.enable(2);
+                            xrCam.cameras[0].layers.set(0);
+                            xrCam.cameras[0].layers.enable(1);
+                            xrCam.cameras[1].layers.set(0);
+                            xrCam.cameras[1].layers.enable(2);
+                        }
+                    }
                 }
             }
         });
