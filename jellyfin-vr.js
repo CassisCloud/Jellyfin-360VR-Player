@@ -310,45 +310,38 @@
 
         <a-entity data-role="ui-root" jfvr-ui-manager position="0 -0.3 -1.6" scale="1 1 1" visible="false">
           <a-entity data-role="ui-panel">
-            <a-plane width="2.2" height="0.88" color="#0ea5e9" opacity="0.06"
+            <a-plane width="2.2" height="1.02" color="#0ea5e9" opacity="0.06"
               material="shader: flat; transparent: true; opacity: 0.06; blending: additive"
-              position="0 0 -0.02"></a-plane>
-            <a-plane width="2.1" height="0.82" color="#060e16" opacity="0.94"
+              position="0 -0.04 -0.02"></a-plane>
+            <a-plane width="2.1" height="0.96" color="#060e16" opacity="0.94"
               material="shader: flat; transparent: true; opacity: 0.94"
-              position="0 0 -0.01"></a-plane>
-            <a-plane width="2.08" height="0.80"
+              position="0 -0.04 -0.01"></a-plane>
+            <a-plane width="2.08" height="0.94"
               material="shader: flat; wireframe: true; color: #1e3a5f; transparent: true; opacity: 0.25"
-              position="0 0 0"></a-plane>
+              position="0 -0.04 0"></a-plane>
           </a-entity>
 
-          <!-- Row 1: Mode selector + Status -->
-          <a-entity class="clickable" data-role="panel-mode-prev" position="-0.72 0.30 0.02"
-            geometry="primitive: plane; width: 0.16; height: 0.13"
+          <!-- Row 1: Mode selector (clickable) + Status -->
+          <a-entity class="clickable" data-role="panel-mode-btn" position="-0.20 0.30 0.02"
+            geometry="primitive: plane; width: 1.20; height: 0.14"
             material="shader: flat; color: #0f172a; opacity: 0.95; transparent: true"
-            animation__hover="property: scale; to: 1.15 1.15 1; dur: 100; startEvents: mouseenter"
+            animation__hover="property: scale; to: 1.04 1.1 1; dur: 100; startEvents: mouseenter"
             animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-            <a-entity position="0 0 0.01"
-              geometry="primitive: triangle; vertexA: 0.025 0.03 0; vertexB: 0.025 -0.03 0; vertexC: -0.025 0 0"
-              material="shader: flat; color: #7dd3fc; side: double"></a-entity>
-          </a-entity>
-
-          <a-troika-text data-role="panel-mode" value="360 Mono" color="#f0f6ff" font-size="0.048"
-            anchor="center" baseline="center" position="0 0.30 0.02" max-width="1.2"
-            outline-width="0.003" outline-color="#000000"></a-troika-text>
-
-          <a-entity class="clickable" data-role="panel-mode-next" position="0.72 0.30 0.02"
-            geometry="primitive: plane; width: 0.16; height: 0.13"
-            material="shader: flat; color: #0f172a; opacity: 0.95; transparent: true"
-            animation__hover="property: scale; to: 1.15 1.15 1; dur: 100; startEvents: mouseenter"
-            animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-            <a-entity position="0 0 0.01"
-              geometry="primitive: triangle; vertexA: -0.025 0.03 0; vertexB: -0.025 -0.03 0; vertexC: 0.025 0 0"
+            <a-troika-text data-role="panel-mode" value="360 Mono" color="#f0f6ff" font-size="0.046"
+              anchor="center" baseline="center" position="0 0 0.01" max-width="1.1"
+              outline-width="0.003" outline-color="#000000"></a-troika-text>
+            <a-entity position="0.52 0 0.01"
+              geometry="primitive: triangle; vertexA: -0.018 0.012 0; vertexB: 0.018 0.012 0; vertexC: 0 -0.012 0"
               material="shader: flat; color: #7dd3fc; side: double"></a-entity>
           </a-entity>
 
           <a-troika-text data-role="panel-status" value="Ready" color="#7dd3fc" font-size="0.032"
             anchor="right" baseline="center" position="0.98 0.30 0.02" max-width="0.5"
             outline-width="0.002" outline-color="#000000"></a-troika-text>
+
+          <!-- Mode list overlay (hidden by default) -->
+          <a-entity data-role="mode-list-root" visible="false" position="0 0.30 0.05">
+          </a-entity>
 
           <!-- Row 2: Seek bar + Time -->
           <a-entity class="clickable" data-role="seek-track" position="0 0.12 0.02"
@@ -438,18 +431,28 @@
             animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
             animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
             <a-entity data-role="mute-icon" position="0 0 0.01">
-              <a-entity geometry="primitive: plane; width: 0.025; height: 0.04"
-                material="shader: flat; color: #cbd5e1" position="-0.012 0 0"></a-entity>
-              <a-entity geometry="primitive: triangle; vertexA: 0 0.025 0; vertexB: 0 -0.025 0; vertexC: 0.03 0 0"
-                material="shader: flat; color: #cbd5e1; side: double" position="0.005 0 0"></a-entity>
+              <a-entity geometry="primitive: plane; width: 0.018; height: 0.028"
+                material="shader: flat; color: #cbd5e1" position="-0.022 0 0"></a-entity>
+              <a-entity geometry="primitive: triangle; vertexA: -0.01 0.02 0; vertexB: -0.01 -0.02 0; vertexC: 0.015 0.035 0"
+                material="shader: flat; color: #cbd5e1; side: double" position="-0.005 0 0"></a-entity>
+              <a-entity geometry="primitive: triangle; vertexA: -0.01 0.02 0; vertexB: -0.01 -0.02 0; vertexC: 0.015 -0.035 0"
+                material="shader: flat; color: #cbd5e1; side: double" position="-0.005 0 0"></a-entity>
+              <a-entity geometry="primitive: plane; width: 0.006; height: 0.022" rotation="0 0 20"
+                material="shader: flat; color: #7dd3fc" position="0.018 0.006 0"></a-entity>
+              <a-entity geometry="primitive: plane; width: 0.006; height: 0.032" rotation="0 0 15"
+                material="shader: flat; color: #7dd3fc" position="0.030 0.005 0"></a-entity>
             </a-entity>
             <a-entity data-role="muted-icon" position="0 0 0.01" visible="false">
-              <a-entity geometry="primitive: plane; width: 0.025; height: 0.04"
-                material="shader: flat; color: #64748b" position="-0.012 0 0"></a-entity>
-              <a-entity geometry="primitive: triangle; vertexA: 0 0.025 0; vertexB: 0 -0.025 0; vertexC: 0.03 0 0"
-                material="shader: flat; color: #64748b; side: double" position="0.005 0 0"></a-entity>
+              <a-entity geometry="primitive: plane; width: 0.018; height: 0.028"
+                material="shader: flat; color: #64748b" position="-0.022 0 0"></a-entity>
+              <a-entity geometry="primitive: triangle; vertexA: -0.01 0.02 0; vertexB: -0.01 -0.02 0; vertexC: 0.015 0.035 0"
+                material="shader: flat; color: #64748b; side: double" position="-0.005 0 0"></a-entity>
+              <a-entity geometry="primitive: triangle; vertexA: -0.01 0.02 0; vertexB: -0.01 -0.02 0; vertexC: 0.015 -0.035 0"
+                material="shader: flat; color: #64748b; side: double" position="-0.005 0 0"></a-entity>
               <a-entity geometry="primitive: plane; width: 0.06; height: 0.008" rotation="0 0 45"
-                material="shader: flat; color: #fb7185; side: double" position="0 0 0.005"></a-entity>
+                material="shader: flat; color: #fb7185; side: double" position="0.005 0 0.005"></a-entity>
+              <a-entity geometry="primitive: plane; width: 0.06; height: 0.008" rotation="0 0 -45"
+                material="shader: flat; color: #fb7185; side: double" position="0.005 0 0.005"></a-entity>
             </a-entity>
           </a-entity>
 
@@ -470,8 +473,19 @@
             </a-entity>
           </a-entity>
 
+          <!-- Volume slider -->
+          <a-entity class="clickable" data-role="vol-track" position="0 -0.22 0.02"
+            geometry="primitive: plane; width: 0.80; height: 0.04"
+            material="shader: flat; color: #1e293b; opacity: 0.98; transparent: true"></a-entity>
+          <a-entity data-role="vol-fill" position="-0.40 -0.22 0.025"
+            geometry="primitive: plane; width: 0.80; height: 0.04"
+            material="shader: flat; color: #38bdf8; opacity: 1"></a-entity>
+          <a-troika-text data-role="vol-label" value="Vol 100%" color="#94a3b8" font-size="0.026"
+            anchor="left" baseline="center" position="-0.40 -0.27 0.02" max-width="0.5"
+            outline-width="0.002" outline-color="#000000"></a-troika-text>
+
           <!-- Row 4: Settings -->
-          <a-entity class="clickable" data-role="panel-near" position="-0.56 -0.32 0.02"
+          <a-entity class="clickable" data-role="panel-near" position="-0.56 -0.36 0.02"
             geometry="primitive: plane; width: 0.18; height: 0.13"
             material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
             animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
@@ -481,7 +495,7 @@
               material="shader: flat; color: #94a3b8; side: double"></a-entity>
           </a-entity>
 
-          <a-entity class="clickable" data-role="panel-far" position="-0.32 -0.32 0.02"
+          <a-entity class="clickable" data-role="panel-far" position="-0.32 -0.36 0.02"
             geometry="primitive: plane; width: 0.18; height: 0.13"
             material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
             animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
@@ -491,7 +505,7 @@
               material="shader: flat; color: #94a3b8; side: double"></a-entity>
           </a-entity>
 
-          <a-entity class="clickable" data-role="panel-scale-down" position="0.32 -0.32 0.02"
+          <a-entity class="clickable" data-role="panel-scale-down" position="0.32 -0.36 0.02"
             geometry="primitive: plane; width: 0.18; height: 0.13"
             material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
             animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
@@ -500,7 +514,7 @@
               material="shader: flat; color: #94a3b8" position="0 0 0.01"></a-entity>
           </a-entity>
 
-          <a-entity class="clickable" data-role="panel-scale-up" position="0.56 -0.32 0.02"
+          <a-entity class="clickable" data-role="panel-scale-up" position="0.56 -0.36 0.02"
             geometry="primitive: plane; width: 0.18; height: 0.13"
             material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
             animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
@@ -522,8 +536,12 @@
         cursor="fuse: false"></a-entity>
 
       <!-- Hand Tracking -->
-      <a-entity data-role="left-hand" hand-tracking-controls="hand: left; modelColor: #394d63"></a-entity>
-      <a-entity data-role="right-hand" hand-tracking-controls="hand: right; modelColor: #394d63"></a-entity>
+      <a-entity data-role="left-hand" hand-tracking-controls="hand: left; modelColor: #394d63"
+        raycaster="objects: .clickable; far: 5; lineColor: #7dd3fc; lineOpacity: 0.4; showLine: true"
+        cursor="fuse: false"></a-entity>
+      <a-entity data-role="right-hand" hand-tracking-controls="hand: right; modelColor: #394d63"
+        raycaster="objects: .clickable; far: 5; lineColor: #7dd3fc; lineOpacity: 0.4; showLine: true"
+        cursor="fuse: false"></a-entity>
     </a-scene>
   `;
 
@@ -796,45 +814,38 @@
 
             <a-entity id="uiRoot" jfvr-ui-manager position="0 -0.3 -1.6" scale="1 1 1" visible="false">
                 <a-entity id="uiPanel">
-                    <a-plane width="2.2" height="0.88" color="#0ea5e9" opacity="0.06"
+                    <a-plane width="2.2" height="1.02" color="#0ea5e9" opacity="0.06"
                         material="shader: flat; transparent: true; opacity: 0.06; blending: additive"
-                        position="0 0 -0.02"></a-plane>
-                    <a-plane width="2.1" height="0.82" color="#060e16" opacity="0.94"
+                        position="0 -0.04 -0.02"></a-plane>
+                    <a-plane width="2.1" height="0.96" color="#060e16" opacity="0.94"
                         material="shader: flat; transparent: true; opacity: 0.94"
-                        position="0 0 -0.01"></a-plane>
-                    <a-plane width="2.08" height="0.80"
+                        position="0 -0.04 -0.01"></a-plane>
+                    <a-plane width="2.08" height="0.94"
                         material="shader: flat; wireframe: true; color: #1e3a5f; transparent: true; opacity: 0.25"
-                        position="0 0 0"></a-plane>
+                        position="0 -0.04 0"></a-plane>
                 </a-entity>
 
-                <!-- Row 1: Mode selector + Status -->
-                <a-entity class="clickable" id="uiModePrev3d" position="-0.72 0.30 0.02"
-                    geometry="primitive: plane; width: 0.16; height: 0.13"
+                <!-- Row 1: Mode selector (clickable) + Status -->
+                <a-entity class="clickable" id="uiModeBtnBg3d" position="-0.20 0.30 0.02"
+                    geometry="primitive: plane; width: 1.20; height: 0.14"
                     material="shader: flat; color: #0f172a; opacity: 0.95; transparent: true"
-                    animation__hover="property: scale; to: 1.15 1.15 1; dur: 100; startEvents: mouseenter"
+                    animation__hover="property: scale; to: 1.04 1.1 1; dur: 100; startEvents: mouseenter"
                     animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-                    <a-entity position="0 0 0.01"
-                        geometry="primitive: triangle; vertexA: 0.025 0.03 0; vertexB: 0.025 -0.03 0; vertexC: -0.025 0 0"
-                        material="shader: flat; color: #7dd3fc; side: double"></a-entity>
-                </a-entity>
-
-                <a-troika-text id="panelModeText" value="360 Mono" color="#f0f6ff" font-size="0.048"
-                    anchor="center" baseline="center" position="0 0.30 0.02" max-width="1.2"
-                    outline-width="0.003" outline-color="#000000"></a-troika-text>
-
-                <a-entity class="clickable" id="uiModeNext3d" position="0.72 0.30 0.02"
-                    geometry="primitive: plane; width: 0.16; height: 0.13"
-                    material="shader: flat; color: #0f172a; opacity: 0.95; transparent: true"
-                    animation__hover="property: scale; to: 1.15 1.15 1; dur: 100; startEvents: mouseenter"
-                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-                    <a-entity position="0 0 0.01"
-                        geometry="primitive: triangle; vertexA: -0.025 0.03 0; vertexB: -0.025 -0.03 0; vertexC: 0.025 0 0"
+                    <a-troika-text id="panelModeText" value="360 Mono" color="#f0f6ff" font-size="0.046"
+                        anchor="center" baseline="center" position="0 0 0.01" max-width="1.1"
+                        outline-width="0.003" outline-color="#000000"></a-troika-text>
+                    <a-entity position="0.52 0 0.01"
+                        geometry="primitive: triangle; vertexA: -0.018 0.012 0; vertexB: 0.018 0.012 0; vertexC: 0 -0.012 0"
                         material="shader: flat; color: #7dd3fc; side: double"></a-entity>
                 </a-entity>
 
                 <a-troika-text id="panelStatusText" value="Ready" color="#7dd3fc" font-size="0.032"
                     anchor="right" baseline="center" position="0.98 0.30 0.02" max-width="0.5"
                     outline-width="0.002" outline-color="#000000"></a-troika-text>
+
+                <!-- Mode list overlay (hidden by default) -->
+                <a-entity id="modeListRoot3d" visible="false" position="0 0.30 0.05">
+                </a-entity>
 
                 <!-- Row 2: Seek bar + Time -->
                 <a-entity class="clickable" id="seekTrack3d" position="0 0.12 0.02"
@@ -924,18 +935,28 @@
                     animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
                     animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
                     <a-entity id="uiMuteIcon" position="0 0 0.01">
-                        <a-entity geometry="primitive: plane; width: 0.025; height: 0.04"
-                            material="shader: flat; color: #cbd5e1" position="-0.012 0 0"></a-entity>
-                        <a-entity geometry="primitive: triangle; vertexA: 0 0.025 0; vertexB: 0 -0.025 0; vertexC: 0.03 0 0"
-                            material="shader: flat; color: #cbd5e1; side: double" position="0.005 0 0"></a-entity>
+                        <a-entity geometry="primitive: plane; width: 0.018; height: 0.028"
+                            material="shader: flat; color: #cbd5e1" position="-0.022 0 0"></a-entity>
+                        <a-entity geometry="primitive: triangle; vertexA: -0.01 0.02 0; vertexB: -0.01 -0.02 0; vertexC: 0.015 0.035 0"
+                            material="shader: flat; color: #cbd5e1; side: double" position="-0.005 0 0"></a-entity>
+                        <a-entity geometry="primitive: triangle; vertexA: -0.01 0.02 0; vertexB: -0.01 -0.02 0; vertexC: 0.015 -0.035 0"
+                            material="shader: flat; color: #cbd5e1; side: double" position="-0.005 0 0"></a-entity>
+                        <a-entity geometry="primitive: plane; width: 0.006; height: 0.022" rotation="0 0 20"
+                            material="shader: flat; color: #7dd3fc" position="0.018 0.006 0"></a-entity>
+                        <a-entity geometry="primitive: plane; width: 0.006; height: 0.032" rotation="0 0 15"
+                            material="shader: flat; color: #7dd3fc" position="0.030 0.005 0"></a-entity>
                     </a-entity>
                     <a-entity id="uiMutedIcon" position="0 0 0.01" visible="false">
-                        <a-entity geometry="primitive: plane; width: 0.025; height: 0.04"
-                            material="shader: flat; color: #64748b" position="-0.012 0 0"></a-entity>
-                        <a-entity geometry="primitive: triangle; vertexA: 0 0.025 0; vertexB: 0 -0.025 0; vertexC: 0.03 0 0"
-                            material="shader: flat; color: #64748b; side: double" position="0.005 0 0"></a-entity>
+                        <a-entity geometry="primitive: plane; width: 0.018; height: 0.028"
+                            material="shader: flat; color: #64748b" position="-0.022 0 0"></a-entity>
+                        <a-entity geometry="primitive: triangle; vertexA: -0.01 0.02 0; vertexB: -0.01 -0.02 0; vertexC: 0.015 0.035 0"
+                            material="shader: flat; color: #64748b; side: double" position="-0.005 0 0"></a-entity>
+                        <a-entity geometry="primitive: triangle; vertexA: -0.01 0.02 0; vertexB: -0.01 -0.02 0; vertexC: 0.015 -0.035 0"
+                            material="shader: flat; color: #64748b; side: double" position="-0.005 0 0"></a-entity>
                         <a-entity geometry="primitive: plane; width: 0.06; height: 0.008" rotation="0 0 45"
-                            material="shader: flat; color: #fb7185; side: double" position="0 0 0.005"></a-entity>
+                            material="shader: flat; color: #fb7185; side: double" position="0.005 0 0.005"></a-entity>
+                        <a-entity geometry="primitive: plane; width: 0.06; height: 0.008" rotation="0 0 -45"
+                            material="shader: flat; color: #fb7185; side: double" position="0.005 0 0.005"></a-entity>
                     </a-entity>
                 </a-entity>
 
@@ -956,8 +977,19 @@
                     </a-entity>
                 </a-entity>
 
+                <!-- Volume slider -->
+                <a-entity class="clickable" id="uiVolTrack3d" position="0 -0.22 0.02"
+                    geometry="primitive: plane; width: 0.80; height: 0.04"
+                    material="shader: flat; color: #1e293b; opacity: 0.98; transparent: true"></a-entity>
+                <a-entity id="uiVolFill3d" position="-0.40 -0.22 0.025"
+                    geometry="primitive: plane; width: 0.80; height: 0.04"
+                    material="shader: flat; color: #38bdf8; opacity: 1"></a-entity>
+                <a-troika-text id="uiVolLabel3d" value="Vol 100%" color="#94a3b8" font-size="0.026"
+                    anchor="left" baseline="center" position="-0.40 -0.27 0.02" max-width="0.5"
+                    outline-width="0.002" outline-color="#000000"></a-troika-text>
+
                 <!-- Row 4: Settings -->
-                <a-entity class="clickable" id="uiNear3d" position="-0.56 -0.32 0.02"
+                <a-entity class="clickable" id="uiNear3d" position="-0.56 -0.36 0.02"
                     geometry="primitive: plane; width: 0.18; height: 0.13"
                     material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
                     animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
@@ -967,7 +999,7 @@
                         material="shader: flat; color: #94a3b8; side: double"></a-entity>
                 </a-entity>
 
-                <a-entity class="clickable" id="uiFar3d" position="-0.32 -0.32 0.02"
+                <a-entity class="clickable" id="uiFar3d" position="-0.32 -0.36 0.02"
                     geometry="primitive: plane; width: 0.18; height: 0.13"
                     material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
                     animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
@@ -977,7 +1009,7 @@
                         material="shader: flat; color: #94a3b8; side: double"></a-entity>
                 </a-entity>
 
-                <a-entity class="clickable" id="uiScaleDown3d" position="0.32 -0.32 0.02"
+                <a-entity class="clickable" id="uiScaleDown3d" position="0.32 -0.36 0.02"
                     geometry="primitive: plane; width: 0.18; height: 0.13"
                     material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
                     animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
@@ -986,7 +1018,7 @@
                         material="shader: flat; color: #94a3b8" position="0 0 0.01"></a-entity>
                 </a-entity>
 
-                <a-entity class="clickable" id="uiScaleUp3d" position="0.56 -0.32 0.02"
+                <a-entity class="clickable" id="uiScaleUp3d" position="0.56 -0.36 0.02"
                     geometry="primitive: plane; width: 0.18; height: 0.13"
                     material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
                     animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
@@ -1008,8 +1040,12 @@
             cursor="fuse: false"></a-entity>
 
         <!-- Hand Tracking -->
-        <a-entity id="leftHand" hand-tracking-controls="hand: left; modelColor: #394d63"></a-entity>
-        <a-entity id="rightHand" hand-tracking-controls="hand: right; modelColor: #394d63"></a-entity>
+        <a-entity id="leftHand" hand-tracking-controls="hand: left; modelColor: #394d63"
+            raycaster="objects: .clickable; far: 5; lineColor: #7dd3fc; lineOpacity: 0.4; showLine: true"
+            cursor="fuse: false"></a-entity>
+        <a-entity id="rightHand" hand-tracking-controls="hand: right; modelColor: #394d63"
+            raycaster="objects: .clickable; far: 5; lineColor: #7dd3fc; lineOpacity: 0.4; showLine: true"
+            cursor="fuse: false"></a-entity>
     </a-scene>
 
     <script>
@@ -1052,8 +1088,9 @@
             var uiRoot = document.getElementById('uiRoot');
             var panelModeText = document.getElementById('panelModeText');
             var panelStatusText = document.getElementById('panelStatusText');
-            var uiModePrev3d = document.getElementById('uiModePrev3d');
-            var uiModeNext3d = document.getElementById('uiModeNext3d');
+            var uiModeBtnBg3d = document.getElementById('uiModeBtnBg3d');
+            var modeListRoot3d = document.getElementById('modeListRoot3d');
+            var modeListOpen = false;
             var uiExit3d = document.getElementById('uiExit3d');
             var uiSeekBack3d = document.getElementById('uiSeekBack3d');
             var uiPlay3d = document.getElementById('uiPlay3d');
@@ -1074,6 +1111,9 @@
             var seekBuffered3d = document.getElementById('seekBuffered3d');
             var seekPlayed3d = document.getElementById('seekPlayed3d');
             var seekTime3d = document.getElementById('seekTime3d');
+            var uiVolTrack3d = document.getElementById('uiVolTrack3d');
+            var uiVolFill3d = document.getElementById('uiVolFill3d');
+            var uiVolLabel3d = document.getElementById('uiVolLabel3d');
 
             
             if (typeof AFRAME !== 'undefined' && !AFRAME.components['jfvr-ui-manager']) {
@@ -1082,6 +1122,7 @@
                     init: function () {
                         this.lastInteraction = Date.now();
                         this.uiVisible = true;
+                        this.initialRecenterDone = false;
                         
                         var self = this;
                         var wake = function() {
@@ -1089,13 +1130,31 @@
                             if (!self.uiVisible) {
                                 self.uiVisible = true;
                                 self.el.object3D.visible = true;
-                                self.recenter(); // Recenter on wake
+                            }
+                        };
+                        var wakeAndRecenter = function() {
+                            wake();
+                            self.recenter();
+                        };
+                        var toggleUi = function() {
+                            if (self.uiVisible) {
+                                self.uiVisible = false;
+                                self.el.object3D.visible = false;
+                            } else {
+                                self.uiVisible = true;
+                                self.el.object3D.visible = true;
+                                self.lastInteraction = Date.now();
                             }
                         };
                         
                         this.el.sceneEl.addEventListener('enter-vr', function() {
-                            setTimeout(wake, 300);
-                            setTimeout(function(){ self.recenter(); }, 500);
+                            setTimeout(function() {
+                                self.uiVisible = true;
+                                self.el.object3D.visible = true;
+                                self.lastInteraction = Date.now();
+                                self.recenter();
+                                self.initialRecenterDone = true;
+                            }, 400);
                         });
 
                         document.addEventListener('mousemove', wake);
@@ -1105,18 +1164,16 @@
                             wake();
                         });
 
-                        this.el.sceneEl.addEventListener('bbuttondown', wake);
-                        this.el.sceneEl.addEventListener('ybuttondown', wake);
-                        this.el.sceneEl.addEventListener('triggerdown', wake); // Trigger on canvas wakes too
-                        this.el.sceneEl.addEventListener('thumbstickdown', function(){ self.recenter(); wake(); });
+                        this.el.sceneEl.addEventListener('triggerdown', wake);
+                        this.el.sceneEl.addEventListener('thumbstickdown', wakeAndRecenter);
 
                         setTimeout(function() {
                             var controllers = document.querySelectorAll('[laser-controls]');
                             controllers.forEach(function(ctrl) {
-                                ctrl.addEventListener('bbuttondown', function(){ self.recenter(); wake(); });
-                                ctrl.addEventListener('ybuttondown', function(){ self.recenter(); wake(); });
-                                ctrl.addEventListener('gripdown', function(){ self.recenter(); wake(); });
                                 ctrl.addEventListener('triggerdown', wake);
+                                ctrl.addEventListener('gripdown', toggleUi);
+                                ctrl.addEventListener('bbuttondown', wake);
+                                ctrl.addEventListener('ybuttondown', wakeAndRecenter);
                             });
                             var handEls = document.querySelectorAll('[hand-tracking-controls]');
                             handEls.forEach(function(h) {
@@ -1129,14 +1186,15 @@
                         setTimeout(function() { self.recenter(); }, 500);
                     },
                     recenter: function() {
-                        var cam = this.el.sceneEl.camera.el;
+                        var cam = this.el.sceneEl.camera;
                         if (!cam) return;
-                        var cam3D = cam.object3D;
-                        var euler = new THREE.Euler().setFromQuaternion(cam3D.getWorldQuaternion(new THREE.Quaternion()), 'YXZ');
+                        var camObj = cam.el ? cam.el.object3D : cam.object3D || cam;
+                        if (!camObj || !camObj.getWorldQuaternion) return;
+                        var euler = new THREE.Euler().setFromQuaternion(camObj.getWorldQuaternion(new THREE.Quaternion()), 'YXZ');
                         
                         this.el.object3D.rotation.set(0, euler.y, 0);
                         var pos = new THREE.Vector3();
-                        cam3D.getWorldPosition(pos);
+                        camObj.getWorldPosition(pos);
                         
                         var d = parseFloat(localStorage.getItem('jfvr:ui-distance')) || this.data.distance;
                         pos.y -= 0.38;
@@ -1150,8 +1208,7 @@
                     },
                     tick: function() {
                         var now = Date.now();
-                        // Auto-hide after 4 seconds of inactivity
-                        if (this.uiVisible && (now - this.lastInteraction > 4000)) {
+                        if (this.uiVisible && (now - this.lastInteraction > 6000)) {
                             this.uiVisible = false;
                             this.el.object3D.visible = false;
                         }
@@ -1285,6 +1342,21 @@
                 }
             }
 
+            var VOL_TRACK_WIDTH = 0.80;
+
+            function updateVolumeFill() {
+                var audioVideo = getVolumeTargetVideo();
+                var vol = audioVideo ? (audioVideo.muted ? 0 : audioVideo.volume) : 1;
+                var width = Math.max(0.001, VOL_TRACK_WIDTH * clamp(vol, 0, 1));
+                if (uiVolFill3d) {
+                    uiVolFill3d.setAttribute('geometry', 'width', width);
+                    uiVolFill3d.setAttribute('position', (-VOL_TRACK_WIDTH / 2 + width / 2) + ' -0.22 0.025');
+                }
+                if (uiVolLabel3d) {
+                    setEntityText(uiVolLabel3d, 'Vol ' + Math.round(vol * 100) + '%');
+                }
+            }
+
             function updateButtonLabels() {
                 var video = getMasterVideo();
                 var audioVideo = getVolumeTargetVideo();
@@ -1298,6 +1370,7 @@
                 var inVr = playerState.isImmersive;
                 enterVrBtn.textContent = inVr ? 'Exit VR' : 'Enter VR';
                 setEntityText(uiEnterVr3dLabel, inVr ? 'Exit VR' : 'VR');
+                updateVolumeFill();
             }
 
             function cycleMode(direction) {
@@ -1311,6 +1384,60 @@
                 setStatus(MODE_LIST[idx].label, false);
             }
 
+            function buildModeList() {
+                if (!modeListRoot3d) return;
+                while (modeListRoot3d.firstChild) {
+                    modeListRoot3d.removeChild(modeListRoot3d.firstChild);
+                }
+                var itemH = 0.10;
+                var totalH = MODE_LIST.length * itemH;
+                var bgEl = document.createElement('a-plane');
+                bgEl.setAttribute('width', '1.30');
+                bgEl.setAttribute('height', String(totalH + 0.06));
+                bgEl.setAttribute('color', '#060e16');
+                bgEl.setAttribute('material', 'shader: flat; transparent: true; opacity: 0.96');
+                bgEl.setAttribute('position', '0 ' + (totalH / 2 + 0.04) + ' -0.01');
+                modeListRoot3d.appendChild(bgEl);
+                for (var i = 0; i < MODE_LIST.length; i++) {
+                    (function(mode, index) {
+                        var y = totalH - index * itemH;
+                        var itemEl = document.createElement('a-entity');
+                        itemEl.classList.add('clickable');
+                        itemEl.setAttribute('geometry', 'primitive: plane; width: 1.24; height: ' + (itemH - 0.01));
+                        var isActive = playerState.currentMode && playerState.currentMode.id === mode.id;
+                        itemEl.setAttribute('material', 'shader: flat; color: ' + (isActive ? '#1e3a5f' : '#0f172a') + '; opacity: 0.95; transparent: true');
+                        itemEl.setAttribute('position', '0 ' + y + ' 0');
+                        itemEl.setAttribute('animation__hover', 'property: material.color; to: #1b3951; dur: 80; startEvents: mouseenter');
+                        itemEl.setAttribute('animation__leave', 'property: material.color; to: ' + (isActive ? '#1e3a5f' : '#0f172a') + '; dur: 80; startEvents: mouseleave');
+                        var textEl = document.createElement('a-troika-text');
+                        textEl.setAttribute('value', mode.label);
+                        textEl.setAttribute('color', isActive ? '#7dd3fc' : '#e2e8f0');
+                        textEl.setAttribute('font-size', '0.038');
+                        textEl.setAttribute('anchor', 'center');
+                        textEl.setAttribute('baseline', 'center');
+                        textEl.setAttribute('position', '0 0 0.01');
+                        textEl.setAttribute('max-width', '1.1');
+                        itemEl.appendChild(textEl);
+                        itemEl.addEventListener('click', function() {
+                            applyMode(mode.id);
+                            setStatus(mode.label, false);
+                            toggleModeList();
+                        });
+                        modeListRoot3d.appendChild(itemEl);
+                    })(MODE_LIST[i], i);
+                }
+            }
+
+            function toggleModeList() {
+                modeListOpen = !modeListOpen;
+                if (modeListOpen) {
+                    buildModeList();
+                }
+                if (modeListRoot3d) {
+                    modeListRoot3d.object3D.visible = modeListOpen;
+                }
+            }
+
             function updateModeUi() {
                 var mode = playerState.currentMode || MODE_MAP['360-mono'];
                 modeChip.textContent = mode.label;
@@ -1319,6 +1446,9 @@
                 setClickableState(uiSwap3d, stereoEnabled);
                 if (!stereoEnabled) {
                     swapEyes = false;
+                }
+                if (modeListOpen) {
+                    buildModeList();
                 }
                 updateButtonLabels();
             }
@@ -1469,19 +1599,24 @@
                 });
             }
 
+            var stereoLayersConfigured = false;
+
             function configureStereoLayers() {
                 var camera = sceneEl.camera;
-                if (!camera) return;
+                if (!camera) return false;
 
                 camera.layers.enable(0);
                 camera.layers.enable(1);
                 camera.layers.enable(2);
 
                 var renderer = sceneEl.renderer;
-                if (!renderer || !renderer.xr || !renderer.xr.getCamera) return;
+                if (!renderer || !renderer.xr) return false;
 
-                var xrCamera = renderer.xr.getCamera();
-                if (!xrCamera || !xrCamera.cameras || xrCamera.cameras.length < 2) return;
+                var xrCamera = null;
+                if (typeof renderer.xr.getCamera === 'function') {
+                    xrCamera = renderer.xr.getCamera();
+                }
+                if (!xrCamera || !xrCamera.cameras || xrCamera.cameras.length < 2) return false;
 
                 xrCamera.layers.enable(0);
                 xrCamera.layers.enable(1);
@@ -1494,6 +1629,15 @@
                 xrCamera.cameras[1].layers.enable(0);
                 xrCamera.cameras[1].layers.enable(2);
                 xrCamera.cameras[1].layers.disable(1);
+
+                stereoLayersConfigured = true;
+                return true;
+            }
+
+            function retryStereoLayers(attemptsLeft) {
+                if (stereoLayersConfigured || attemptsLeft <= 0) return;
+                if (configureStereoLayers()) return;
+                setTimeout(function() { retryStereoLayers(attemptsLeft - 1); }, 200);
             }
 
             function updateSurfaceVisibility() {
@@ -1864,8 +2008,7 @@
 
                 applyProjectionPlacement(playerState.currentMode);
 
-                registerPanelButton(uiModePrev3d, '#0f172a', '#1b2a40', function () { cycleMode(-1); });
-                registerPanelButton(uiModeNext3d, '#0f172a', '#1b2a40', function () { cycleMode(1); });
+                registerPanelButton(uiModeBtnBg3d, '#0f172a', '#1b2a40', function () { toggleModeList(); });
                 registerPanelButton(uiExit3d, '#3b0b19', '#5c1025', closePlayer);
                 registerPanelButton(uiSeekBack3d, '#13283a', '#1b3951', function () {
                     var video = getMasterVideo();
@@ -1909,6 +2052,18 @@
                     updateComfortUi();
                 });
                 registerPanelButton(seekTrack3d, '#102131', '#163248', seekFrom3dEvent);
+                registerPanelButton(uiVolTrack3d, '#1e293b', '#2a3a4d', function (event) {
+                    var audioVideo = getVolumeTargetVideo();
+                    if (!audioVideo) return;
+                    if (!event.detail || !event.detail.intersection || !event.detail.intersection.point) return;
+                    var point = event.detail.intersection.point.clone();
+                    uiVolTrack3d.object3D.worldToLocal(point);
+                    var vol = clamp((point.x + VOL_TRACK_WIDTH / 2) / VOL_TRACK_WIDTH, 0, 1);
+                    audioVideo.volume = vol;
+                    audioVideo.muted = (vol === 0);
+                    volumeSlider.value = String(vol);
+                    updateButtonLabels();
+                });
 
                 surfacesReady = true;
                 updateComfortUi();
@@ -2018,12 +2173,15 @@
             sceneEl.addEventListener('renderstart', configureStereoLayers);
             sceneEl.addEventListener('enter-vr', function () {
                 playerState.isImmersive = true;
+                stereoLayersConfigured = false;
                 updateButtonLabels();
                 updateSurfaceVisibility();
+                retryStereoLayers(15);
                 setStatus('Immersive VR active', false);
             });
             sceneEl.addEventListener('exit-vr', function () {
                 playerState.isImmersive = false;
+                stereoLayersConfigured = false;
                 updateButtonLabels();
                 updateSurfaceVisibility();
                 setStatus(isQuestBrowser ? 'Exited immersive VR - tap Enter VR to re-enter' : 'Exited immersive VR', isQuestBrowser);
@@ -2495,6 +2653,7 @@
             init: function () {
                 this.lastInteraction = Date.now();
                 this.uiVisible = true;
+                this.initialRecenterDone = false;
                 
                 var self = this;
                 var wake = function() {
@@ -2502,13 +2661,31 @@
                     if (!self.uiVisible) {
                         self.uiVisible = true;
                         self.el.object3D.visible = true;
-                        self.recenter();
+                    }
+                };
+                var wakeAndRecenter = function() {
+                    wake();
+                    self.recenter();
+                };
+                var toggleUi = function() {
+                    if (self.uiVisible) {
+                        self.uiVisible = false;
+                        self.el.object3D.visible = false;
+                    } else {
+                        self.uiVisible = true;
+                        self.el.object3D.visible = true;
+                        self.lastInteraction = Date.now();
                     }
                 };
                 
                 this.el.sceneEl.addEventListener('enter-vr', function() {
-                    setTimeout(wake, 300);
-                    setTimeout(function(){ self.recenter(); }, 500);
+                    setTimeout(function() {
+                        self.uiVisible = true;
+                        self.el.object3D.visible = true;
+                        self.lastInteraction = Date.now();
+                        self.recenter();
+                        self.initialRecenterDone = true;
+                    }, 400);
                 });
 
                 document.addEventListener('mousemove', wake);
@@ -2518,20 +2695,18 @@
                     wake();
                 });
 
-                this.el.sceneEl.addEventListener('bbuttondown', wake);
-                this.el.sceneEl.addEventListener('ybuttondown', wake);
                 this.el.sceneEl.addEventListener('triggerdown', wake);
-                this.el.sceneEl.addEventListener('thumbstickdown', function(){ self.recenter(); wake(); });
+                this.el.sceneEl.addEventListener('thumbstickdown', wakeAndRecenter);
 
                 setTimeout(function() {
-                    var controllers = document.querySelectorAll('[laser-controls]');
+                    var controllers = self.el.sceneEl.querySelectorAll('[laser-controls]');
                     controllers.forEach(function(ctrl) {
-                        ctrl.addEventListener('bbuttondown', function(){ self.recenter(); wake(); });
-                        ctrl.addEventListener('ybuttondown', function(){ self.recenter(); wake(); });
-                        ctrl.addEventListener('gripdown', function(){ self.recenter(); wake(); });
                         ctrl.addEventListener('triggerdown', wake);
+                        ctrl.addEventListener('gripdown', toggleUi);
+                        ctrl.addEventListener('bbuttondown', wake);
+                        ctrl.addEventListener('ybuttondown', wakeAndRecenter);
                     });
-                    var handEls = document.querySelectorAll('[hand-tracking-controls]');
+                    var handEls = self.el.sceneEl.querySelectorAll('[hand-tracking-controls]');
                     handEls.forEach(function(h) {
                         h.addEventListener('pinchstarted', wake);
                         h.addEventListener('pinchended', wake);
@@ -2542,14 +2717,15 @@
                 setTimeout(function() { self.recenter(); }, 500);
             },
             recenter: function() {
-                var cam = this.el.sceneEl.camera.el;
+                var cam = this.el.sceneEl.camera;
                 if (!cam) return;
-                var cam3D = cam.object3D;
-                var euler = new THREE.Euler().setFromQuaternion(cam3D.getWorldQuaternion(new THREE.Quaternion()), 'YXZ');
+                var camObj = cam.el ? cam.el.object3D : cam.object3D || cam;
+                if (!camObj || !camObj.getWorldQuaternion) return;
+                var euler = new THREE.Euler().setFromQuaternion(camObj.getWorldQuaternion(new THREE.Quaternion()), 'YXZ');
                 
                 this.el.object3D.rotation.set(0, euler.y, 0);
                 var pos = new THREE.Vector3();
-                cam3D.getWorldPosition(pos);
+                camObj.getWorldPosition(pos);
                 
                 var d = parseFloat(localStorage.getItem('jfvr:ui-distance')) || this.data.distance;
                 pos.y -= 0.38;
@@ -2563,7 +2739,7 @@
             },
             tick: function() {
                 var now = Date.now();
-                if (this.uiVisible && (now - this.lastInteraction > 4000)) {
+                if (this.uiVisible && (now - this.lastInteraction > 6000)) {
                     this.uiVisible = false;
                     this.el.object3D.visible = false;
                 }
@@ -2605,8 +2781,9 @@
     const uiRoot = q('[data-role="ui-root"]');
     const panelModeText = q('[data-role="panel-mode"]');
     const panelStatusText = q('[data-role="panel-status"]');
-    const panelModePrev = q('[data-role="panel-mode-prev"]');
-    const panelModeNext = q('[data-role="panel-mode-next"]');
+    const panelModeBtn = q('[data-role="panel-mode-btn"]');
+    const modeListRoot = q('[data-role="mode-list-root"]');
+    var modeListOpen = false;
     const panelPlayIcon = q('[data-role="play-icon"]');
     const panelPauseIcon = q('[data-role="pause-icon"]');
     const panelVrLabel = q('[data-role="panel-vr-label"]');
@@ -2616,6 +2793,10 @@
     const seekBuffered3d = q('[data-role="seek-buffered"]');
     const seekPlayed3d = q('[data-role="seek-played"]');
     const seekTime3d = q('[data-role="seek-time-3d"]');
+    const volTrack3d = q('[data-role="vol-track"]');
+    const volFill3d = q('[data-role="vol-fill"]');
+    const volLabel3d = q('[data-role="vol-label"]');
+    const VOL_TRACK_WIDTH = 0.80;
 
     function on(target, eventName, handler, options) {
       target.addEventListener(eventName, handler, options);
@@ -2679,6 +2860,16 @@
       }
     }
 
+    function updateVolumeFill() {
+      const vol = state.video ? (state.video.muted ? 0 : state.video.volume) : 1;
+      const width = Math.max(0.001, VOL_TRACK_WIDTH * clamp(vol, 0, 1));
+      if (volFill3d) {
+        volFill3d.setAttribute('geometry', 'width', width);
+        volFill3d.setAttribute('position', `${-VOL_TRACK_WIDTH / 2 + width / 2} -0.22 0.025`);
+      }
+      if (volLabel3d) setText3d(volLabel3d, `Vol ${Math.round(vol * 100)}%`);
+    }
+
     function updateButtonLabels() {
       const paused = !state.video || state.video.paused;
       playBtn.textContent = paused ? 'Play' : 'Pause';
@@ -2689,6 +2880,7 @@
       if (panelMutedIcon) panelMutedIcon.object3D.visible = !!(state.video && state.video.muted);
       enterVrBtn.textContent = state.isImmersive ? 'Exit VR' : 'Enter VR';
       setText3d(panelVrLabel, state.isImmersive ? 'Exit VR' : 'VR');
+      updateVolumeFill();
     }
 
     function cycleMode(direction) {
@@ -2700,9 +2892,58 @@
       setStatus(VIEW_MODES[idx].label, false);
     }
 
+    function buildModeList() {
+      if (!modeListRoot) return;
+      while (modeListRoot.firstChild) {
+        modeListRoot.removeChild(modeListRoot.firstChild);
+      }
+      const itemH = 0.10;
+      const totalH = VIEW_MODES.length * itemH;
+      const bgEl = document.createElement('a-plane');
+      bgEl.setAttribute('width', '1.30');
+      bgEl.setAttribute('height', String(totalH + 0.06));
+      bgEl.setAttribute('color', '#060e16');
+      bgEl.setAttribute('material', 'shader: flat; transparent: true; opacity: 0.96');
+      bgEl.setAttribute('position', `0 ${totalH / 2 + 0.04} -0.01`);
+      modeListRoot.appendChild(bgEl);
+      VIEW_MODES.forEach((mode, index) => {
+        const y = totalH - index * itemH;
+        const itemEl = document.createElement('a-entity');
+        itemEl.classList.add('clickable');
+        itemEl.setAttribute('geometry', `primitive: plane; width: 1.24; height: ${itemH - 0.01}`);
+        const isActive = state.currentMode && state.currentMode.id === mode.id;
+        itemEl.setAttribute('material', `shader: flat; color: ${isActive ? '#1e3a5f' : '#0f172a'}; opacity: 0.95; transparent: true`);
+        itemEl.setAttribute('position', `0 ${y} 0`);
+        itemEl.setAttribute('animation__hover', 'property: material.color; to: #1b3951; dur: 80; startEvents: mouseenter');
+        itemEl.setAttribute('animation__leave', `property: material.color; to: ${isActive ? '#1e3a5f' : '#0f172a'}; dur: 80; startEvents: mouseleave`);
+        const textEl = document.createElement('a-troika-text');
+        textEl.setAttribute('value', mode.label);
+        textEl.setAttribute('color', isActive ? '#7dd3fc' : '#e2e8f0');
+        textEl.setAttribute('font-size', '0.038');
+        textEl.setAttribute('anchor', 'center');
+        textEl.setAttribute('baseline', 'center');
+        textEl.setAttribute('position', '0 0 0.01');
+        textEl.setAttribute('max-width', '1.1');
+        itemEl.appendChild(textEl);
+        itemEl.addEventListener('click', () => {
+          applyMode(mode.id);
+          setStatus(mode.label, false);
+          toggleModeList();
+        });
+        modeListRoot.appendChild(itemEl);
+      });
+    }
+
+    function toggleModeList() {
+      modeListOpen = !modeListOpen;
+      if (modeListOpen) buildModeList();
+      if (modeListRoot) modeListRoot.object3D.visible = modeListOpen;
+    }
+
     function updateModeUi() {
       modeChip.textContent = state.currentMode.label;
       setText3d(panelModeText, state.currentMode.label);
+      if (modeListOpen) buildModeList();
       updateButtonLabels();
     }
 
@@ -2818,16 +3059,30 @@
       return new THREE.MeshBasicMaterial({ map: texture, side: THREE.BackSide, toneMapped: false });
     }
 
+    var stereoLayersConfigured = false;
+
     function configureStereoLayers() {
       const camera = sceneEl.camera;
-      if (!camera) return;
+      if (!camera) return false;
       camera.layers.enable(0); camera.layers.enable(1); camera.layers.enable(2);
       const renderer = sceneEl.renderer;
-      if (!renderer || !renderer.xr || !renderer.xr.getCamera) return;
-      const xrCamera = renderer.xr.getCamera();
-      if (!xrCamera || !xrCamera.cameras || xrCamera.cameras.length < 2) return;
+      if (!renderer || !renderer.xr) return false;
+      var xrCamera = null;
+      if (typeof renderer.xr.getCamera === 'function') {
+        xrCamera = renderer.xr.getCamera();
+      }
+      if (!xrCamera || !xrCamera.cameras || xrCamera.cameras.length < 2) return false;
+      xrCamera.layers.enable(0); xrCamera.layers.enable(1); xrCamera.layers.enable(2);
       xrCamera.cameras[0].layers.enable(0); xrCamera.cameras[0].layers.enable(1); xrCamera.cameras[0].layers.disable(2);
       xrCamera.cameras[1].layers.enable(0); xrCamera.cameras[1].layers.enable(2); xrCamera.cameras[1].layers.disable(1);
+      stereoLayersConfigured = true;
+      return true;
+    }
+
+    function retryStereoLayers(attemptsLeft) {
+      if (stereoLayersConfigured || attemptsLeft <= 0) return;
+      if (configureStereoLayers()) return;
+      setTimeout(function() { retryStereoLayers(attemptsLeft - 1); }, 200);
     }
 
     function updateSurfaceVisibility() {
@@ -3042,8 +3297,7 @@
       updateSeekFill(seekPlayed3d, parseFloat(seekInput.value) / 1000, '#38bdf8', '0.03');
     });
 
-    setPanelButtonBehavior('[data-role="panel-mode-prev"]', '#0f172a', '#1b2a40', () => cycleMode(-1));
-    setPanelButtonBehavior('[data-role="panel-mode-next"]', '#0f172a', '#1b2a40', () => cycleMode(1));
+    setPanelButtonBehavior('[data-role="panel-mode-btn"]', '#0f172a', '#1b2a40', () => toggleModeList());
     setPanelButtonBehavior('[data-role="panel-exit"]', '#3b0b19', '#5c1025', close);
     setPanelButtonBehavior('[data-role="panel-back"]', '#13283a', '#1b3951', () => seekTo((state.video ? state.video.currentTime : 0) - 10));
     setPanelButtonBehavior('[data-role="panel-play"]', '#11415a', '#15597a', togglePlay);
@@ -3072,6 +3326,17 @@
     setPanelButtonBehavior('[data-role="panel-scale-down"]', '#13283a', '#1b3951', () => { state.panelScale = clamp(state.panelScale - 0.08, 0.7, 1.55); updateComfortUi(); });
     setPanelButtonBehavior('[data-role="panel-scale-up"]', '#13283a', '#1b3951', () => { state.panelScale = clamp(state.panelScale + 0.08, 0.7, 1.55); updateComfortUi(); });
     setPanelButtonBehavior('[data-role="seek-track"]', '#102131', '#163248', seekFrom3d);
+    setPanelButtonBehavior('[data-role="vol-track"]', '#1e293b', '#2a3a4d', (event) => {
+      if (!state.video) return;
+      if (!event.detail || !event.detail.intersection || !event.detail.intersection.point) return;
+      const point = event.detail.intersection.point.clone();
+      volTrack3d.object3D.worldToLocal(point);
+      const vol = clamp((point.x + VOL_TRACK_WIDTH / 2) / VOL_TRACK_WIDTH, 0, 1);
+      state.video.volume = vol;
+      state.video.muted = (vol === 0);
+      volumeSlider.value = String(vol);
+      updateButtonLabels();
+    });
 
     ['loadedmetadata', 'durationchange', 'timeupdate', 'progress', 'volumechange'].forEach((eventName) => on(state.video, eventName, () => {
       updateTimeUi();
@@ -3084,8 +3349,8 @@
     on(state.video, 'pause', () => { setStatus('Paused', false); updateButtonLabels(); });
 
     on(sceneEl, 'renderstart', configureStereoLayers);
-    on(sceneEl, 'enter-vr', () => { state.isImmersive = true; updateButtonLabels(); updateSurfaceVisibility(); setStatus('Immersive VR active', false); });
-    on(sceneEl, 'exit-vr', () => { state.isImmersive = false; updateButtonLabels(); updateSurfaceVisibility(); setStatus('Exited immersive VR', false); });
+    on(sceneEl, 'enter-vr', () => { state.isImmersive = true; stereoLayersConfigured = false; updateButtonLabels(); updateSurfaceVisibility(); retryStereoLayers(15); setStatus('Immersive VR active', false); });
+    on(sceneEl, 'exit-vr', () => { state.isImmersive = false; stereoLayersConfigured = false; updateButtonLabels(); updateSurfaceVisibility(); setStatus('Exited immersive VR', false); });
 
     const onKeyDown = (event) => {
       if (event.key === 'Escape') { event.preventDefault(); close(); return; }
