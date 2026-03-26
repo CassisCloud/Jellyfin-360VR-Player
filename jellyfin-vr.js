@@ -2498,7 +2498,7 @@
     if (backdrop) backdrop.remove();
   }
 
-  function openModeMenu(anchorButton, preferAR = false) {
+  function openModeMenu(anchorButton) {
     injectParentStyles();
 
     const existing = document.getElementById('jfvr-mode-menu');
@@ -2532,7 +2532,7 @@
         }
         optionButton.addEventListener('click', () => {
           removeModeMenu();
-          openPlayer(mode.id, preferAR);
+          openPlayer(mode.id);
         });
         section.appendChild(optionButton);
       });
@@ -2597,7 +2597,7 @@
 
   function createInlinePlayerRuntime(overlay, styleEl, jellyfinVideo, modeId) {
     let active = true;
-    let renderer, scene, camera, vrButton;
+    let renderer, scene, camera, vrButton, arButton;
     let uiGroup;
     let videoTexture, materials = {}, meshes = {};
     let state = {
@@ -2608,11 +2608,12 @@
        lastInteraction: Date.now(),
        uiDistance: -2,
        uiScale: 1,
-       isAR: preferAR,
-       passthroughEnabled: preferAR,
+       isAR: false,
+       passthroughEnabled: false,
        passthroughBrightness: 1.0
     };
     let interactables = [];
+    let ptBtn;
 
     // UI elements references
     let timeTextObj, playBtnObj, modeTextObj;
@@ -2675,22 +2676,45 @@
       dl.position.set(0, 10, 0);
       scene.add(dl);
 
-      if (preferAR) {
-        vrButton = ARButton.createButton(renderer, { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking', 'layers'] });
-      } else {
-        vrButton = VRButton.createButton(renderer, { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking', 'layers'] });
-      }
-      vrButton.style.position = 'absolute';
-      vrButton.style.bottom = '20px';
-      vrButton.style.left = '50%';
-      vrButton.style.transform = 'translateX(-50%)';
-      vrButton.style.zIndex = '999999';
-      overlay.appendChild(vrButton);
+      const buttonsContainer = document.createElement('div');
+      buttonsContainer.style.position = 'absolute';
+      buttonsContainer.style.bottom = '20px';
+      buttonsContainer.style.left = '50%';
+      buttonsContainer.style.transform = 'translateX(-50%)';
+      buttonsContainer.style.display = 'flex';
+      buttonsContainer.style.gap = '20px';
+      buttonsContainer.style.zIndex = '999999';
+      overlay.appendChild(buttonsContainer);
+
+      vrButton = VRButton.createButton(renderer, { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking', 'layers'] });
+      vrButton.style.position = 'relative';
+      vrButton.style.bottom = 'auto';
+      vrButton.style.left = 'auto';
+      vrButton.style.transform = 'none';
+      vrButton.addEventListener('click', () => {
+         state.isAR = false;
+         state.passthroughEnabled = false;
+      });
+      buttonsContainer.appendChild(vrButton);
+
+      arButton = ARButton.createButton(renderer, { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking', 'layers'] });
+      arButton.style.position = 'relative';
+      arButton.style.bottom = 'auto';
+      arButton.style.left = 'auto';
+      arButton.style.transform = 'none';
+      arButton.addEventListener('click', () => {
+         state.isAR = true;
+         state.passthroughEnabled = true;
+      });
+      buttonsContainer.appendChild(arButton);
 
       renderer.xr.addEventListener('sessionstart', () => {
          state.isImmersive = true;
          // Note: WebXR sub-cameras default to layer 1 (left) and 2 (right).
          scene.background = state.passthroughEnabled ? null : new THREE.Color(0x000000);
+         if (ptBtn && ptBtn.children && ptBtn.children.length > 0) {
+             ptBtn.children[0].text = 'AR: ' + (state.passthroughEnabled ? 'On' : 'Off');
+         }
          if (uiGroup) uiGroup.position.set(0, -0.4, -1.8);
          camera.layers.enable(0);
          camera.layers.enable(1);
@@ -2953,7 +2977,7 @@
          jellyfinVideo.muted = !jellyfinVideo.muted;
       });
       
-      const ptBtn = createBtn('btn-pt', 0.3, -0.3, 0.25, 0.1, 0x1e293b, 0x334155, 'AR: ' + (state.passthroughEnabled ? 'On' : 'Off'), () => {
+      ptBtn = createBtn('btn-pt', 0.3, -0.3, 0.25, 0.1, 0x1e293b, 0x334155, 'AR: ' + (state.passthroughEnabled ? 'On' : 'Off'), () => {
          state.passthroughEnabled = !state.passthroughEnabled;
          ptBtn.children[0].text = 'AR: ' + (state.passthroughEnabled ? 'On' : 'Off');
          scene.background = state.passthroughEnabled ? null : new THREE.Color(0x000000);
@@ -3147,7 +3171,7 @@
 
     return { close };
   }
-  async function openInlinePlayer(modeId, preferAR = false) {
+  async function openInlinePlayer(modeId) {
     const jellyfinVideo = getCurrentJellyfinVideo();
     if (!jellyfinVideo || !(jellyfinVideo.currentSrc || jellyfinVideo.src)) {
       window.alert('No video is currently playing in Jellyfin. Start playback first.');
@@ -3177,7 +3201,7 @@
     overlay.innerHTML = INLINE_PLAYER_HTML;
     document.body.appendChild(overlay);
 
-    activeInlinePlayer = createInlinePlayerRuntime(overlay, styleEl, jellyfinVideo, modeId, preferAR);
+    activeInlinePlayer = createInlinePlayerRuntime(overlay, styleEl, jellyfinVideo, modeId);
   }
 
   function requestPlayerState(playerWindow) {
@@ -3274,8 +3298,8 @@
     }
   }
 
-  function openPlayer(modeId, preferAR = false) {
-    openInlinePlayer(modeId, preferAR);
+  function openPlayer(modeId) {
+    openInlinePlayer(modeId);
   }
 
   function createVRButton() {
@@ -3284,42 +3308,32 @@
     const fullscreenBtn = document.querySelector('.btnFullscreen');
     if (!fullscreenBtn || !fullscreenBtn.parentNode) return;
 
-    const container = fullscreenBtn.parentNode;
+    const button = document.createElement('button');
+    button.id = 'vr360-toggleplay';
+    button.setAttribute('is', 'paper-icon-button-light');
+    button.className = 'autoSize paper-icon-button-light';
+    button.title = 'VR Player';
+    button.setAttribute('aria-label', 'VR Player');
 
-    const buttonVR = document.createElement('button');
-    buttonVR.id = 'vr360-toggleplay';
-    buttonVR.setAttribute('is', 'paper-icon-button-light');
-    buttonVR.className = 'autoSize paper-icon-button-light';
-    buttonVR.title = 'VR Player';
-    buttonVR.setAttribute('aria-label', 'VR Player');
-    buttonVR.innerHTML = `<span class="largePaperIconButton" aria-hidden="true" style="font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; display:inline-flex; align-items:center; justify-content:center;">VR</span>`;
-    buttonVR.addEventListener('click', (event) => {
+    const label = document.createElement('span');
+    label.className = 'largePaperIconButton';
+    label.setAttribute('aria-hidden', 'true');
+    label.textContent = 'VR';
+    label.style.cssText = 'font-family: "Segoe UI", Arial, sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; display:inline-flex; align-items:center; justify-content:center;';
+
+    button.appendChild(label);
+    button.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
-      openModeMenu(buttonVR, false);
+      openModeMenu(button);
     });
-    container.insertBefore(buttonVR, fullscreenBtn);
 
-    const buttonAR = document.createElement('button');
-    buttonAR.id = 'ar360-toggleplay';
-    buttonAR.setAttribute('is', 'paper-icon-button-light');
-    buttonAR.className = 'autoSize paper-icon-button-light';
-    buttonAR.title = 'AR Player';
-    buttonAR.setAttribute('aria-label', 'AR Player');
-    buttonAR.innerHTML = `<span class="largePaperIconButton" aria-hidden="true" style="font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; display:inline-flex; align-items:center; justify-content:center; color: #7dd3fc;">AR</span>`;
-    buttonAR.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      openModeMenu(buttonAR, true);
-    });
-    container.insertBefore(buttonAR, fullscreenBtn);
+    fullscreenBtn.parentNode.insertBefore(button, fullscreenBtn);
   }
 
   function removeVRButton() {
-    const buttonVR = document.getElementById('vr360-toggleplay');
-    if (buttonVR) buttonVR.remove();
-    const buttonAR = document.getElementById('ar360-toggleplay');
-    if (buttonAR) buttonAR.remove();
+    const button = document.getElementById('vr360-toggleplay');
+    if (button) button.remove();
     removeModeMenu();
   }
 
