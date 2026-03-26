@@ -2621,7 +2621,7 @@
         imports: {
           "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
           "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
-          "troika-three-text": "https://unpkg.com/troika-three-text@0.49.0/dist/troika-three-text.esm.js"
+          "troika-three-text": "https://esm.sh/troika-three-text@0.49.0?external=three"
         }
       });
       document.head.appendChild(im);
