@@ -403,219 +403,105 @@
 
             <a-entity id="uiRoot" jfvr-ui-manager position="0 -0.3 -1.6" scale="1 1 1" visible="false">
                 <a-entity id="uiPanel">
-                    <a-plane width="2.2" height="1.02" color="#0ea5e9" opacity="0.06"
-                        material="shader: flat; transparent: true; opacity: 0.06; blending: additive"
-                        position="0 -0.04 -0.02"></a-plane>
-                    <a-plane width="2.1" height="0.96" color="#060e16" opacity="0.94"
-                        material="shader: flat; transparent: true; opacity: 0.94"
-                        position="0 -0.04 -0.01"></a-plane>
-                    <a-plane width="2.08" height="0.94"
-                        material="shader: flat; wireframe: true; color: #1e3a5f; transparent: true; opacity: 0.25"
-                        position="0 -0.04 0"></a-plane>
+                    <a-entity jfvr-rounded-glass="width: 2.12; height: 1.02; radius: 0.08; color: #38bdf8; opacity: 0.15" position="0 -0.04 -0.02"></a-entity>
+                    <a-entity jfvr-rounded-glass="width: 2.10; height: 1.00; radius: 0.07; color: #020617; opacity: 0.88" position="0 -0.04 -0.01"></a-entity>
                 </a-entity>
 
-                <!-- Row 1: Mode selector (clickable) + Status -->
-                <a-entity class="clickable" id="uiModeBtnBg3d" position="-0.20 0.30 0.02"
-                    geometry="primitive: plane; width: 1.20; height: 0.14"
-                    material="shader: flat; color: #0f172a; opacity: 0.95; transparent: true"
-                    animation__hover="property: scale; to: 1.04 1.1 1; dur: 100; startEvents: mouseenter"
-                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-                    <a-troika-text id="panelModeText" value="360 Mono" color="#f0f6ff" font-size="0.046"
-                        anchor="center" baseline="center" position="0 0 0.01" max-width="1.1"
-                        outline-width="0.003" outline-color="#000000"></a-troika-text>
-                    <a-entity position="0.52 0 0.01"
-                        geometry="primitive: triangle; vertexA: -0.018 0.012 0; vertexB: 0.018 0.012 0; vertexC: 0 -0.012 0"
-                        material="shader: flat; color: #7dd3fc; side: double"></a-entity>
-                </a-entity>
-
-                <a-troika-text id="panelStatusText" value="Ready" color="#7dd3fc" font-size="0.032"
-                    anchor="right" baseline="center" position="0.98 0.30 0.02" max-width="0.5"
+                <!-- Video Title -->
+                <a-troika-text id="videoTitle3d" value="Loading..." color="#ffffff" font-size="0.045"
+                    anchor="center" baseline="bottom" position="0 0.38 0.02" max-width="1.8"
                     outline-width="0.002" outline-color="#000000"></a-troika-text>
 
-                <!-- Mode list overlay (hidden by default) -->
-                <a-entity id="modeListRoot3d" visible="false" position="0 0.30 0.05">
-                </a-entity>
-
-                <!-- Row 2: Seek bar + Time -->
-                <a-entity class="clickable" id="seekTrack3d" position="0 0.12 0.02"
-                    geometry="primitive: plane; width: 1.80; height: 0.05"
-                    material="shader: flat; color: #1e293b; opacity: 0.98; transparent: true"
-                    animation__hover="property: scale; to: 1.02 1.4 1; dur: 150; startEvents: mouseenter"
-                    animation__leave="property: scale; to: 1 1 1; dur: 150; startEvents: mouseleave"></a-entity>
-                <a-entity id="seekBuffered3d" position="-0.9 0.12 0.025"
-                    geometry="primitive: plane; width: 0.001; height: 0.05"
-                    material="shader: flat; color: #475569; opacity: 0.8"></a-entity>
-                <a-entity id="seekPlayed3d" position="-0.9 0.12 0.03"
-                    geometry="primitive: plane; width: 0.001; height: 0.05"
-                    material="shader: flat; color: #38bdf8; opacity: 1"></a-entity>
+                <!-- Seek Bar Area -->
+                <a-entity class="clickable" id="seekTrack3d" position="0 0.20 0.02"
+                    jfvr-rounded-glass="width: 1.80; height: 0.06; radius: 0.03; color: #1e293b; opacity: 0.8"></a-entity>
+                <a-entity id="seekBuffered3d" position="-0.9 0.20 0.025"
+                    jfvr-rounded-glass="width: 0.001; height: 0.06; radius: 0.03; color: #475569; opacity: 0.9"></a-entity>
+                <a-entity id="seekPlayed3d" position="-0.9 0.20 0.03"
+                    jfvr-rounded-glass="width: 0.001; height: 0.06; radius: 0.03; color: #38bdf8; opacity: 1"></a-entity>
                 <a-troika-text id="seekTime3d" value="0:00 / 0:00" color="#c8ddf0" font-size="0.032"
-                    anchor="right" baseline="center" position="0.98 0.03 0.02" max-width="1.0"
+                    anchor="right" baseline="center" position="0.9 0.12 0.02" max-width="1.0"
+                    outline-width="0.002" outline-color="#000000"></a-troika-text>
+                <a-troika-text id="panelStatusText" value="Ready" color="#7dd3fc" font-size="0.032"
+                    anchor="left" baseline="center" position="-0.9 0.12 0.02" max-width="0.8"
                     outline-width="0.002" outline-color="#000000"></a-troika-text>
 
-                <!-- Row 3: Main controls -->
-                <a-entity class="clickable" id="uiExit3d" position="-0.88 -0.10 0.02"
-                    geometry="primitive: plane; width: 0.20; height: 0.17"
-                    material="shader: flat; color: #450a0a; opacity: 0.95; transparent: true"
-                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
-                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-                    <a-entity position="0 0 0.01" rotation="0 0 45"
-                        geometry="primitive: plane; width: 0.06; height: 0.012"
-                        material="shader: flat; color: #fca5a5; side: double"></a-entity>
-                    <a-entity position="0 0 0.01" rotation="0 0 -45"
-                        geometry="primitive: plane; width: 0.06; height: 0.012"
-                        material="shader: flat; color: #fca5a5; side: double"></a-entity>
+                <!-- Main Control Row -->
+                <!-- Exit VR -->
+                <a-entity class="clickable" id="uiExit3d" position="-0.75 -0.05 0.02"
+                    jfvr-rounded-glass="width: 0.16; height: 0.16; radius: 0.08; color: #450a0a; opacity: 0.8">
+                    <a-entity position="0 0 0.01" rotation="0 0 45" geometry="primitive: plane; width: 0.06; height: 0.012" material="shader: flat; color: #fca5a5"></a-entity>
+                    <a-entity position="0 0 0.01" rotation="0 0 -45" geometry="primitive: plane; width: 0.06; height: 0.012" material="shader: flat; color: #fca5a5"></a-entity>
                 </a-entity>
 
-                <a-entity class="clickable" id="uiSeekBack3d" position="-0.56 -0.10 0.02"
-                    geometry="primitive: plane; width: 0.22; height: 0.17"
-                    material="shader: flat; color: #0f172a; opacity: 0.95; transparent: true"
-                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
-                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-                    <a-entity position="-0.01 0 0.01"
-                        geometry="primitive: triangle; vertexA: 0.02 0.03 0; vertexB: 0.02 -0.03 0; vertexC: -0.02 0 0"
-                        material="shader: flat; color: #94a3b8; side: double"></a-entity>
-                    <a-entity position="0.03 0 0.01"
-                        geometry="primitive: triangle; vertexA: 0.02 0.03 0; vertexB: 0.02 -0.03 0; vertexC: -0.02 0 0"
-                        material="shader: flat; color: #94a3b8; side: double"></a-entity>
+                <!-- Seek Back -->
+                <a-entity class="clickable" id="uiSeekBack3d" position="-0.35 -0.05 0.02"
+                    jfvr-rounded-glass="width: 0.16; height: 0.16; radius: 0.08; color: #0f172a; opacity: 0.8">
+                    <a-entity position="-0.01 0 0.01" geometry="primitive: triangle; vertexA: 0.02 0.025 0; vertexB: 0.02 -0.025 0; vertexC: -0.02 0 0" material="shader: flat; color: #e2e8f0; side: double"></a-entity>
+                    <a-entity position="0.025 0 0.01" geometry="primitive: triangle; vertexA: 0.02 0.025 0; vertexB: 0.02 -0.025 0; vertexC: -0.02 0 0" material="shader: flat; color: #e2e8f0; side: double"></a-entity>
                 </a-entity>
 
-                <a-entity class="clickable" id="uiPlay3d" position="-0.22 -0.10 0.02"
-                    geometry="primitive: plane; width: 0.26; height: 0.19"
-                    material="shader: flat; color: #0c4a6e; opacity: 0.98; transparent: true"
-                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
-                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-                    <a-entity id="uiPlayIcon" position="0 0 0.01"
-                        geometry="primitive: triangle; vertexA: -0.025 0.035 0; vertexB: -0.025 -0.035 0; vertexC: 0.03 0 0"
-                        material="shader: flat; color: #7dd3fc; side: double"></a-entity>
+                <!-- Play / Pause -->
+                <a-entity class="clickable" id="uiPlay3d" position="0 -0.05 0.02"
+                    jfvr-rounded-glass="width: 0.22; height: 0.22; radius: 0.11; color: #0c4a6e; opacity: 0.9">
+                    <a-entity id="uiPlayIcon" position="0.005 0 0.01" geometry="primitive: triangle; vertexA: -0.025 0.035 0; vertexB: -0.025 -0.035 0; vertexC: 0.035 0 0" material="shader: flat; color: #bae6fd; side: double"></a-entity>
                     <a-entity id="uiPauseIcon" position="0 0 0.01" visible="false">
-                        <a-entity geometry="primitive: plane; width: 0.014; height: 0.06"
-                            material="shader: flat; color: #7dd3fc" position="-0.016 0 0"></a-entity>
-                        <a-entity geometry="primitive: plane; width: 0.014; height: 0.06"
-                            material="shader: flat; color: #7dd3fc" position="0.016 0 0"></a-entity>
+                        <a-entity geometry="primitive: plane; width: 0.016; height: 0.06" material="shader: flat; color: #bae6fd" position="-0.018 0 0"></a-entity>
+                        <a-entity geometry="primitive: plane; width: 0.016; height: 0.06" material="shader: flat; color: #bae6fd" position="0.018 0 0"></a-entity>
                     </a-entity>
                 </a-entity>
 
-                <a-entity class="clickable" id="uiSeekFwd3d" position="0.12 -0.10 0.02"
-                    geometry="primitive: plane; width: 0.22; height: 0.17"
-                    material="shader: flat; color: #0f172a; opacity: 0.95; transparent: true"
-                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
-                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-                    <a-entity position="-0.03 0 0.01"
-                        geometry="primitive: triangle; vertexA: -0.02 0.03 0; vertexB: -0.02 -0.03 0; vertexC: 0.02 0 0"
-                        material="shader: flat; color: #94a3b8; side: double"></a-entity>
-                    <a-entity position="0.01 0 0.01"
-                        geometry="primitive: triangle; vertexA: -0.02 0.03 0; vertexB: -0.02 -0.03 0; vertexC: 0.02 0 0"
-                        material="shader: flat; color: #94a3b8; side: double"></a-entity>
+                <!-- Seek Fwd -->
+                <a-entity class="clickable" id="uiSeekFwd3d" position="0.35 -0.05 0.02"
+                    jfvr-rounded-glass="width: 0.16; height: 0.16; radius: 0.08; color: #0f172a; opacity: 0.8">
+                    <a-entity position="-0.025 0 0.01" geometry="primitive: triangle; vertexA: -0.02 0.025 0; vertexB: -0.02 -0.025 0; vertexC: 0.02 0 0" material="shader: flat; color: #e2e8f0; side: double"></a-entity>
+                    <a-entity position="0.01 0 0.01" geometry="primitive: triangle; vertexA: -0.02 0.025 0; vertexB: -0.02 -0.025 0; vertexC: 0.02 0 0" material="shader: flat; color: #e2e8f0; side: double"></a-entity>
                 </a-entity>
 
-                <a-entity class="clickable" id="uiEnterVr3d" position="0.44 -0.10 0.02"
-                    geometry="primitive: plane; width: 0.22; height: 0.17"
-                    material="shader: flat; color: #064e3b; opacity: 0.98; transparent: true"
-                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
-                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-                    <a-troika-text id="uiEnterVr3dLabel" value="VR" color="#6ee7b7" font-size="0.055"
-                        anchor="center" baseline="center" position="0 0 0.01"
-                        outline-width="0.002" outline-color="#000000"></a-troika-text>
-                </a-entity>
-
-                <a-entity class="clickable" id="uiMute3d" position="0.72 -0.10 0.02"
-                    geometry="primitive: plane; width: 0.20; height: 0.17"
-                    material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
-                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
-                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-                    <a-entity id="uiMuteIcon" position="0 0 0.01">
-                        <a-entity geometry="primitive: plane; width: 0.018; height: 0.028"
-                            material="shader: flat; color: #cbd5e1" position="-0.022 0 0"></a-entity>
-                        <a-entity geometry="primitive: triangle; vertexA: -0.01 0.02 0; vertexB: -0.01 -0.02 0; vertexC: 0.015 0.035 0"
-                            material="shader: flat; color: #cbd5e1; side: double" position="-0.005 0 0"></a-entity>
-                        <a-entity geometry="primitive: triangle; vertexA: -0.01 0.02 0; vertexB: -0.01 -0.02 0; vertexC: 0.015 -0.035 0"
-                            material="shader: flat; color: #cbd5e1; side: double" position="-0.005 0 0"></a-entity>
-                        <a-entity geometry="primitive: plane; width: 0.006; height: 0.022" rotation="0 0 20"
-                            material="shader: flat; color: #7dd3fc" position="0.018 0.006 0"></a-entity>
-                        <a-entity geometry="primitive: plane; width: 0.006; height: 0.032" rotation="0 0 15"
-                            material="shader: flat; color: #7dd3fc" position="0.030 0.005 0"></a-entity>
+                <!-- Volume Slider Block -->
+                <a-entity id="volGroup" position="-0.30 -0.28 0.02">
+                    <a-entity class="clickable" id="uiMute3d" position="-0.35 0 0"
+                        jfvr-rounded-glass="width: 0.14; height: 0.14; radius: 0.07; color: #1e293b; opacity: 0.8">
+                        <a-troika-text id="uiMuteIconLabel" value="Vol" color="#cbd5e1" font-size="0.04" anchor="center" position="0 0 0.01"></a-troika-text>
                     </a-entity>
-                    <a-entity id="uiMutedIcon" position="0 0 0.01" visible="false">
-                        <a-entity geometry="primitive: plane; width: 0.018; height: 0.028"
-                            material="shader: flat; color: #64748b" position="-0.022 0 0"></a-entity>
-                        <a-entity geometry="primitive: triangle; vertexA: -0.01 0.02 0; vertexB: -0.01 -0.02 0; vertexC: 0.015 0.035 0"
-                            material="shader: flat; color: #64748b; side: double" position="-0.005 0 0"></a-entity>
-                        <a-entity geometry="primitive: triangle; vertexA: -0.01 0.02 0; vertexB: -0.01 -0.02 0; vertexC: 0.015 -0.035 0"
-                            material="shader: flat; color: #64748b; side: double" position="-0.005 0 0"></a-entity>
-                        <a-entity geometry="primitive: plane; width: 0.06; height: 0.008" rotation="0 0 45"
-                            material="shader: flat; color: #fb7185; side: double" position="0.005 0 0.005"></a-entity>
-                        <a-entity geometry="primitive: plane; width: 0.06; height: 0.008" rotation="0 0 -45"
-                            material="shader: flat; color: #fb7185; side: double" position="0.005 0 0.005"></a-entity>
+                    <a-entity class="clickable" id="uiVolTrack3d" position="0.10 0 0" jfvr-rounded-glass="width: 0.60; height: 0.04; radius: 0.02; color: #1e293b; opacity: 0.8"></a-entity>
+                    <a-entity id="uiVolFill3d" position="-0.20 0 0.005" jfvr-rounded-glass="width: 0.60; height: 0.04; radius: 0.02; color: #38bdf8; opacity: 1"></a-entity>
+                </a-entity>
+
+                <!-- Mode & Display Buttons Block -->
+                <a-entity id="displayOptionsGroup" position="0.45 -0.28 0.02">
+                    <a-entity class="clickable" id="uiModeBtnBg3d" position="-0.20 0 0"
+                        jfvr-rounded-glass="width: 0.32; height: 0.12; radius: 0.06; color: #0f172a; opacity: 0.9">
+                        <a-troika-text id="panelModeText" value="360 Mono" color="#f0f6ff" font-size="0.035" anchor="center" position="0 0 0.01"></a-troika-text>
+                    </a-entity>
+                    <a-entity class="clickable" id="uiScreenSettingsBtn" position="0.16 0 0"
+                        jfvr-rounded-glass="width: 0.28; height: 0.12; radius: 0.06; color: #0f172a; opacity: 0.9">
+                        <a-troika-text value="Screen" color="#f0f6ff" font-size="0.035" anchor="center" position="0 0 0.01"></a-troika-text>
                     </a-entity>
                 </a-entity>
 
-                <a-entity class="clickable" id="uiSwap3d" position="0.98 -0.10 0.02"
-                    geometry="primitive: plane; width: 0.20; height: 0.17"
-                    material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
-                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
-                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-                    <a-entity id="uiSwapIcon" position="0 0 0.01">
-                        <a-entity geometry="primitive: plane; width: 0.045; height: 0.008"
-                            material="shader: flat; color: #cbd5e1" position="0 0.01 0"></a-entity>
-                        <a-entity geometry="primitive: triangle; vertexA: -0.008 0.01 0; vertexB: -0.008 -0.01 0; vertexC: 0.008 0 0"
-                            material="shader: flat; color: #cbd5e1; side: double" position="0.025 0.01 0"></a-entity>
-                        <a-entity geometry="primitive: plane; width: 0.045; height: 0.008"
-                            material="shader: flat; color: #cbd5e1" position="0 -0.01 0"></a-entity>
-                        <a-entity geometry="primitive: triangle; vertexA: 0.008 0.01 0; vertexB: 0.008 -0.01 0; vertexC: -0.008 0 0"
-                            material="shader: flat; color: #cbd5e1; side: double" position="-0.025 -0.01 0"></a-entity>
-                    </a-entity>
+                <!-- Screen Settings Popup -->
+                <a-entity id="screenSettingsPopup" visible="false" position="0.55 -0.05 0.1" jfvr-rounded-glass="width: 0.8; height: 0.45; radius: 0.06; color: #020617; opacity: 0.94">
+                    <a-troika-text value="Screen Adjustments" color="#7dd3fc" font-size="0.04" anchor="left" position="-0.35 0.16 0.01"></a-troika-text>
+                    
+                    <!-- Distance Slider -->
+                    <a-troika-text value="Dist:" color="#e2e8f0" font-size="0.035" anchor="right" position="-0.15 0.06 0.01"></a-troika-text>
+                    <a-entity class="clickable" id="uiDistTrack3d" position="0.12 0.06 0.01" jfvr-rounded-glass="width: 0.4; height: 0.04; radius: 0.02; color: #1e293b; opacity: 0.8"></a-entity>
+                    <a-entity id="uiDistFill3d" position="0.12 0.06 0.015" jfvr-rounded-glass="width: 0.001; height: 0.04; radius: 0.02; color: #38bdf8; opacity: 1"></a-entity>
+
+                    <!-- Scale Slider -->
+                    <a-troika-text value="Size:" color="#e2e8f0" font-size="0.035" anchor="right" position="-0.15 -0.04 0.01"></a-troika-text>
+                    <a-entity class="clickable" id="uiScaleTrack3d" position="0.12 -0.04 0.01" jfvr-rounded-glass="width: 0.4; height: 0.04; radius: 0.02; color: #1e293b; opacity: 0.8"></a-entity>
+                    <a-entity id="uiScaleFill3d" position="0.12 -0.04 0.015" jfvr-rounded-glass="width: 0.001; height: 0.04; radius: 0.02; color: #38bdf8; opacity: 1"></a-entity>
+
+                    <!-- Curvature Slider -->
+                    <a-troika-text value="Curve:" color="#e2e8f0" font-size="0.035" anchor="right" position="-0.15 -0.14 0.01"></a-troika-text>
+                    <a-entity class="clickable" id="uiCurveTrack3d" position="0.12 -0.14 0.01" jfvr-rounded-glass="width: 0.4; height: 0.04; radius: 0.02; color: #1e293b; opacity: 0.8"></a-entity>
+                    <a-entity id="uiCurveFill3d" position="0.12 -0.14 0.015" jfvr-rounded-glass="width: 0.001; height: 0.04; radius: 0.02; color: #38bdf8; opacity: 1"></a-entity>
                 </a-entity>
 
-                <!-- Volume slider -->
-                <a-entity class="clickable" id="uiVolTrack3d" position="0 -0.22 0.02"
-                    geometry="primitive: plane; width: 0.80; height: 0.04"
-                    material="shader: flat; color: #1e293b; opacity: 0.98; transparent: true"></a-entity>
-                <a-entity id="uiVolFill3d" position="-0.40 -0.22 0.025"
-                    geometry="primitive: plane; width: 0.80; height: 0.04"
-                    material="shader: flat; color: #38bdf8; opacity: 1"></a-entity>
-                <a-troika-text id="uiVolLabel3d" value="Vol 100%" color="#94a3b8" font-size="0.026"
-                    anchor="left" baseline="center" position="-0.40 -0.27 0.02" max-width="0.5"
-                    outline-width="0.002" outline-color="#000000"></a-troika-text>
-
-                <!-- Row 4: Settings -->
-                <a-entity class="clickable" id="uiNear3d" position="-0.56 -0.36 0.02"
-                    geometry="primitive: plane; width: 0.18; height: 0.13"
-                    material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
-                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
-                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-                    <a-entity position="0 0 0.01"
-                        geometry="primitive: triangle; vertexA: 0.018 0.022 0; vertexB: 0.018 -0.022 0; vertexC: -0.012 0 0"
-                        material="shader: flat; color: #94a3b8; side: double"></a-entity>
-                </a-entity>
-
-                <a-entity class="clickable" id="uiFar3d" position="-0.32 -0.36 0.02"
-                    geometry="primitive: plane; width: 0.18; height: 0.13"
-                    material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
-                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
-                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-                    <a-entity position="0 0 0.01"
-                        geometry="primitive: triangle; vertexA: -0.018 0.022 0; vertexB: -0.018 -0.022 0; vertexC: 0.012 0 0"
-                        material="shader: flat; color: #94a3b8; side: double"></a-entity>
-                </a-entity>
-
-                <a-entity class="clickable" id="uiScaleDown3d" position="0.32 -0.36 0.02"
-                    geometry="primitive: plane; width: 0.18; height: 0.13"
-                    material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
-                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
-                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-                    <a-entity geometry="primitive: plane; width: 0.035; height: 0.008"
-                        material="shader: flat; color: #94a3b8" position="0 0 0.01"></a-entity>
-                </a-entity>
-
-                <a-entity class="clickable" id="uiScaleUp3d" position="0.56 -0.36 0.02"
-                    geometry="primitive: plane; width: 0.18; height: 0.13"
-                    material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
-                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
-                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-                    <a-entity geometry="primitive: plane; width: 0.035; height: 0.008"
-                        material="shader: flat; color: #94a3b8" position="0 0 0.01"></a-entity>
-                    <a-entity geometry="primitive: plane; width: 0.008; height: 0.035"
-                        material="shader: flat; color: #94a3b8" position="0 0 0.01"></a-entity>
+                <!-- Extended Mode List Overlay -->
+                <a-entity id="modeListRoot3d" visible="false" position="0 0.50 0.05">
                 </a-entity>
             </a-entity>
         </a-entity>
@@ -690,21 +576,78 @@
             var uiEnterVr3dLabel = document.getElementById('uiEnterVr3dLabel');
             var uiSwap3d = document.getElementById('uiSwap3d');
             var uiMute3d = document.getElementById('uiMute3d');
-            var uiMuteIcon = document.getElementById('uiMuteIcon');
-            var uiMutedIcon = document.getElementById('uiMutedIcon');
-            var uiNear3d = document.getElementById('uiNear3d');
-            var uiFar3d = document.getElementById('uiFar3d');
-            var uiScaleDown3d = document.getElementById('uiScaleDown3d');
-            var uiScaleUp3d = document.getElementById('uiScaleUp3d');
-            var seekTrack3d = document.getElementById('seekTrack3d');
-            var seekBuffered3d = document.getElementById('seekBuffered3d');
-            var seekPlayed3d = document.getElementById('seekPlayed3d');
-            var seekTime3d = document.getElementById('seekTime3d');
-            var uiVolTrack3d = document.getElementById('uiVolTrack3d');
-            var uiVolFill3d = document.getElementById('uiVolFill3d');
-            var uiVolLabel3d = document.getElementById('uiVolLabel3d');
+            var titleDisplay3d = document.getElementById('videoTitle3d');
+            var screenSettingsPopup = document.getElementById('screenSettingsPopup');
+            var uiScreenSettingsBtn = document.getElementById('uiScreenSettingsBtn');
+
+            var uiDistTrack3d = document.getElementById('uiDistTrack3d');
+            var uiDistFill3d = document.getElementById('uiDistFill3d');
+            var uiScaleTrack3d = document.getElementById('uiScaleTrack3d');
+            var uiScaleFill3d = document.getElementById('uiScaleFill3d');
+            var uiCurveTrack3d = document.getElementById('uiCurveTrack3d');
+            var uiCurveFill3d = document.getElementById('uiCurveFill3d');
+
+            var panelDist = clamp(parseFloat(localStorage.getItem(STORAGE_KEYS.uiDistance)) || 1.9, 1.2, 3.4);
+            var panelScale = clamp(parseFloat(localStorage.getItem(STORAGE_KEYS.uiScale)) || 1.0, 0.7, 1.55);
+            var screenCurve = 0; // 0 = flat, 1 = max curve
 
             
+            if (typeof AFRAME !== 'undefined' && !AFRAME.components['jfvr-rounded-glass']) {
+                AFRAME.registerComponent('jfvr-rounded-glass', {
+                    schema: {
+                        width: { type: 'number', default: 1 },
+                        height: { type: 'number', default: 1 },
+                        radius: { type: 'number', default: 0.1 },
+                        color: { type: 'color', default: '#020617' },
+                        opacity: { type: 'number', default: 0.88 }
+                    },
+                    init: function () {
+                        var s = new THREE.Shape();
+                        var w = this.data.width, h = this.data.height, r = this.data.radius;
+                        s.moveTo(-w/2 + r, h/2);
+                        s.lineTo(w/2 - r, h/2);
+                        s.quadraticCurveTo(w/2, h/2, w/2, h/2 - r);
+                        s.lineTo(w/2, -h/2 + r);
+                        s.quadraticCurveTo(w/2, -h/2, w/2 - r, -h/2);
+                        s.lineTo(-w/2 + r, -h/2);
+                        s.quadraticCurveTo(-w/2, -h/2, -w/2, -h/2 + r);
+                        s.lineTo(-w/2, h/2 - r);
+                        s.quadraticCurveTo(-w/2, h/2, -w/2 + r, h/2);
+                        
+                        var geo = new THREE.ShapeGeometry(s);
+                        var mat = new THREE.MeshBasicMaterial({
+                            color: new THREE.Color(this.data.color),
+                            transparent: true,
+                            opacity: this.data.opacity,
+                            side: THREE.DoubleSide
+                        });
+                        this.mesh = new THREE.Mesh(geo, mat);
+                        this.el.setObject3D('mesh', this.mesh);
+                    },
+                    update: function (oldData) {
+                        if (this.mesh && this.mesh.material) {
+                            this.mesh.material.color.set(this.data.color);
+                            this.mesh.material.opacity = this.data.opacity;
+                            if (oldData && (oldData.width !== this.data.width || oldData.height !== this.data.height || oldData.radius !== this.data.radius)) {
+                                var s = new THREE.Shape();
+                                var w = this.data.width, h = this.data.height, r = this.data.radius;
+                                s.moveTo(-w/2 + r, h/2);
+                                s.lineTo(w/2 - r, h/2);
+                                s.quadraticCurveTo(w/2, h/2, w/2, h/2 - r);
+                                s.lineTo(w/2, -h/2 + r);
+                                s.quadraticCurveTo(w/2, -h/2, w/2 - r, -h/2);
+                                s.lineTo(-w/2 + r, -h/2);
+                                s.quadraticCurveTo(-w/2, -h/2, -w/2, -h/2 + r);
+                                s.lineTo(-w/2, h/2 - r);
+                                s.quadraticCurveTo(-w/2, h/2, -w/2 + r, h/2);
+                                this.mesh.geometry.dispose();
+                                this.mesh.geometry = new THREE.ShapeGeometry(s);
+                            }
+                        }
+                    }
+                });
+            }
+
             if (typeof AFRAME !== 'undefined' && !AFRAME.components['jfvr-ui-manager']) {
                 AFRAME.registerComponent('jfvr-ui-manager', {
                     schema: { distance: {type: 'number', default: 1.9} },
@@ -1105,7 +1048,7 @@
                 var vol = audioVideo ? (audioVideo.muted ? 0 : audioVideo.volume) : 1;
                 var width = Math.max(0.001, VOL_TRACK_WIDTH * clamp(vol, 0, 1));
                 if (uiVolFill3d) {
-                    uiVolFill3d.setAttribute('geometry', 'width', width);
+                    uiVolFill3d.setAttribute('jfvr-rounded-glass', 'width', width);
                     uiVolFill3d.setAttribute('position', (-VOL_TRACK_WIDTH / 2 + width / 2) + ' -0.22 0.025');
                 }
                 if (uiVolLabel3d) {
@@ -1121,13 +1064,19 @@
                 if (uiPlayIcon) uiPlayIcon.object3D.visible = paused;
                 if (uiPauseIcon) uiPauseIcon.object3D.visible = !paused;
                 muteBtn.textContent = audioVideo && audioVideo.muted ? 'Unmute' : 'Mute';
-                if (uiMuteIcon) uiMuteIcon.object3D.visible = !(audioVideo && audioVideo.muted);
-                if (uiMutedIcon) uiMutedIcon.object3D.visible = !!(audioVideo && audioVideo.muted);
+                
+                var uiMuteIconLabel = document.getElementById('uiMuteIconLabel');
+                if (uiMuteIconLabel) {
+                    setEntityText(uiMuteIconLabel, audioVideo && audioVideo.muted ? 'Muted' : 'Vol');
+                    uiMuteIconLabel.setAttribute('color', audioVideo && audioVideo.muted ? '#fb7185' : '#cbd5e1');
+                }
+
                 var inVr = playerState.isImmersive;
                 var isAR = playerState.sessionMode === 'immersive-ar';
                 var preferLabel = playerState.preferAR && playerState.arSupported ? 'AR' : 'VR';
                 enterVrBtn.textContent = inVr ? (isAR ? 'Exit AR' : 'Exit VR') : ('Enter ' + preferLabel);
-                setEntityText(uiEnterVr3dLabel, inVr ? (isAR ? 'Exit' : 'Exit') : preferLabel);
+                var uiEnterVr3dLabel = document.getElementById('uiEnterVr3dLabel');
+                if (uiEnterVr3dLabel) setEntityText(uiEnterVr3dLabel, inVr ? (isAR ? 'Exit' : 'Exit') : preferLabel);
                 updateVolumeFill();
             }
 
@@ -1147,41 +1096,41 @@
                 while (modeListRoot3d.firstChild) {
                     modeListRoot3d.removeChild(modeListRoot3d.firstChild);
                 }
-                var itemH = 0.10;
-                var totalH = MODE_LIST.length * itemH;
-                var bgEl = document.createElement('a-plane');
-                bgEl.setAttribute('width', '1.30');
-                bgEl.setAttribute('height', String(totalH + 0.06));
-                bgEl.setAttribute('color', '#060e16');
-                bgEl.setAttribute('material', 'shader: flat; transparent: true; opacity: 0.96');
+                var itemH = 0.12;
+                var totalH = Math.ceil(MODE_LIST.length / 2) * itemH;
+                var bgEl = document.createElement('a-entity');
+                bgEl.setAttribute('jfvr-rounded-glass', 'width: 1.5; height: ' + (totalH + 0.1) + '; radius: 0.08; color: #020617; opacity: 0.94');
                 bgEl.setAttribute('position', '0 ' + (totalH / 2 + 0.04) + ' -0.01');
                 modeListRoot3d.appendChild(bgEl);
+                var row = 0, col = 0;
                 for (var i = 0; i < MODE_LIST.length; i++) {
                     (function(mode, index) {
-                        var y = totalH - index * itemH;
+                        var x = col === 0 ? -0.35 : 0.35;
+                        var y = totalH - row * itemH - 0.05;
                         var itemEl = document.createElement('a-entity');
                         itemEl.classList.add('clickable');
-                        itemEl.setAttribute('geometry', 'primitive: plane; width: 1.24; height: ' + (itemH - 0.01));
+                        itemEl.setAttribute('jfvr-rounded-glass', 'width: 0.65; height: 0.10; radius: 0.05; color: #0f172a; opacity: 0.9');
                         var isActive = playerState.currentMode && playerState.currentMode.id === mode.id;
-                        itemEl.setAttribute('material', 'shader: flat; color: ' + (isActive ? '#1e3a5f' : '#0f172a') + '; opacity: 0.95; transparent: true');
-                        itemEl.setAttribute('position', '0 ' + y + ' 0');
-                        itemEl.setAttribute('animation__hover', 'property: material.color; to: #1b3951; dur: 80; startEvents: mouseenter');
-                        itemEl.setAttribute('animation__leave', 'property: material.color; to: ' + (isActive ? '#1e3a5f' : '#0f172a') + '; dur: 80; startEvents: mouseleave');
+                        if (isActive) itemEl.setAttribute('jfvr-rounded-glass', 'color', '#1e3a5f');
+                        itemEl.setAttribute('position', x + ' ' + y + ' 0');
+                        
                         var textEl = document.createElement('a-troika-text');
                         textEl.setAttribute('value', mode.label);
                         textEl.setAttribute('color', isActive ? '#7dd3fc' : '#e2e8f0');
-                        textEl.setAttribute('font-size', '0.038');
+                        textEl.setAttribute('font-size', '0.04');
                         textEl.setAttribute('anchor', 'center');
                         textEl.setAttribute('baseline', 'center');
                         textEl.setAttribute('position', '0 0 0.01');
-                        textEl.setAttribute('max-width', '1.1');
                         itemEl.appendChild(textEl);
-                        itemEl.addEventListener('click', function() {
+                        
+                        registerPanelButton(itemEl, isActive ? '#1e3a5f' : '#1e293b', '#334155', function() {
                             applyMode(mode.id);
                             setStatus(mode.label, false);
                             toggleModeList();
                         });
                         modeListRoot3d.appendChild(itemEl);
+                        col++;
+                        if (col > 1) { col = 0; row++; }
                     })(MODE_LIST[i], i);
                 }
             }
@@ -1213,9 +1162,9 @@
 
             function updateSeekFill(el, ratio, color) {
                 var width = Math.max(0.001, SEEK_TRACK_WIDTH * clamp(ratio, 0, 1));
-                el.setAttribute('geometry', 'width', width);
-                el.setAttribute('material', 'color', color);
-                el.setAttribute('position', (-SEEK_TRACK_WIDTH / 2 + width / 2) + ' 0.12 ' + (el === seekPlayed3d ? '0.03' : '0.025'));
+                el.setAttribute('jfvr-rounded-glass', 'width', width);
+                el.setAttribute('jfvr-rounded-glass', 'color', color);
+                el.setAttribute('position', (-SEEK_TRACK_WIDTH / 2 + width / 2) + ' 0.20 ' + (el === seekPlayed3d ? '0.03' : '0.025'));
             }
 
             function updateTimeUi() {
@@ -1304,6 +1253,11 @@
 
             function buildProjectionGeometry(mode) {
                 if (mode.projection === 'screen') {
+                    if (screenCurve > 0.05) {
+                        var radius = 20 - (screenCurve * 15);
+                        var widthAngle = 18 / radius;
+                        return new THREE.CylinderGeometry(radius, radius, 10.125, 64, 1, true, Math.PI - widthAngle/2, widthAngle);
+                    }
                     return new THREE.PlaneGeometry(18, 10.125, 1, 1);
                 }
                 var radius = 32;
@@ -1505,7 +1459,7 @@
                     return;
                 }
 
-                if (playerState.meshes.currentProjection !== mode.projection) {
+                if (playerState.meshes.currentProjection !== mode.projection || mode.projection === 'screen') {
                     var geometry = buildProjectionGeometry(mode);
                     playerState.meshes.preview.geometry.dispose();
                     playerState.meshes.left.geometry.dispose();
@@ -1756,6 +1710,13 @@
                 applyMode(payload.modeId || '360-mono');
                 updateTimeUi();
                 updateButtonLabels();
+                
+                var hostWindow = getHostWindow();
+                var videoTitle = (hostWindow && hostWindow.document && hostWindow.document.title) || document.title || 'Unknown Video';
+                videoTitle = videoTitle.replace(' - Jellyfin', '').trim();
+                var titleDisplay3d = document.getElementById('videoTitle3d');
+                if (titleDisplay3d) setEntityText(titleDisplay3d, videoTitle);
+
                 setStatus(hostSession && hostSession.stream ? 'Mirroring Jellyfin playback - audio starts muted' : 'Loading stream...', true);
 
                 playerState.syncTimer = setInterval(function () {
@@ -1865,28 +1826,36 @@
 
             function setClickableState(el, enabled) {
                 if (!el) return;
+                var isGlass = el.hasAttribute('jfvr-rounded-glass');
                 if (enabled) {
                     el.classList.add('clickable');
                     el.dataset.disabled = '0';
-                    el.setAttribute('material', 'opacity', 0.95);
+                    if (isGlass) el.setAttribute('jfvr-rounded-glass', 'opacity', 0.95);
+                    else el.setAttribute('material', 'opacity', 0.95);
                 } else {
                     el.classList.remove('clickable');
                     el.dataset.disabled = '1';
-                    el.setAttribute('material', 'opacity', 0.38);
+                    if (isGlass) el.setAttribute('jfvr-rounded-glass', 'opacity', 0.38);
+                    else el.setAttribute('material', 'opacity', 0.38);
                 }
             }
 
             function registerPanelButton(el, baseColor, hoverColor, handler) {
                 if (!el) return;
+                var isGlass = el.hasAttribute('jfvr-rounded-glass');
                 el.dataset.baseColor = baseColor;
                 el.dataset.hoverColor = hoverColor;
-                el.setAttribute('material', 'color', baseColor);
+                if (isGlass) el.setAttribute('jfvr-rounded-glass', 'color', baseColor);
+                else el.setAttribute('material', 'color', baseColor);
+                
                 el.addEventListener('mouseenter', function () {
                     if (el.dataset.disabled === '1') return;
-                    el.setAttribute('material', 'color', hoverColor);
+                    if (isGlass) el.setAttribute('jfvr-rounded-glass', 'color', hoverColor);
+                    else el.setAttribute('material', 'color', hoverColor);
                 });
                 el.addEventListener('mouseleave', function () {
-                    el.setAttribute('material', 'color', baseColor);
+                    if (isGlass) el.setAttribute('jfvr-rounded-glass', 'color', baseColor);
+                    else el.setAttribute('material', 'color', baseColor);
                 });
                 el.addEventListener('click', function (event) {
                     if (el.dataset.disabled === '1') return;
@@ -1968,22 +1937,52 @@
                     }
                     updateButtonLabels();
                 });
-                registerPanelButton(uiNear3d, '#13283a', '#1b3951', function () {
-                    panelDistance = clamp(panelDistance - 0.15, 1.2, 3.4);
-                    updateComfortUi();
-                });
-                registerPanelButton(uiFar3d, '#13283a', '#1b3951', function () {
-                    panelDistance = clamp(panelDistance + 0.15, 1.2, 3.4);
-                    updateComfortUi();
-                });
-                registerPanelButton(uiScaleDown3d, '#13283a', '#1b3951', function () {
-                    panelScale = clamp(panelScale - 0.08, 0.7, 1.55);
-                    updateComfortUi();
-                });
-                registerPanelButton(uiScaleUp3d, '#13283a', '#1b3951', function () {
-                    panelScale = clamp(panelScale + 0.08, 0.7, 1.55);
-                    updateComfortUi();
-                });
+                if (uiScreenSettingsBtn) {
+                    registerPanelButton(uiScreenSettingsBtn, '#0f172a', '#1b2a40', function () {
+                        if (screenSettingsPopup) {
+                            screenSettingsPopup.object3D.visible = !screenSettingsPopup.object3D.visible;
+                        }
+                    });
+                }
+
+                function setupSlider(track, fill, width, getValue, setValue) {
+                    if (!track || !fill) return;
+                    
+                    var updateVisuals = function(val) {
+                        var w = Math.max(0.001, width * clamp(val, 0, 1));
+                        fill.setAttribute('jfvr-rounded-glass', 'width', w);
+                        var currPos = fill.getAttribute('position') || {x:0, y:0, z:0};
+                        fill.setAttribute('position', (-width/2 + w/2 + 0.12) + ' ' + currPos.y + ' ' + currPos.z);
+                    };
+                    updateVisuals(getValue());
+
+                    registerPanelButton(track, '#1e293b', '#2a3a4d', function (event) {
+                        if (!event.detail || !event.detail.intersection || !event.detail.intersection.point) return;
+                        var point = event.detail.intersection.point.clone();
+                        track.object3D.worldToLocal(point);
+                        var val = clamp((point.x + width / 2) / width, 0, 1);
+                        setValue(val);
+                        updateVisuals(val);
+                    });
+                }
+
+                setupSlider(uiDistTrack3d, uiDistFill3d, 0.4, 
+                    function() { return (panelDistance - 1.2) / (3.4 - 1.2); },
+                    function(val) { panelDistance = 1.2 + (val * (3.4 - 1.2)); updateComfortUi(); }
+                );
+                setupSlider(uiScaleTrack3d, uiScaleFill3d, 0.4, 
+                    function() { return (panelScale - 0.7) / (1.55 - 0.7); },
+                    function(val) { panelScale = 0.7 + (val * (1.55 - 0.7)); updateComfortUi(); }
+                );
+                setupSlider(uiCurveTrack3d, uiCurveFill3d, 0.4,
+                    function() { return screenCurve; },
+                    function(val) { 
+                        screenCurve = val; 
+                        if (playerState.currentMode && playerState.currentMode.projection === 'screen') {
+                            applyMode(playerState.currentMode.id);
+                        }
+                    }
+                );
                 registerPanelButton(seekTrack3d, '#102131', '#163248', seekFrom3dEvent);
                 registerPanelButton(uiVolTrack3d, '#1e293b', '#2a3a4d', function (event) {
                     var audioVideo = getVolumeTargetVideo();
