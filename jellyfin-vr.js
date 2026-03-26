@@ -2607,7 +2607,8 @@
        uiVisible: true,
        lastInteraction: Date.now(),
        uiDistance: -2,
-       uiScale: 1
+       uiScale: 1,
+       layersInitialized: false
     };
     let interactables = [];
 
@@ -2681,26 +2682,19 @@
 
       renderer.xr.addEventListener('sessionstart', () => {
          state.isImmersive = true;
+         state.layersInitialized = false;
          scene.background = null; // Transparent background in AR/VR
-         uiGroup.position.set(0, 1.3, -1.8);
+         if (uiGroup) uiGroup.position.set(0, -0.4, -1.8);
          camera.layers.enable(0);
          camera.layers.enable(1);
          camera.layers.enable(2);
-         const xrCamera = renderer.xr.getCamera();
-         if (xrCamera.cameras.length >= 2) {
-            xrCamera.cameras[0].layers.enable(0);
-            xrCamera.cameras[0].layers.enable(1);
-            xrCamera.cameras[0].layers.disable(2);
-            xrCamera.cameras[1].layers.enable(0);
-            xrCamera.cameras[1].layers.enable(2);
-            xrCamera.cameras[1].layers.disable(1);
-         }
          updateStereoVisibility();
       });
       renderer.xr.addEventListener('sessionend', () => {
          state.isImmersive = false;
+         state.layersInitialized = false;
          scene.background = new THREE.Color(0x000000);
-         uiGroup.position.set(0, 0, -2);
+         if (uiGroup) uiGroup.position.set(0, -0.4, -2);
          updateStereoVisibility();
       });
 
@@ -2712,18 +2706,45 @@
          if (meshes.right) meshes.right.visible = useStereo;
       }
 
-      function wake() {
+      function positionUIAtController(controller) {
+         if (!controller || !uiGroup) return;
+         const tempMatrix = new THREE.Matrix4();
+         tempMatrix.identity().extractRotation(controller.matrixWorld);
+         const origin = new THREE.Vector3();
+         origin.setFromMatrixPosition(controller.matrixWorld);
+         const dir = new THREE.Vector3(0, 0, -1).applyMatrix4(tempMatrix);
+         
+         const targetPos = origin.clone().add(dir.multiplyScalar(1.8));
+         uiGroup.position.copy(targetPos);
+         
+         const xrCam = renderer.xr.getCamera();
+         if (xrCam) {
+            const camPos = new THREE.Vector3();
+            xrCam.getWorldPosition(camPos);
+            uiGroup.lookAt(camPos);
+         }
+      }
+
+      function wake(controller) {
          state.lastInteraction = Date.now();
          if (!state.uiVisible) {
             state.uiVisible = true;
-            if (uiGroup) uiGroup.visible = true;
+            if (uiGroup) {
+               uiGroup.visible = true;
+               if (controller && controller.matrixWorld) positionUIAtController(controller);
+            }
             updateStereoVisibility();
          }
       }
 
-      function toggleUI() {
+      function toggleUI(controller) {
          state.uiVisible = !state.uiVisible;
-         if (uiGroup) uiGroup.visible = state.uiVisible;
+         if (uiGroup) {
+            uiGroup.visible = state.uiVisible;
+            if (state.uiVisible && controller && controller.matrixWorld) {
+               positionUIAtController(controller);
+            }
+         }
          if (state.uiVisible) {
             state.lastInteraction = Date.now();
          }
@@ -2817,7 +2838,7 @@
 
       // UI Builder
       uiGroup = new THREE.Group();
-      uiGroup.position.set(0, 0, -2);
+      uiGroup.position.set(0, -0.4, -2);
       scene.add(uiGroup);
 
       function createTextObj(str, x, y, size, color) {
@@ -2916,8 +2937,11 @@
       let hoveredObj = null;
 
       function onSelectStart(event) {
-         if (!state.uiVisible) return;
          const controller = event.target;
+         if (!state.uiVisible) {
+            toggleUI(controller);
+            return;
+         }
          tempMatrix.identity().extractRotation(controller.matrixWorld);
          raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
          raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
@@ -2925,6 +2949,8 @@
          if (intersects.length > 0) {
             const obj = intersects[0].object;
             if (obj.userData.onClick) obj.userData.onClick(intersects[0].point);
+         } else {
+            toggleUI(controller);
          }
       }
 
@@ -2936,14 +2962,10 @@
          const controller = renderer.xr.getController(i);
          scene.add(controller);
          controller.addEventListener('selectstart', (e) => {
-            if (!state.uiVisible) {
-               wake();
-            } else {
-               wake();
-               onSelectStart(e);
-            }
+            state.lastInteraction = Date.now();
+            onSelectStart(e);
          });
-         controller.addEventListener('squeezestart', toggleUI);
+         controller.addEventListener('squeezestart', (e) => toggleUI(e.target));
          
          const grip = renderer.xr.getControllerGrip(i);
          grip.add(controllerModelFactory.createControllerModel(grip));
@@ -3012,6 +3034,19 @@
       });
 
       renderer.setAnimationLoop(() => {
+         if (state.isImmersive && !state.layersInitialized) {
+            const xrCamera = renderer.xr.getCamera();
+            if (xrCamera && xrCamera.cameras.length >= 2) {
+               xrCamera.cameras[0].layers.enable(0);
+               xrCamera.cameras[0].layers.enable(1);
+               xrCamera.cameras[0].layers.disable(2);
+               xrCamera.cameras[1].layers.enable(0);
+               xrCamera.cameras[1].layers.enable(2);
+               xrCamera.cameras[1].layers.disable(1);
+               state.layersInitialized = true;
+            }
+         }
+
          // UI updates mapping player state
          const dur = jellyfinVideo.duration || 0;
          const cur = jellyfinVideo.currentTime || 0;
