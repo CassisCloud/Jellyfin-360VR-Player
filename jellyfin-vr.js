@@ -1387,26 +1387,26 @@
                     init: function () {
                         this.el.setAttribute('raycaster', {
                             objects: '.clickable',
-                            far: 5,
+                            far: 10,
                             lineColor: '#7dd3fc',
-                            lineOpacity: 0.4,
-                            showLine: false
+                            lineOpacity: 0.5,
+                            showLine: true
                         });
                         this.el.setAttribute('cursor', {
                             fuse: false,
                             downEvents: 'pinchstarted',
                             upEvents: 'pinchended'
                         });
-                        this._handActive = false;
+                        this._handActive = true;
                         this._origin = new THREE.Vector3();
-                    },
-                    tick: function () {
-                        var pos = this.el.object3D.position;
-                        var active = pos.lengthSq() > 0.01;
-                        if (active !== this._handActive) {
-                            this._handActive = active;
-                            this.el.setAttribute('raycaster', 'showLine', active);
-                        }
+                        
+                        var self = this;
+                        this.el.addEventListener('pinchstarted', function() {
+                            self.el.setAttribute('raycaster', 'showLine', false);
+                        });
+                        this.el.addEventListener('pinchended', function() {
+                            self.el.setAttribute('raycaster', 'showLine', true);
+                        });
                     }
                 });
             }
@@ -1855,7 +1855,9 @@
                 playerState.meshes.preview.visible = !useStereo && !useMediaLayer;
                 playerState.meshes.left.visible = useStereo && !useMediaLayer;
                 playerState.meshes.right.visible = useStereo && !useMediaLayer;
-                if (!useMediaLayer) configureStereoLayers();
+                if (!useMediaLayer && useStereo && !stereoLayersConfigured) {
+                    retryStereoLayers(5);
+                }
             }
 
             function getMediaLayerLayout(mode) {
