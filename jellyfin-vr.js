@@ -2710,10 +2710,10 @@
 
       renderer.xr.addEventListener('sessionstart', () => {
          state.isImmersive = true;
-         // Note: WebXR sub-cameras default to layer 1 (left) and 2 (right).
-         scene.background = state.passthroughEnabled ? null : new THREE.Color(0x000000);
+         // Update visually when session starts based on parsed AR request
+         if (typeof updatePassthroughVisuals === 'function') updatePassthroughVisuals();
          if (ptBtn && ptBtn.children && ptBtn.children.length > 0) {
-             ptBtn.children[0].text = 'AR: ' + (state.passthroughEnabled ? 'On' : 'Off');
+             ptBtn.children[0].text = state.passthroughEnabled ? '👁️' : '🕶️';
          }
          if (uiGroup) uiGroup.position.set(0, -0.4, -1.8);
          camera.layers.enable(0);
@@ -2915,6 +2915,32 @@
          return mesh;
       }
 
+      function createRoundBtn(id, x, y, radius, bg, hover, label, onClick) {
+         const geo = new THREE.CircleGeometry(radius, 32);
+         const mat = new THREE.MeshBasicMaterial({ color: bg, transparent: true, opacity: 0.9 });
+         const mesh = new THREE.Mesh(geo, mat);
+         mesh.position.set(x, y, 0);
+         mesh.userData = { id, isBtn: true, bg, hover, onClick };
+         uiGroup.add(mesh);
+         interactables.push(mesh);
+         if (label) {
+            const t = new Text(); t.text = label; t.fontSize = radius * 0.9; t.color = 0xffffff;
+            t.position.set(0, 0, 0.01); t.anchorX = 'center'; t.anchorY = 'middle';
+            mesh.add(t);
+         }
+         return mesh;
+      }
+
+      function updatePassthroughVisuals() {
+         if (state.passthroughEnabled) {
+            scene.background = null;
+            if (typeof dimSphereMat !== 'undefined') dimSphereMat.opacity = 1.0 - state.passthroughBrightness;
+         } else {
+            scene.background = new THREE.Color(0x000000);
+            if (typeof dimSphereMat !== 'undefined') dimSphereMat.opacity = 1.0; 
+         }
+      }
+
       // UI Layout
       const bgGeo = new THREE.PlaneGeometry(2.0, 0.8);
       const bgMat = new THREE.MeshBasicMaterial({ color: 0x0f172a, transparent: true, opacity: 0.8 });
@@ -2938,12 +2964,13 @@
       const seekBgMat = new THREE.MeshBasicMaterial({ color: 0x1e293b });
       const seekBg = new THREE.Mesh(seekBgGeo, seekBgMat);
       seekBg.position.set(0, 0.1, 0);
-      seekBg.userData = { isSeek: true, hover: 0x334155, bg: 0x1e293b, onClick: (pt) => {
+      const handleSeekDrag = (pt) => {
          const local = seekBg.worldToLocal(pt.clone());
          const raw = (local.x + 0.8) / 1.6;
          const ratio = Math.max(0, Math.min(1, raw));
          if (Number.isFinite(jellyfinVideo.duration)) jellyfinVideo.currentTime = ratio * jellyfinVideo.duration;
-      }};
+      };
+      seekBg.userData = { isSeek: true, hover: 0x334155, bg: 0x1e293b, onClick: handleSeekDrag, onDrag: handleSeekDrag };
       uiGroup.add(seekBg); interactables.push(seekBg);
       
       const seekFillGeo = new THREE.PlaneGeometry(1.6, 0.04);
@@ -2977,10 +3004,10 @@
          jellyfinVideo.muted = !jellyfinVideo.muted;
       });
       
-      ptBtn = createBtn('btn-pt', 0.3, -0.3, 0.25, 0.1, 0x1e293b, 0x334155, 'AR: ' + (state.passthroughEnabled ? 'On' : 'Off'), () => {
+      ptBtn = createRoundBtn('btn-pt', 0.25, -0.3, 0.05, 0x1e293b, 0x334155, state.passthroughEnabled ? '👁️' : '🕶️', () => {
          state.passthroughEnabled = !state.passthroughEnabled;
-         ptBtn.children[0].text = 'AR: ' + (state.passthroughEnabled ? 'On' : 'Off');
-         scene.background = state.passthroughEnabled ? null : new THREE.Color(0x000000);
+         if (ptBtn.children && ptBtn.children.length > 0) ptBtn.children[0].text = state.passthroughEnabled ? '👁️' : '🕶️';
+         updatePassthroughVisuals();
       });
 
       const dimGroup = new THREE.Group();
@@ -2992,17 +3019,19 @@
       const dimBgMat = new THREE.MeshBasicMaterial({ color: 0x1e293b });
       const dimBg = new THREE.Mesh(dimBgGeo, dimBgMat);
       dimBg.position.set(0, 0, 0);
-      dimBg.userData = { isSeek: true, hover: 0x334155, bg: 0x1e293b, onClick: (pt) => {
+      
+      const handleDimDrag = (pt) => {
          const local = dimBg.worldToLocal(pt.clone());
          const raw = (local.x + 0.3) / 0.6; 
          const brightness = Math.max(0, Math.min(1, raw));
          state.passthroughBrightness = brightness;
-         dimSphereMat.opacity = 1.0 - brightness; 
+         updatePassthroughVisuals();
          
          dimFill.scale.x = brightness || 0.001;
          dimFill.position.x = -0.3 + (0.6 * brightness) / 2;
          dimTextObj.text = `${Math.round(brightness * 100)}%`;
-      }};
+      };
+      dimBg.userData = { isSeek: true, hover: 0x334155, bg: 0x1e293b, onClick: handleDimDrag, onDrag: handleDimDrag };
       dimGroup.add(dimBg); interactables.push(dimBg);
 
       const dimFillGeo = new THREE.PlaneGeometry(0.6, 0.04);
@@ -3016,7 +3045,7 @@
       const dimTextObj = createTextObj('100%', 0.42, 0, 0.04, 0xe2e8f0);
       dimGroup.add(dimTextObj);
 
-      createBtn('btn-bulb', 0.55, -0.3, 0.15, 0.1, 0x1e293b, 0x334155, '💡', () => {
+      createRoundBtn('btn-bulb', 0.4, -0.3, 0.05, 0x1e293b, 0x334155, '💡', () => {
          dimGroup.visible = !dimGroup.visible;
       });
 
@@ -3038,8 +3067,16 @@
          if (intersects.length > 0) {
             const obj = intersects[0].object;
             if (obj.userData.onClick) obj.userData.onClick(intersects[0].point);
+            if (obj.userData.onDrag) controller.userData.dragTarget = obj;
          } else {
             toggleUI(controller);
+         }
+      }
+
+      function onSelectEnd(event) {
+         const controller = event.target;
+         if (controller.userData.dragTarget) {
+            controller.userData.dragTarget = null;
          }
       }
 
@@ -3053,6 +3090,9 @@
          controller.addEventListener('selectstart', (e) => {
             state.lastInteraction = Date.now();
             onSelectStart(e);
+         });
+         controller.addEventListener('selectend', (e) => {
+            onSelectEnd(e);
          });
          controller.addEventListener('squeezestart', (e) => toggleUI(e.target));
          
@@ -3137,6 +3177,24 @@
          }
 
          updateHover([renderer.xr.getController(0), renderer.xr.getController(1)]);
+
+         // Handle dragging
+         for(let i=0; i<2; i++) {
+            const controller = renderer.xr.getController(i);
+            if (controller && controller.userData && controller.userData.dragTarget) {
+               const obj = controller.userData.dragTarget;
+               tempMatrix.identity().extractRotation(controller.matrixWorld);
+               raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
+               raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+               const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1).applyQuaternion(uiGroup.quaternion), 0);
+               plane.translate(uiGroup.position);
+               const intersectPoint = new THREE.Vector3();
+               if (raycaster.ray.intersectPlane(plane, intersectPoint)) {
+                  if (obj.userData.onDrag) obj.userData.onDrag(intersectPoint);
+               }
+               state.lastInteraction = Date.now();
+            }
+         }
 
          if (state.uiVisible && Date.now() - state.lastInteraction > 4000) {
             toggleUI();
