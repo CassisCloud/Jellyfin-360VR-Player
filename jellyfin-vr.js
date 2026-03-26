@@ -301,8 +301,8 @@
       data-role="scene"
       background="color: #000"
       renderer="antialias: true; colorManagement: true; highRefreshRate: true; alpha: true"
-      xr-mode-ui="enabled: false"
-      webxr="referenceSpaceType: local-floor; optionalFeatures: bounded-floor,hand-tracking,layers"
+      xr-mode-ui="enabled: true"
+      webxr="referenceSpaceType: local; optionalFeatures: local-floor,bounded-floor,hand-tracking,layers"
       jfvr-grab-manager
       cursor__mouse="rayOrigin: mouse"
       raycaster__mouse="objects: .clickable; far: 30">
@@ -804,8 +804,8 @@
         background="color: #000"
         renderer="antialias: true; colorManagement: true; highRefreshRate: true; alpha: true"
         embedded
-        xr-mode-ui="enabled: false"
-        webxr="referenceSpaceType: local-floor; optionalFeatures: bounded-floor,hand-tracking,layers"
+        xr-mode-ui="enabled: true"
+        webxr="referenceSpaceType: local; optionalFeatures: local-floor,bounded-floor,hand-tracking,layers"
         jfvr-grab-manager
         cursor__mouse="rayOrigin: mouse"
         raycaster__mouse="objects: .clickable; far: 30">
@@ -1835,6 +1835,7 @@
                 var session = renderer.xr.getSession();
                 if (!session) return;
                 if (typeof XRMediaBinding === 'undefined') return;
+                if (!session.enabledFeatures || session.enabledFeatures.indexOf('layers') === -1) return;
                 var refSpace = renderer.xr.getReferenceSpace();
                 if (!refSpace) return;
                 var video = getMasterVideo();
@@ -3634,6 +3635,7 @@
       const session = renderer.xr.getSession();
       if (!session) return;
       if (typeof XRMediaBinding === 'undefined') return;
+      if (!session.enabledFeatures || !session.enabledFeatures.includes('layers')) return;
       const refSpace = renderer.xr.getReferenceSpace();
       if (!refSpace || !state.video) return;
       const mode = state.currentMode;
