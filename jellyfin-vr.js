@@ -300,9 +300,10 @@
     <a-scene
       data-role="scene"
       background="color: #000"
-      renderer="antialias: true; colorManagement: true; highRefreshRate: true"
-      xr-mode-ui="enabled: true"
-      webxr="referenceSpaceType: local; optionalFeatures: local-floor,bounded-floor,hand-tracking"
+      renderer="antialias: true; colorManagement: true; highRefreshRate: true; alpha: true"
+      xr-mode-ui="enabled: false"
+      webxr="referenceSpaceType: local-floor; optionalFeatures: bounded-floor,hand-tracking,layers"
+      jfvr-grab-manager
       cursor__mouse="rayOrigin: mouse"
       raycaster__mouse="objects: .clickable; far: 30">
       <a-entity data-role="camera-rig" position="0 0 0">
@@ -801,10 +802,11 @@
     <a-scene
         id="scene"
         background="color: #000"
-        renderer="antialias: true; colorManagement: true; highRefreshRate: true"
+        renderer="antialias: true; colorManagement: true; highRefreshRate: true; alpha: true"
         embedded
-        xr-mode-ui="enabled: true"
-        webxr="referenceSpaceType: local; optionalFeatures: local-floor,bounded-floor,hand-tracking"
+        xr-mode-ui="enabled: false"
+        webxr="referenceSpaceType: local-floor; optionalFeatures: bounded-floor,hand-tracking,layers"
+        jfvr-grab-manager
         cursor__mouse="rayOrigin: mouse"
         raycaster__mouse="objects: .clickable; far: 30">
         <a-assets id="assets"></a-assets>
@@ -1231,6 +1233,153 @@
                 });
             }
 
+            if (typeof AFRAME !== 'undefined' && !AFRAME.components['jfvr-grab-manager']) {
+                AFRAME.registerComponent('jfvr-grab-manager', {
+                    init: function () {
+                        this.targets = [];
+                        this.grabs = { left: null, right: null };
+                        this.lastRelease = { left: 0, right: 0 };
+                        this._inputsReady = false;
+                        var self = this;
+                        this.el.addEventListener('enter-vr', function () {
+                            setTimeout(function () { self.setupInputs(); }, 600);
+                        });
+                    },
+                    addTarget: function (obj3d) {
+                        this.targets.push({
+                            obj: obj3d,
+                            iPos: obj3d.position.clone(),
+                            iRot: obj3d.rotation.clone(),
+                            iScl: obj3d.scale.clone()
+                        });
+                    },
+                    resetAll: function () {
+                        this.targets.forEach(function (t) {
+                            t.obj.position.copy(t.iPos);
+                            t.obj.rotation.copy(t.iRot);
+                            t.obj.scale.copy(t.iScl);
+                        });
+                    },
+                    setupInputs: function () {
+                        if (this._inputsReady) return;
+                        this._inputsReady = true;
+                        var self = this;
+                        var lc = this.el.querySelector('#leftController') || this.el.querySelector('[data-role="left-controller"]');
+                        var rc = this.el.querySelector('#rightController') || this.el.querySelector('[data-role="right-controller"]');
+                        [['left', lc], ['right', rc]].forEach(function (pair) {
+                            var hand = pair[0], ctrl = pair[1];
+                            if (!ctrl) return;
+                            self['_ctrl_' + hand] = ctrl;
+                            ctrl.addEventListener('gripdown', function () { self.startGrab(hand); });
+                            ctrl.addEventListener('gripup', function () { self.endGrab(hand); });
+                            ctrl.addEventListener('thumbstickmoved', function (e) { self.onStick(hand, e.detail); });
+                        });
+                    },
+                    isChild: function (child, parent) {
+                        var n = child;
+                        while (n) { if (n === parent) return true; n = n.parent; }
+                        return false;
+                    },
+                    findTarget: function (ctrlEl) {
+                        var rc = ctrlEl.components.raycaster;
+                        if (!rc || !rc.intersectedEls || rc.intersectedEls.length === 0) return null;
+                        for (var i = 0; i < rc.intersectedEls.length; i++) {
+                            var hit = rc.intersectedEls[i].object3D;
+                            for (var j = 0; j < this.targets.length; j++) {
+                                if (this.isChild(hit, this.targets[j].obj)) return this.targets[j];
+                            }
+                        }
+                        return null;
+                    },
+                    startGrab: function (hand) {
+                        var ctrl = this['_ctrl_' + hand];
+                        if (!ctrl) return;
+                        var now = Date.now();
+                        if (now - this.lastRelease[hand] < 400) {
+                            this.resetAll();
+                            return;
+                        }
+                        var tgt = this.findTarget(ctrl);
+                        if (!tgt) return;
+                        var other = hand === 'left' ? 'right' : 'left';
+                        if (this.grabs[other] && this.grabs[other].tgt === tgt) {
+                            var dist = this.handDist();
+                            this.grabs[hand] = { tgt: tgt, ctrl: ctrl, two: true, d0: dist, s0: tgt.obj.scale.clone() };
+                            this.grabs[other].two = true;
+                            this.grabs[other].d0 = dist;
+                            this.grabs[other].s0 = tgt.obj.scale.clone();
+                            return;
+                        }
+                        var cp = new THREE.Vector3(); ctrl.object3D.getWorldPosition(cp);
+                        var tp = new THREE.Vector3(); tgt.obj.getWorldPosition(tp);
+                        this.grabs[hand] = { tgt: tgt, ctrl: ctrl, off: tp.sub(cp), q0: ctrl.object3D.quaternion.clone(), two: false };
+                    },
+                    endGrab: function (hand) {
+                        this.lastRelease[hand] = Date.now();
+                        var g = this.grabs[hand];
+                        if (!g) return;
+                        if (g.two) {
+                            var other = hand === 'left' ? 'right' : 'left';
+                            var og = this.grabs[other];
+                            if (og) {
+                                og.two = false;
+                                var cp = new THREE.Vector3(); og.ctrl.object3D.getWorldPosition(cp);
+                                var tp = new THREE.Vector3(); g.tgt.obj.getWorldPosition(tp);
+                                og.off = tp.sub(cp);
+                                og.q0 = og.ctrl.object3D.quaternion.clone();
+                            }
+                        }
+                        this.grabs[hand] = null;
+                    },
+                    handDist: function () {
+                        var lc = this._ctrl_left, rc = this._ctrl_right;
+                        if (!lc || !rc) return 1;
+                        var a = new THREE.Vector3(), b = new THREE.Vector3();
+                        lc.object3D.getWorldPosition(a); rc.object3D.getWorldPosition(b);
+                        return a.distanceTo(b);
+                    },
+                    onStick: function (hand, detail) {
+                        var g = this.grabs[hand];
+                        if (!g || !g.tgt || g.two) return;
+                        if (Math.abs(detail.y) > 0.15) {
+                            var fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(g.ctrl.object3D.quaternion);
+                            var delta = fwd.multiplyScalar(-detail.y * 0.03);
+                            g.tgt.obj.position.add(delta);
+                            g.off.add(delta);
+                        }
+                        if (Math.abs(detail.x) > 0.15) {
+                            g.tgt.obj.rotation.y += detail.x * 0.025;
+                        }
+                    },
+                    tick: function () {
+                        var self = this;
+                        ['left', 'right'].forEach(function (hand) {
+                            var g = self.grabs[hand];
+                            if (!g || !g.tgt) return;
+                            if (g.two) {
+                                if (hand === 'left') return;
+                                var dist = self.handDist();
+                                if (g.d0 > 0.01 && g.s0) {
+                                    var sf = Math.max(0.3, Math.min(3.0, dist / g.d0));
+                                    g.tgt.obj.scale.copy(g.s0).multiplyScalar(sf);
+                                }
+                                var a = new THREE.Vector3(), b = new THREE.Vector3();
+                                self._ctrl_left.object3D.getWorldPosition(a);
+                                self._ctrl_right.object3D.getWorldPosition(b);
+                                var mid = a.lerp(b, 0.5);
+                                g.tgt.obj.position.copy(mid);
+                                return;
+                            }
+                            var cp = new THREE.Vector3();
+                            g.ctrl.object3D.getWorldPosition(cp);
+                            var dq = g.ctrl.object3D.quaternion.clone().multiply(g.q0.clone().invert());
+                            var ro = g.off.clone().applyQuaternion(dq);
+                            g.tgt.obj.position.copy(cp).add(ro);
+                        });
+                    }
+                });
+            }
+
             var playerState = {
                 currentMode: MODE_MAP['360-mono'],
                 video: null,
@@ -1241,6 +1390,11 @@
                 meshes: null,
                 surfaceRoot: null,
                 isImmersive: false,
+                sessionMode: 'none',
+                arSupported: false,
+                preferAR: true,
+                mediaLayer: null,
+                savedBaseLayer: null,
                 isSeeking: false,
                 syncTimer: null,
                 requestedCurrentTime: 0,
@@ -1383,8 +1537,10 @@
                 if (uiMuteIcon) uiMuteIcon.object3D.visible = !(audioVideo && audioVideo.muted);
                 if (uiMutedIcon) uiMutedIcon.object3D.visible = !!(audioVideo && audioVideo.muted);
                 var inVr = playerState.isImmersive;
-                enterVrBtn.textContent = inVr ? 'Exit VR' : 'Enter VR';
-                setEntityText(uiEnterVr3dLabel, inVr ? 'Exit VR' : 'VR');
+                var isAR = playerState.sessionMode === 'immersive-ar';
+                var preferLabel = playerState.preferAR && playerState.arSupported ? 'AR' : 'VR';
+                enterVrBtn.textContent = inVr ? (isAR ? 'Exit AR' : 'Exit VR') : ('Enter ' + preferLabel);
+                setEntityText(uiEnterVr3dLabel, inVr ? (isAR ? 'Exit' : 'Exit') : preferLabel);
                 updateVolumeFill();
             }
 
@@ -1658,11 +1814,98 @@
             function updateSurfaceVisibility() {
                 if (!playerState.meshes) return;
                 var mode = playerState.currentMode;
+                var useMediaLayer = !!playerState.mediaLayer;
                 var useStereo = mode.stereo !== 'mono' && playerState.isImmersive;
-                playerState.meshes.preview.visible = !useStereo;
-                playerState.meshes.left.visible = useStereo;
-                playerState.meshes.right.visible = useStereo;
-                configureStereoLayers();
+                playerState.meshes.preview.visible = !useStereo && !useMediaLayer;
+                playerState.meshes.left.visible = useStereo && !useMediaLayer;
+                playerState.meshes.right.visible = useStereo && !useMediaLayer;
+                if (!useMediaLayer) configureStereoLayers();
+            }
+
+            function getMediaLayerLayout(mode) {
+                if (mode.stereo === 'sbs') return 'stereo-left-right';
+                if (mode.stereo === 'ou') return 'stereo-top-bottom';
+                return 'mono';
+            }
+
+            function tryMediaLayers() {
+                destroyMediaLayer();
+                var renderer = sceneEl.renderer;
+                if (!renderer || !renderer.xr || !renderer.xr.isPresenting) return;
+                var session = renderer.xr.getSession();
+                if (!session) return;
+                if (typeof XRMediaBinding === 'undefined') return;
+                var refSpace = renderer.xr.getReferenceSpace();
+                if (!refSpace) return;
+                var video = getMasterVideo();
+                if (!video) return;
+                var mode = playerState.currentMode;
+                if (!mode) return;
+
+                var binding;
+                try { binding = new XRMediaBinding(session); } catch (e) { return; }
+
+                var layout = getMediaLayerLayout(mode);
+                var layer;
+                try {
+                    if (mode.projection === 'screen') {
+                        layer = binding.createQuadLayer(video, {
+                            space: refSpace,
+                            layout: layout,
+                            width: 3.2,
+                            height: 1.8,
+                            transform: new XRRigidTransform(
+                                { x: 0, y: 1.6, z: -2.5, w: 1 },
+                                { x: 0, y: 0, z: 0, w: 1 }
+                            )
+                        });
+                    } else if (mode.projection === '180') {
+                        layer = binding.createEquirectLayer(video, {
+                            space: refSpace,
+                            layout: layout,
+                            centralHorizontalAngle: Math.PI,
+                            upperVerticalAngle: Math.PI / 2,
+                            lowerVerticalAngle: -Math.PI / 2
+                        });
+                    } else {
+                        layer = binding.createEquirectLayer(video, {
+                            space: refSpace,
+                            layout: layout,
+                            centralHorizontalAngle: Math.PI * 2,
+                            upperVerticalAngle: Math.PI / 2,
+                            lowerVerticalAngle: -Math.PI / 2
+                        });
+                    }
+                } catch (e) { return; }
+                if (!layer) return;
+
+                try {
+                    playerState.savedBaseLayer = session.renderState.baseLayer || null;
+                    var layers = [layer];
+                    if (playerState.savedBaseLayer) layers.push(playerState.savedBaseLayer);
+                    session.updateRenderState({ layers: layers });
+                    playerState.mediaLayer = layer;
+                    updateSurfaceVisibility();
+                    setStatus('Media Layer active', false);
+                } catch (e) {
+                    playerState.mediaLayer = null;
+                }
+            }
+
+            function destroyMediaLayer() {
+                if (!playerState.mediaLayer) return;
+                playerState.mediaLayer = null;
+                var renderer = sceneEl.renderer;
+                if (renderer && renderer.xr && renderer.xr.isPresenting) {
+                    var session = renderer.xr.getSession();
+                    if (session && playerState.savedBaseLayer) {
+                        try {
+                            session.updateRenderState({ baseLayer: playerState.savedBaseLayer, layers: undefined });
+                        } catch (e) {}
+                    }
+                }
+                playerState.savedBaseLayer = null;
+                updateSurfaceVisibility();
             }
 
             function applyMode(modeId) {
@@ -1695,6 +1938,7 @@
 
                 updateModeUi();
                 updateSurfaceVisibility();
+                if (playerState.isImmersive) tryMediaLayers();
             }
 
             function destroyVideoResources() {
@@ -1762,7 +2006,53 @@
                 });
             }
 
-            function requestEnterVr() {
+            function checkArSupport() {
+                if (!navigator.xr || typeof navigator.xr.isSessionSupported !== 'function') return;
+                navigator.xr.isSessionSupported('immersive-ar').then(function (supported) {
+                    playerState.arSupported = supported;
+                    updateButtonLabels();
+                }).catch(function () {});
+            }
+
+            function detectMediaCapabilities() {
+                var caps = {
+                    codecs: {},
+                    maxResolution: { width: 1920, height: 1080 },
+                    preferredCodec: 'h264'
+                };
+                if (!navigator.mediaCapabilities || typeof navigator.mediaCapabilities.decodingInfo !== 'function') {
+                    playerState.capabilities = caps;
+                    return;
+                }
+                var tests = [
+                    { label: 'hevc-4k', codec: 'hevc', config: { type: 'media-source', video: { contentType: 'video/mp4; codecs="hev1.1.6.L153.B0"', width: 3840, height: 2160, bitrate: 20000000, framerate: 30 } } },
+                    { label: 'vp9-4k', codec: 'vp9', config: { type: 'media-source', video: { contentType: 'video/webm; codecs="vp09.00.50.08"', width: 3840, height: 2160, bitrate: 20000000, framerate: 30 } } },
+                    { label: 'av1-4k', codec: 'av1', config: { type: 'media-source', video: { contentType: 'video/mp4; codecs="av01.0.12M.08"', width: 3840, height: 2160, bitrate: 20000000, framerate: 30 } } },
+                    { label: 'h264-4k', codec: 'h264', config: { type: 'media-source', video: { contentType: 'video/mp4; codecs="avc1.640033"', width: 3840, height: 2160, bitrate: 20000000, framerate: 30 } } },
+                    { label: 'h264-1080', codec: 'h264', config: { type: 'media-source', video: { contentType: 'video/mp4; codecs="avc1.640028"', width: 1920, height: 1080, bitrate: 10000000, framerate: 30 } } }
+                ];
+                var promises = tests.map(function (test) {
+                    return navigator.mediaCapabilities.decodingInfo(test.config).then(function (info) {
+                        caps.codecs[test.label] = { supported: info.supported, smooth: info.smooth, powerEfficient: info.powerEfficient };
+                    }).catch(function () {
+                        caps.codecs[test.label] = { supported: false, smooth: false, powerEfficient: false };
+                    });
+                });
+                Promise.all(promises).then(function () {
+                    var pick = function (label) { var c = caps.codecs[label]; return c && c.smooth && c.powerEfficient; };
+                    if (pick('hevc-4k')) { caps.preferredCodec = 'hevc'; caps.maxResolution = { width: 3840, height: 2160 }; }
+                    else if (pick('vp9-4k')) { caps.preferredCodec = 'vp9'; caps.maxResolution = { width: 3840, height: 2160 }; }
+                    else if (pick('av1-4k')) { caps.preferredCodec = 'av1'; caps.maxResolution = { width: 3840, height: 2160 }; }
+                    else if (caps.codecs['h264-4k'] && caps.codecs['h264-4k'].smooth) { caps.preferredCodec = 'h264'; caps.maxResolution = { width: 3840, height: 2160 }; }
+                    else { caps.preferredCodec = 'h264'; caps.maxResolution = { width: 1920, height: 1080 }; }
+                    playerState.capabilities = caps;
+                    window.parent.postMessage({ type: 'MEDIA_CAPABILITIES', capabilities: caps }, '*');
+                }).catch(function () {
+                    playerState.capabilities = caps;
+                });
+            }
+
+            function requestEnterXr(forceMode) {
                 if (!navigator.xr) {
                     setStatus('WebXR unavailable in this window', true);
                     return;
@@ -1771,23 +2061,56 @@
                     setStatus('VR scene is still loading', true);
                     return;
                 }
-                setStatus('Requesting immersive VR...', true);
+                var useAR = forceMode === 'ar' || (forceMode !== 'vr' && playerState.preferAR && playerState.arSupported);
+                var label = useAR ? 'AR (Passthrough)' : 'VR';
+                setStatus('Requesting ' + label + '...', true);
                 try {
-                    var result = sceneEl.enterVR();
+                    var result = useAR && typeof sceneEl.enterAR === 'function'
+                        ? sceneEl.enterAR()
+                        : sceneEl.enterVR();
                     if (result && typeof result.catch === 'function') {
                         result.catch(function (error) {
                             var reason = error && error.cause && error.cause.message
                                 ? error.cause.message
-                                : (error && error.message ? error.message : 'Tap Enter VR again to retry');
-                            setStatus('Immersive VR failed: ' + reason, true);
+                                : (error && error.message ? error.message : 'Tap to retry');
+                            if (useAR) {
+                                setStatus('AR failed, trying VR...', true);
+                                requestEnterXr('vr');
+                            } else {
+                                setStatus('Immersive failed: ' + reason, true);
+                            }
                         });
                     }
                 } catch (error) {
                     var reason = error && error.cause && error.cause.message
                         ? error.cause.message
-                        : (error && error.message ? error.message : 'Tap Enter VR again to retry');
-                    setStatus('Immersive VR failed: ' + reason, true);
+                        : (error && error.message ? error.message : 'Tap to retry');
+                    if (useAR) {
+                        setStatus('AR failed, trying VR...', true);
+                        requestEnterXr('vr');
+                    } else {
+                        setStatus('Immersive failed: ' + reason, true);
+                    }
                 }
+            }
+
+            function toggleSessionMode() {
+                playerState.preferAR = !playerState.preferAR;
+                var label = playerState.preferAR && playerState.arSupported ? 'AR (Passthrough)' : 'VR';
+                setStatus('Mode: ' + label, false);
+                if (playerState.isImmersive) {
+                    var exitResult = sceneEl.exitVR && sceneEl.exitVR();
+                    if (exitResult && typeof exitResult.then === 'function') {
+                        exitResult.then(function () {
+                            setTimeout(function () { requestEnterXr(); }, 300);
+                        }).catch(function () {
+                            setTimeout(function () { requestEnterXr(); }, 300);
+                        });
+                    } else {
+                        setTimeout(function () { requestEnterXr(); }, 300);
+                    }
+                }
+                updateButtonLabels();
             }
 
             function loadVideo(payload) {
@@ -1949,7 +2272,7 @@
                     }
                     return;
                 }
-                requestEnterVr();
+                requestEnterXr();
             }
 
             function setClickableState(el, enabled) {
@@ -2022,6 +2345,13 @@
                 };
 
                 applyProjectionPlacement(playerState.currentMode);
+
+                var grabMgr = sceneEl.components['jfvr-grab-manager'];
+                if (grabMgr) {
+                    grabMgr.addTarget(surfaceRoot);
+                    var uiRootEl = document.getElementById('uiRoot');
+                    if (uiRootEl) grabMgr.addTarget(uiRootEl.object3D);
+                }
 
                 registerPanelButton(uiModeBtnBg3d, '#0f172a', '#1b2a40', function () { toggleModeList(); });
                 registerPanelButton(uiExit3d, '#3b0b19', '#5c1025', closePlayer);
@@ -2158,6 +2488,9 @@
                 } else if (event.key === 'v' || event.key === 'V') {
                     event.preventDefault();
                     toggleVrSession();
+                } else if (event.key === 'a' || event.key === 'A') {
+                    event.preventDefault();
+                    toggleSessionMode();
                 } else if (event.key === 'x' || event.key === 'X') {
                     event.preventDefault();
                     if (playerState.currentMode.stereo !== 'mono') {
@@ -2189,17 +2522,28 @@
             sceneEl.addEventListener('enter-vr', function () {
                 playerState.isImmersive = true;
                 stereoLayersConfigured = false;
+                var isAR = typeof sceneEl.is === 'function' ? sceneEl.is('ar-mode') : false;
+                playerState.sessionMode = isAR ? 'immersive-ar' : 'immersive-vr';
+                if (isAR && sceneEl.renderer) {
+                    sceneEl.renderer.setClearColor(0x000000, 0);
+                }
                 updateButtonLabels();
                 updateSurfaceVisibility();
                 retryStereoLayers(15);
-                setStatus('Immersive VR active', false);
+                setStatus(isAR ? 'Passthrough AR active' : 'Immersive VR active', false);
+                setTimeout(function () { tryMediaLayers(); }, 500);
             });
             sceneEl.addEventListener('exit-vr', function () {
+                destroyMediaLayer();
                 playerState.isImmersive = false;
+                playerState.sessionMode = 'none';
                 stereoLayersConfigured = false;
+                if (sceneEl.renderer) {
+                    sceneEl.renderer.setClearColor(0x000000, 1);
+                }
                 updateButtonLabels();
                 updateSurfaceVisibility();
-                setStatus(isQuestBrowser ? 'Exited immersive VR - tap Enter VR to re-enter' : 'Exited immersive VR', isQuestBrowser);
+                setStatus(isQuestBrowser ? 'Exited - tap Enter to re-enter' : 'Exited immersive session', isQuestBrowser);
             });
 
             if (sceneEl.hasLoaded) {
@@ -2207,6 +2551,8 @@
             }
 
             reportXrAvailability();
+            checkArSupport();
+            detectMediaCapabilities();
 
             window.addEventListener('message', function (event) {
                 var data = event.data || {};
@@ -2777,10 +3123,158 @@
         });
     }
 
+    if (typeof AFRAME !== 'undefined' && !AFRAME.components['jfvr-grab-manager']) {
+        AFRAME.registerComponent('jfvr-grab-manager', {
+            init: function () {
+                this.targets = [];
+                this.grabs = { left: null, right: null };
+                this.lastRelease = { left: 0, right: 0 };
+                this._inputsReady = false;
+                var self = this;
+                this.el.addEventListener('enter-vr', function () {
+                    setTimeout(function () { self.setupInputs(); }, 600);
+                });
+            },
+            addTarget: function (obj3d) {
+                this.targets.push({
+                    obj: obj3d,
+                    iPos: obj3d.position.clone(),
+                    iRot: obj3d.rotation.clone(),
+                    iScl: obj3d.scale.clone()
+                });
+            },
+            resetAll: function () {
+                this.targets.forEach(function (t) {
+                    t.obj.position.copy(t.iPos);
+                    t.obj.rotation.copy(t.iRot);
+                    t.obj.scale.copy(t.iScl);
+                });
+            },
+            setupInputs: function () {
+                if (this._inputsReady) return;
+                this._inputsReady = true;
+                var self = this;
+                var lc = this.el.querySelector('#leftController') || this.el.querySelector('[data-role="left-controller"]');
+                var rc = this.el.querySelector('#rightController') || this.el.querySelector('[data-role="right-controller"]');
+                [['left', lc], ['right', rc]].forEach(function (pair) {
+                    var hand = pair[0], ctrl = pair[1];
+                    if (!ctrl) return;
+                    self['_ctrl_' + hand] = ctrl;
+                    ctrl.addEventListener('gripdown', function () { self.startGrab(hand); });
+                    ctrl.addEventListener('gripup', function () { self.endGrab(hand); });
+                    ctrl.addEventListener('thumbstickmoved', function (e) { self.onStick(hand, e.detail); });
+                });
+            },
+            isChild: function (child, parent) {
+                var n = child;
+                while (n) { if (n === parent) return true; n = n.parent; }
+                return false;
+            },
+            findTarget: function (ctrlEl) {
+                var rc = ctrlEl.components.raycaster;
+                if (!rc || !rc.intersectedEls || rc.intersectedEls.length === 0) return null;
+                for (var i = 0; i < rc.intersectedEls.length; i++) {
+                    var hit = rc.intersectedEls[i].object3D;
+                    for (var j = 0; j < this.targets.length; j++) {
+                        if (this.isChild(hit, this.targets[j].obj)) return this.targets[j];
+                    }
+                }
+                return null;
+            },
+            startGrab: function (hand) {
+                var ctrl = this['_ctrl_' + hand];
+                if (!ctrl) return;
+                var now = Date.now();
+                if (now - this.lastRelease[hand] < 400) { this.resetAll(); return; }
+                var tgt = this.findTarget(ctrl);
+                if (!tgt) return;
+                var other = hand === 'left' ? 'right' : 'left';
+                if (this.grabs[other] && this.grabs[other].tgt === tgt) {
+                    var dist = this.handDist();
+                    this.grabs[hand] = { tgt: tgt, ctrl: ctrl, two: true, d0: dist, s0: tgt.obj.scale.clone() };
+                    this.grabs[other].two = true;
+                    this.grabs[other].d0 = dist;
+                    this.grabs[other].s0 = tgt.obj.scale.clone();
+                    return;
+                }
+                var cp = new THREE.Vector3(); ctrl.object3D.getWorldPosition(cp);
+                var tp = new THREE.Vector3(); tgt.obj.getWorldPosition(tp);
+                this.grabs[hand] = { tgt: tgt, ctrl: ctrl, off: tp.sub(cp), q0: ctrl.object3D.quaternion.clone(), two: false };
+            },
+            endGrab: function (hand) {
+                this.lastRelease[hand] = Date.now();
+                var g = this.grabs[hand];
+                if (!g) return;
+                if (g.two) {
+                    var other = hand === 'left' ? 'right' : 'left';
+                    var og = this.grabs[other];
+                    if (og) {
+                        og.two = false;
+                        var cp = new THREE.Vector3(); og.ctrl.object3D.getWorldPosition(cp);
+                        var tp = new THREE.Vector3(); g.tgt.obj.getWorldPosition(tp);
+                        og.off = tp.sub(cp);
+                        og.q0 = og.ctrl.object3D.quaternion.clone();
+                    }
+                }
+                this.grabs[hand] = null;
+            },
+            handDist: function () {
+                var lc = this._ctrl_left, rc = this._ctrl_right;
+                if (!lc || !rc) return 1;
+                var a = new THREE.Vector3(), b = new THREE.Vector3();
+                lc.object3D.getWorldPosition(a); rc.object3D.getWorldPosition(b);
+                return a.distanceTo(b);
+            },
+            onStick: function (hand, detail) {
+                var g = this.grabs[hand];
+                if (!g || !g.tgt || g.two) return;
+                if (Math.abs(detail.y) > 0.15) {
+                    var fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(g.ctrl.object3D.quaternion);
+                    var delta = fwd.multiplyScalar(-detail.y * 0.03);
+                    g.tgt.obj.position.add(delta);
+                    g.off.add(delta);
+                }
+                if (Math.abs(detail.x) > 0.15) {
+                    g.tgt.obj.rotation.y += detail.x * 0.025;
+                }
+            },
+            tick: function () {
+                var self = this;
+                ['left', 'right'].forEach(function (hand) {
+                    var g = self.grabs[hand];
+                    if (!g || !g.tgt) return;
+                    if (g.two) {
+                        if (hand === 'left') return;
+                        var dist = self.handDist();
+                        if (g.d0 > 0.01 && g.s0) {
+                            var sf = Math.max(0.3, Math.min(3.0, dist / g.d0));
+                            g.tgt.obj.scale.copy(g.s0).multiplyScalar(sf);
+                        }
+                        var a = new THREE.Vector3(), b = new THREE.Vector3();
+                        self._ctrl_left.object3D.getWorldPosition(a);
+                        self._ctrl_right.object3D.getWorldPosition(b);
+                        g.tgt.obj.position.copy(a.lerp(b, 0.5));
+                        return;
+                    }
+                    var cp = new THREE.Vector3();
+                    g.ctrl.object3D.getWorldPosition(cp);
+                    var dq = g.ctrl.object3D.quaternion.clone().multiply(g.q0.clone().invert());
+                    var ro = g.off.clone().applyQuaternion(dq);
+                    g.tgt.obj.position.copy(cp).add(ro);
+                });
+            }
+        });
+    }
+
     const state = {
       currentMode: MODES_BY_ID[modeId] || MODES_BY_ID['360-mono'],
       video: jellyfinVideo,
       isImmersive: false,
+      sessionMode: 'none',
+      arSupported: false,
+      preferAR: true,
+      mediaLayer: null,
+      savedBaseLayer: null,
       isSeeking: false,
       swapEyes: false,
       textures: null,
@@ -2908,8 +3402,10 @@
       muteBtn.textContent = state.video && state.video.muted ? 'Unmute' : 'Mute';
       if (panelMuteIcon) panelMuteIcon.object3D.visible = !(state.video && state.video.muted);
       if (panelMutedIcon) panelMutedIcon.object3D.visible = !!(state.video && state.video.muted);
-      enterVrBtn.textContent = state.isImmersive ? 'Exit VR' : 'Enter VR';
-      setText3d(panelVrLabel, state.isImmersive ? 'Exit VR' : 'VR');
+      const isAR = state.sessionMode === 'immersive-ar';
+      const preferLabel = state.preferAR && state.arSupported ? 'AR' : 'VR';
+      enterVrBtn.textContent = state.isImmersive ? (isAR ? 'Exit AR' : 'Exit VR') : ('Enter ' + preferLabel);
+      setText3d(panelVrLabel, state.isImmersive ? 'Exit' : preferLabel);
       updateVolumeFill();
     }
 
@@ -3117,11 +3613,80 @@
 
     function updateSurfaceVisibility() {
       if (!state.meshes) return;
+      const useMediaLayer = !!state.mediaLayer;
       const useStereo = state.currentMode.stereo !== 'mono' && state.isImmersive;
-      state.meshes.preview.visible = !useStereo;
-      state.meshes.left.visible = useStereo;
-      state.meshes.right.visible = useStereo;
-      configureStereoLayers();
+      state.meshes.preview.visible = !useStereo && !useMediaLayer;
+      state.meshes.left.visible = useStereo && !useMediaLayer;
+      state.meshes.right.visible = useStereo && !useMediaLayer;
+      if (!useMediaLayer) configureStereoLayers();
+    }
+
+    function getMediaLayerLayout(mode) {
+      if (mode.stereo === 'sbs') return 'stereo-left-right';
+      if (mode.stereo === 'ou') return 'stereo-top-bottom';
+      return 'mono';
+    }
+
+    function tryMediaLayers() {
+      destroyMediaLayer();
+      const renderer = sceneEl.renderer;
+      if (!renderer || !renderer.xr || !renderer.xr.isPresenting) return;
+      const session = renderer.xr.getSession();
+      if (!session) return;
+      if (typeof XRMediaBinding === 'undefined') return;
+      const refSpace = renderer.xr.getReferenceSpace();
+      if (!refSpace || !state.video) return;
+      const mode = state.currentMode;
+      if (!mode) return;
+
+      let binding;
+      try { binding = new XRMediaBinding(session); } catch (e) { return; }
+
+      const layout = getMediaLayerLayout(mode);
+      let layer;
+      try {
+        if (mode.projection === 'screen') {
+          layer = binding.createQuadLayer(state.video, {
+            space: refSpace, layout: layout, width: 3.2, height: 1.8,
+            transform: new XRRigidTransform({ x: 0, y: 1.6, z: -2.5, w: 1 }, { x: 0, y: 0, z: 0, w: 1 })
+          });
+        } else if (mode.projection === '180') {
+          layer = binding.createEquirectLayer(state.video, {
+            space: refSpace, layout: layout,
+            centralHorizontalAngle: Math.PI, upperVerticalAngle: Math.PI / 2, lowerVerticalAngle: -Math.PI / 2
+          });
+        } else {
+          layer = binding.createEquirectLayer(state.video, {
+            space: refSpace, layout: layout,
+            centralHorizontalAngle: Math.PI * 2, upperVerticalAngle: Math.PI / 2, lowerVerticalAngle: -Math.PI / 2
+          });
+        }
+      } catch (e) { return; }
+      if (!layer) return;
+
+      try {
+        state.savedBaseLayer = session.renderState.baseLayer || null;
+        const layers = [layer];
+        if (state.savedBaseLayer) layers.push(state.savedBaseLayer);
+        session.updateRenderState({ layers: layers });
+        state.mediaLayer = layer;
+        updateSurfaceVisibility();
+        setStatus('Media Layer active', false);
+      } catch (e) { state.mediaLayer = null; }
+    }
+
+    function destroyMediaLayer() {
+      if (!state.mediaLayer) return;
+      state.mediaLayer = null;
+      const renderer = sceneEl.renderer;
+      if (renderer && renderer.xr && renderer.xr.isPresenting) {
+        const session = renderer.xr.getSession();
+        if (session && state.savedBaseLayer) {
+          try { session.updateRenderState({ baseLayer: state.savedBaseLayer, layers: undefined }); } catch (e) {}
+        }
+      }
+      state.savedBaseLayer = null;
+      updateSurfaceVisibility();
     }
 
     function applyMode(nextModeId) {
@@ -3149,6 +3714,7 @@
       applyViewport(state.materials.right, getViewportForEye(state.currentMode, rightEye));
       updateModeUi();
       updateSurfaceVisibility();
+      if (state.isImmersive) tryMediaLayers();
     }
 
     function reportXrAvailability() {
@@ -3168,33 +3734,92 @@
       });
     }
 
-            function requestEnterVr() {
-                if (!navigator.xr) {
-                    setStatus('WebXR unavailable in this page', true);
-                    return;
-                }
-      if (!sceneEl.enterVR) {
-        setStatus('VR scene is still loading', true);
+    function checkArSupport() {
+      if (!navigator.xr || typeof navigator.xr.isSessionSupported !== 'function') return;
+      navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
+        state.arSupported = supported;
+        updateButtonLabels();
+      }).catch(() => {});
+    }
+
+    function detectMediaCapabilities() {
+      const caps = { codecs: {}, maxResolution: { width: 1920, height: 1080 }, preferredCodec: 'h264' };
+      if (!navigator.mediaCapabilities || typeof navigator.mediaCapabilities.decodingInfo !== 'function') {
+        state.capabilities = caps;
         return;
       }
-                setStatus('Requesting immersive VR...', true);
-                try {
-                    const result = sceneEl.enterVR();
-                    if (result && typeof result.catch === 'function') {
-                        result.catch((error) => {
-                            const reason = error && error.cause && error.cause.message
-                              ? error.cause.message
-                              : (error && error.message ? error.message : 'requestSession failed');
-                            setStatus(`Immersive VR failed: ${reason}`, true);
-                        });
-                    }
-                } catch (error) {
-                    const reason = error && error.cause && error.cause.message
-                      ? error.cause.message
-                      : (error && error.message ? error.message : 'requestSession failed');
-                    setStatus(`Immersive VR failed: ${reason}`, true);
-                }
+      const tests = [
+        { label: 'hevc-4k', config: { type: 'media-source', video: { contentType: 'video/mp4; codecs="hev1.1.6.L153.B0"', width: 3840, height: 2160, bitrate: 20000000, framerate: 30 } } },
+        { label: 'vp9-4k', config: { type: 'media-source', video: { contentType: 'video/webm; codecs="vp09.00.50.08"', width: 3840, height: 2160, bitrate: 20000000, framerate: 30 } } },
+        { label: 'av1-4k', config: { type: 'media-source', video: { contentType: 'video/mp4; codecs="av01.0.12M.08"', width: 3840, height: 2160, bitrate: 20000000, framerate: 30 } } },
+        { label: 'h264-4k', config: { type: 'media-source', video: { contentType: 'video/mp4; codecs="avc1.640033"', width: 3840, height: 2160, bitrate: 20000000, framerate: 30 } } },
+        { label: 'h264-1080', config: { type: 'media-source', video: { contentType: 'video/mp4; codecs="avc1.640028"', width: 1920, height: 1080, bitrate: 10000000, framerate: 30 } } }
+      ];
+      Promise.all(tests.map((test) =>
+        navigator.mediaCapabilities.decodingInfo(test.config)
+          .then((info) => { caps.codecs[test.label] = { supported: info.supported, smooth: info.smooth, powerEfficient: info.powerEfficient }; })
+          .catch(() => { caps.codecs[test.label] = { supported: false, smooth: false, powerEfficient: false }; })
+      )).then(() => {
+        const pick = (l) => { const c = caps.codecs[l]; return c && c.smooth && c.powerEfficient; };
+        if (pick('hevc-4k')) { caps.preferredCodec = 'hevc'; caps.maxResolution = { width: 3840, height: 2160 }; }
+        else if (pick('vp9-4k')) { caps.preferredCodec = 'vp9'; caps.maxResolution = { width: 3840, height: 2160 }; }
+        else if (pick('av1-4k')) { caps.preferredCodec = 'av1'; caps.maxResolution = { width: 3840, height: 2160 }; }
+        else if (caps.codecs['h264-4k'] && caps.codecs['h264-4k'].smooth) { caps.preferredCodec = 'h264'; caps.maxResolution = { width: 3840, height: 2160 }; }
+        state.capabilities = caps;
+      }).catch(() => { state.capabilities = caps; });
+    }
+
+    function requestEnterXr(forceMode) {
+      if (!navigator.xr) { setStatus('WebXR unavailable in this page', true); return; }
+      if (!sceneEl.enterVR) { setStatus('VR scene is still loading', true); return; }
+      const useAR = forceMode === 'ar' || (forceMode !== 'vr' && state.preferAR && state.arSupported);
+      const label = useAR ? 'AR (Passthrough)' : 'VR';
+      setStatus(`Requesting ${label}...`, true);
+      try {
+        const result = useAR && typeof sceneEl.enterAR === 'function'
+          ? sceneEl.enterAR()
+          : sceneEl.enterVR();
+        if (result && typeof result.catch === 'function') {
+          result.catch((error) => {
+            const reason = error && error.cause && error.cause.message
+              ? error.cause.message
+              : (error && error.message ? error.message : 'Tap to retry');
+            if (useAR) {
+              setStatus('AR failed, trying VR...', true);
+              requestEnterXr('vr');
+            } else {
+              setStatus(`Immersive failed: ${reason}`, true);
             }
+          });
+        }
+      } catch (error) {
+        const reason = error && error.cause && error.cause.message
+          ? error.cause.message
+          : (error && error.message ? error.message : 'Tap to retry');
+        if (useAR) {
+          setStatus('AR failed, trying VR...', true);
+          requestEnterXr('vr');
+        } else {
+          setStatus(`Immersive failed: ${reason}`, true);
+        }
+      }
+    }
+
+    function toggleSessionMode() {
+      state.preferAR = !state.preferAR;
+      const label = state.preferAR && state.arSupported ? 'AR (Passthrough)' : 'VR';
+      setStatus(`Mode: ${label}`, false);
+      if (state.isImmersive) {
+        const exitResult = sceneEl.exitVR && sceneEl.exitVR();
+        const reenter = () => setTimeout(() => requestEnterXr(), 300);
+        if (exitResult && typeof exitResult.then === 'function') {
+          exitResult.then(reenter).catch(reenter);
+        } else {
+          reenter();
+        }
+      }
+      updateButtonLabels();
+    }
 
     function togglePlay() {
       if (!state.video) return;
@@ -3291,6 +3916,13 @@
       updateTimeUi();
       updateComfortUi();
       reportXrAvailability();
+
+      var grabMgr = sceneEl.components['jfvr-grab-manager'];
+      if (grabMgr) {
+        grabMgr.addTarget(surfaceRoot);
+        var uiRootEl = q('[data-role="ui-root"]');
+        if (uiRootEl) grabMgr.addTarget(uiRootEl.object3D);
+      }
     }
 
     volumeSlider.value = String(state.video.volume || 1);
@@ -3300,7 +3932,7 @@
       if (state.isImmersive && sceneEl.exitVR) {
         sceneEl.exitVR().catch(() => {});
       } else {
-        requestEnterVr();
+        requestEnterXr();
       }
     });
     on(playBtn, 'click', togglePlay);
@@ -3334,7 +3966,7 @@
     setPanelButtonBehavior('[data-role="panel-forward"]', '#13283a', '#1b3951', () => seekTo((state.video ? state.video.currentTime : 0) + 10));
     setPanelButtonBehavior('[data-role="panel-vr"]', '#0a4a3d', '#0e6b58', () => {
       if (state.isImmersive && sceneEl.exitVR) sceneEl.exitVR().catch(() => {});
-      else requestEnterVr();
+      else requestEnterXr();
     });
     setPanelButtonBehavior('[data-role="panel-swap"]', '#13283a', '#1b3951', () => {
       if (state.currentMode.stereo === 'mono') return;
@@ -3379,8 +4011,30 @@
     on(state.video, 'pause', () => { setStatus('Paused', false); updateButtonLabels(); });
 
     on(sceneEl, 'renderstart', configureStereoLayers);
-    on(sceneEl, 'enter-vr', () => { state.isImmersive = true; stereoLayersConfigured = false; updateButtonLabels(); updateSurfaceVisibility(); retryStereoLayers(15); setStatus('Immersive VR active', false); });
-    on(sceneEl, 'exit-vr', () => { state.isImmersive = false; stereoLayersConfigured = false; updateButtonLabels(); updateSurfaceVisibility(); setStatus('Exited immersive VR', false); });
+    on(sceneEl, 'enter-vr', () => {
+      state.isImmersive = true;
+      stereoLayersConfigured = false;
+      const isAR = typeof sceneEl.is === 'function' ? sceneEl.is('ar-mode') : false;
+      state.sessionMode = isAR ? 'immersive-ar' : 'immersive-vr';
+      if (isAR && sceneEl.renderer) sceneEl.renderer.setClearColor(0x000000, 0);
+      updateButtonLabels();
+      updateSurfaceVisibility();
+      retryStereoLayers(15);
+      setStatus(isAR ? 'Passthrough AR active' : 'Immersive VR active', false);
+      setTimeout(() => tryMediaLayers(), 500);
+    });
+    on(sceneEl, 'exit-vr', () => {
+      destroyMediaLayer();
+      state.isImmersive = false;
+      state.sessionMode = 'none';
+      stereoLayersConfigured = false;
+      if (sceneEl.renderer) sceneEl.renderer.setClearColor(0x000000, 1);
+      updateButtonLabels();
+      updateSurfaceVisibility();
+      setStatus('Exited immersive session', false);
+    });
+    checkArSupport();
+    detectMediaCapabilities();
 
     const onKeyDown = (event) => {
       if (event.key === 'Escape') { event.preventDefault(); close(); return; }
@@ -3388,7 +4042,8 @@
       else if (event.key === 'ArrowLeft') { event.preventDefault(); seekTo(state.video.currentTime - 10); }
       else if (event.key === 'ArrowRight') { event.preventDefault(); seekTo(state.video.currentTime + 10); }
       else if (event.key === 'm' || event.key === 'M') { event.preventDefault(); toggleMute(); }
-      else if (event.key === 'v' || event.key === 'V') { event.preventDefault(); requestEnterVr(); }
+      else if (event.key === 'v' || event.key === 'V') { event.preventDefault(); requestEnterXr(); }
+      else if (event.key === 'a' || event.key === 'A') { event.preventDefault(); toggleSessionMode(); }
       else if (event.key === 'x' || event.key === 'X') { event.preventDefault(); if (state.currentMode.stereo !== 'mono') { state.swapEyes = !state.swapEyes; applyMode(state.currentMode.id); } }
     };
     on(document, 'keydown', onKeyDown);
