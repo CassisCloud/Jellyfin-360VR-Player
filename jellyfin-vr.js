@@ -300,9 +300,9 @@
     <a-scene
       data-role="scene"
       background="color: #000"
-      renderer="antialias: true; colorManagement: true; highRefreshRate: true; alpha: true"
+      renderer="antialias: true; colorManagement: true; highRefreshRate: true"
       xr-mode-ui="enabled: true"
-      webxr="referenceSpaceType: local; optionalFeatures: local-floor,bounded-floor,hand-tracking,layers"
+      webxr="referenceSpaceType: local; optionalFeatures: local-floor,bounded-floor,hand-tracking"
       jfvr-grab-manager
       cursor__mouse="rayOrigin: mouse"
       raycaster__mouse="objects: .clickable; far: 30">
@@ -802,10 +802,10 @@
     <a-scene
         id="scene"
         background="color: #000"
-        renderer="antialias: true; colorManagement: true; highRefreshRate: true; alpha: true"
+        renderer="antialias: true; colorManagement: true; highRefreshRate: true"
         embedded
         xr-mode-ui="enabled: true"
-        webxr="referenceSpaceType: local; optionalFeatures: local-floor,bounded-floor,hand-tracking,layers"
+        webxr="referenceSpaceType: local; optionalFeatures: local-floor,bounded-floor,hand-tracking"
         jfvr-grab-manager
         cursor__mouse="rayOrigin: mouse"
         raycaster__mouse="objects: .clickable; far: 30">
@@ -1392,7 +1392,7 @@
                 isImmersive: false,
                 sessionMode: 'none',
                 arSupported: false,
-                preferAR: true,
+                preferAR: false,
                 mediaLayer: null,
                 savedBaseLayer: null,
                 isSeeking: false,
@@ -1939,7 +1939,6 @@
 
                 updateModeUi();
                 updateSurfaceVisibility();
-                if (playerState.isImmersive) tryMediaLayers();
             }
 
             function destroyVideoResources() {
@@ -2525,23 +2524,16 @@
                 stereoLayersConfigured = false;
                 var isAR = typeof sceneEl.is === 'function' ? sceneEl.is('ar-mode') : false;
                 playerState.sessionMode = isAR ? 'immersive-ar' : 'immersive-vr';
-                if (isAR && sceneEl.renderer) {
-                    sceneEl.renderer.setClearColor(0x000000, 0);
-                }
                 updateButtonLabels();
                 updateSurfaceVisibility();
                 retryStereoLayers(15);
                 setStatus(isAR ? 'Passthrough AR active' : 'Immersive VR active', false);
-                setTimeout(function () { tryMediaLayers(); }, 500);
             });
             sceneEl.addEventListener('exit-vr', function () {
                 destroyMediaLayer();
                 playerState.isImmersive = false;
                 playerState.sessionMode = 'none';
                 stereoLayersConfigured = false;
-                if (sceneEl.renderer) {
-                    sceneEl.renderer.setClearColor(0x000000, 1);
-                }
                 updateButtonLabels();
                 updateSurfaceVisibility();
                 setStatus(isQuestBrowser ? 'Exited - tap Enter to re-enter' : 'Exited immersive session', isQuestBrowser);
@@ -3273,7 +3265,7 @@
       isImmersive: false,
       sessionMode: 'none',
       arSupported: false,
-      preferAR: true,
+      preferAR: false,
       mediaLayer: null,
       savedBaseLayer: null,
       isSeeking: false,
@@ -3716,7 +3708,6 @@
       applyViewport(state.materials.right, getViewportForEye(state.currentMode, rightEye));
       updateModeUi();
       updateSurfaceVisibility();
-      if (state.isImmersive) tryMediaLayers();
     }
 
     function reportXrAvailability() {
@@ -4018,19 +4009,16 @@
       stereoLayersConfigured = false;
       const isAR = typeof sceneEl.is === 'function' ? sceneEl.is('ar-mode') : false;
       state.sessionMode = isAR ? 'immersive-ar' : 'immersive-vr';
-      if (isAR && sceneEl.renderer) sceneEl.renderer.setClearColor(0x000000, 0);
       updateButtonLabels();
       updateSurfaceVisibility();
       retryStereoLayers(15);
       setStatus(isAR ? 'Passthrough AR active' : 'Immersive VR active', false);
-      setTimeout(() => tryMediaLayers(), 500);
     });
     on(sceneEl, 'exit-vr', () => {
       destroyMediaLayer();
       state.isImmersive = false;
       state.sessionMode = 'none';
       stereoLayersConfigured = false;
-      if (sceneEl.renderer) sceneEl.renderer.setClearColor(0x000000, 1);
       updateButtonLabels();
       updateSurfaceVisibility();
       setStatus('Exited immersive session', false);
