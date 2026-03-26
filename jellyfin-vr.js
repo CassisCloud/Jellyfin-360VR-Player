@@ -2607,8 +2607,7 @@
        uiVisible: true,
        lastInteraction: Date.now(),
        uiDistance: -2,
-       uiScale: 1,
-       layersInitialized: false
+       uiScale: 1
     };
     let interactables = [];
 
@@ -2682,7 +2681,7 @@
 
       renderer.xr.addEventListener('sessionstart', () => {
          state.isImmersive = true;
-         state.layersInitialized = false;
+         // Note: WebXR sub-cameras default to layer 1 (left) and 2 (right).
          scene.background = null; // Transparent background in AR/VR
          if (uiGroup) uiGroup.position.set(0, -0.4, -1.8);
          camera.layers.enable(0);
@@ -2692,7 +2691,6 @@
       });
       renderer.xr.addEventListener('sessionend', () => {
          state.isImmersive = false;
-         state.layersInitialized = false;
          scene.background = new THREE.Color(0x000000);
          if (uiGroup) uiGroup.position.set(0, -0.4, -2);
          updateStereoVisibility();
@@ -2819,16 +2817,27 @@
          const leftEye = state.swapEyes ? 'right' : 'left';
          const rightEye = state.swapEyes ? 'left' : 'right';
 
-         function setVp(mat, vp) {
-            mat.map.wrapS = THREE.ClampToEdgeWrapping;
-            mat.map.offset.set(vp.x, vp.y);
-            mat.map.repeat.set(vp.rx, vp.ry);
-            mat.needsUpdate = true;
+         function applyViewportToGeometry(geom, vp) {
+            const uv = geom.attributes.uv;
+            for (let i = 0; i < uv.count; i++) {
+               const u = uv.getX(i);
+               const v = uv.getY(i);
+               uv.setXY(i, (u * vp.rx) + vp.x, (v * vp.ry) + vp.y);
+            }
+            uv.needsUpdate = true;
          }
 
-         setVp(materials.preview, getViewport(mode, leftEye));
-         setVp(materials.left, getViewport(mode, leftEye));
-         setVp(materials.right, getViewport(mode, rightEye));
+         applyViewportToGeometry(meshes.preview.geometry, getViewport(mode, leftEye));
+         applyViewportToGeometry(meshes.left.geometry, getViewport(mode, leftEye));
+         applyViewportToGeometry(meshes.right.geometry, getViewport(mode, rightEye));
+         
+         if (videoTexture) {
+            videoTexture.wrapS = THREE.ClampToEdgeWrapping;
+            videoTexture.wrapT = THREE.ClampToEdgeWrapping;
+            videoTexture.offset.set(0, 0);
+            videoTexture.repeat.set(1, 1);
+            videoTexture.needsUpdate = true;
+         }
          
          if (modeTextObj) modeTextObj.text = mode.label;
          
@@ -3034,19 +3043,6 @@
       });
 
       renderer.setAnimationLoop(() => {
-         if (state.isImmersive && !state.layersInitialized) {
-            const xrCamera = renderer.xr.getCamera();
-            if (xrCamera && xrCamera.cameras.length >= 2) {
-               xrCamera.cameras[0].layers.enable(0);
-               xrCamera.cameras[0].layers.enable(1);
-               xrCamera.cameras[0].layers.disable(2);
-               xrCamera.cameras[1].layers.enable(0);
-               xrCamera.cameras[1].layers.enable(2);
-               xrCamera.cameras[1].layers.disable(1);
-               state.layersInitialized = true;
-            }
-         }
-
          // UI updates mapping player state
          const dur = jellyfinVideo.duration || 0;
          const cur = jellyfinVideo.currentTime || 0;
