@@ -548,12 +548,8 @@
         cursor="fuse: false"></a-entity>
 
       <!-- Hand Tracking -->
-      <a-entity data-role="left-hand" hand-tracking-controls="hand: left; modelColor: #394d63"
-        raycaster="objects: .clickable; far: 5; lineColor: #7dd3fc; lineOpacity: 0.4; showLine: true"
-        cursor="fuse: false; downEvents: pinchstarted; upEvents: pinchended"></a-entity>
-      <a-entity data-role="right-hand" hand-tracking-controls="hand: right; modelColor: #394d63"
-        raycaster="objects: .clickable; far: 5; lineColor: #7dd3fc; lineOpacity: 0.4; showLine: true"
-        cursor="fuse: false; downEvents: pinchstarted; upEvents: pinchended"></a-entity>
+      <a-entity data-role="left-hand" hand-tracking-controls="hand: left; modelColor: #394d63" jfvr-hand-ray></a-entity>
+      <a-entity data-role="right-hand" hand-tracking-controls="hand: right; modelColor: #394d63" jfvr-hand-ray></a-entity>
     </a-scene>
   `;
 
@@ -1064,12 +1060,8 @@
             cursor="fuse: false"></a-entity>
 
         <!-- Hand Tracking -->
-        <a-entity id="leftHand" hand-tracking-controls="hand: left; modelColor: #394d63"
-            raycaster="objects: .clickable; far: 5; lineColor: #7dd3fc; lineOpacity: 0.4; showLine: true"
-            cursor="fuse: false; downEvents: pinchstarted; upEvents: pinchended"></a-entity>
-        <a-entity id="rightHand" hand-tracking-controls="hand: right; modelColor: #394d63"
-            raycaster="objects: .clickable; far: 5; lineColor: #7dd3fc; lineOpacity: 0.4; showLine: true"
-            cursor="fuse: false; downEvents: pinchstarted; upEvents: pinchended"></a-entity>
+        <a-entity id="leftHand" hand-tracking-controls="hand: left; modelColor: #394d63" jfvr-hand-ray></a-entity>
+        <a-entity id="rightHand" hand-tracking-controls="hand: right; modelColor: #394d63" jfvr-hand-ray></a-entity>
     </a-scene>
 
     <script>
@@ -1239,21 +1231,6 @@
                             this.uiVisible = false;
                             this.el.object3D.visible = false;
                         }
-                        if (playerState.isImmersive && playerState.currentMode && playerState.currentMode.stereo !== 'mono') {
-                            var renderer = this.el.sceneEl.renderer;
-                            if (renderer && renderer.xr && renderer.xr.isPresenting) {
-                                var xrCam = typeof renderer.xr.getCamera === 'function' ? renderer.xr.getCamera() : null;
-                                if (xrCam && xrCam.cameras && xrCam.cameras.length >= 2) {
-                                    xrCam.layers.enable(0);
-                                    xrCam.layers.enable(1);
-                                    xrCam.layers.enable(2);
-                                    xrCam.cameras[0].layers.set(0);
-                                    xrCam.cameras[0].layers.enable(1);
-                                    xrCam.cameras[1].layers.set(0);
-                                    xrCam.cameras[1].layers.enable(2);
-                                }
-                            }
-                        }
                     }
                 });
             }
@@ -1401,6 +1378,35 @@
                             var ro = g.off.clone().applyQuaternion(dq);
                             g.tgt.obj.position.copy(cp).add(ro);
                         });
+                    }
+                });
+            }
+
+            if (typeof AFRAME !== 'undefined' && !AFRAME.components['jfvr-hand-ray']) {
+                AFRAME.registerComponent('jfvr-hand-ray', {
+                    init: function () {
+                        this.el.setAttribute('raycaster', {
+                            objects: '.clickable',
+                            far: 5,
+                            lineColor: '#7dd3fc',
+                            lineOpacity: 0.4,
+                            showLine: false
+                        });
+                        this.el.setAttribute('cursor', {
+                            fuse: false,
+                            downEvents: 'pinchstarted',
+                            upEvents: 'pinchended'
+                        });
+                        this._handActive = false;
+                        this._origin = new THREE.Vector3();
+                    },
+                    tick: function () {
+                        var pos = this.el.object3D.position;
+                        var active = pos.lengthSq() > 0.01;
+                        if (active !== this._handActive) {
+                            this._handActive = active;
+                            this.el.setAttribute('raycaster', 'showLine', active);
+                        }
                     }
                 });
             }
@@ -2384,6 +2390,13 @@
                 }
 
                 registerPanelButton(uiModeBtnBg3d, '#0f172a', '#1b2a40', function () { toggleModeList(); });
+                if (uiModeBtnBg3d) {
+                    var modeChildren = uiModeBtnBg3d.querySelectorAll('*');
+                    modeChildren.forEach(function (child) {
+                        child.classList.add('clickable');
+                        child.addEventListener('click', function () { toggleModeList(); });
+                    });
+                }
                 registerPanelButton(uiExit3d, '#3b0b19', '#5c1025', closePlayer);
                 registerPanelButton(uiSeekBack3d, '#13283a', '#1b3951', function () {
                     var video = getMasterVideo();
@@ -3128,21 +3141,6 @@
                 if (this.uiVisible && (now - this.lastInteraction > 6000)) {
                     this.uiVisible = false;
                     this.el.object3D.visible = false;
-                }
-                if (state.isImmersive && state.currentMode && state.currentMode.stereo !== 'mono') {
-                    var renderer = this.el.sceneEl.renderer;
-                    if (renderer && renderer.xr && renderer.xr.isPresenting) {
-                        var xrCam = typeof renderer.xr.getCamera === 'function' ? renderer.xr.getCamera() : null;
-                        if (xrCam && xrCam.cameras && xrCam.cameras.length >= 2) {
-                            xrCam.layers.enable(0);
-                            xrCam.layers.enable(1);
-                            xrCam.layers.enable(2);
-                            xrCam.cameras[0].layers.set(0);
-                            xrCam.cameras[0].layers.enable(1);
-                            xrCam.cameras[1].layers.set(0);
-                            xrCam.cameras[1].layers.enable(2);
-                        }
-                    }
                 }
             }
         });
@@ -3990,6 +3988,12 @@
     });
 
     setPanelButtonBehavior('[data-role="panel-mode-btn"]', '#0f172a', '#1b2a40', () => toggleModeList());
+    if (panelModeBtn) {
+      panelModeBtn.querySelectorAll('*').forEach((child) => {
+        child.classList.add('clickable');
+        child.addEventListener('click', () => toggleModeList());
+      });
+    }
     setPanelButtonBehavior('[data-role="panel-exit"]', '#3b0b19', '#5c1025', close);
     setPanelButtonBehavior('[data-role="panel-back"]', '#13283a', '#1b3951', () => seekTo((state.video ? state.video.currentTime : 0) - 10));
     setPanelButtonBehavior('[data-role="panel-play"]', '#11415a', '#15597a', togglePlay);
