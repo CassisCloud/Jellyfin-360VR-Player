@@ -356,6 +356,7 @@
     <div id="hud">
         <div id="topbar">
             <div id="topbar-left">
+                <div style="color:#fb7185; font-weight:bold; padding: 0 10px; background: rgba(0,0,0,0.5); border-radius: 4px;">DEBUG: UI v1</div>
                 <button class="hud-btn" id="closeBtn">Back</button>
                 <div class="hud-chip mode" id="modeChip">360 Mono</div>
                 <div class="hud-chip status" id="statusChip">Loading...</div>
@@ -402,6 +403,9 @@
             <a-camera id="camera" position="0 1.6 0" look-controls="enabled: true" wasd-controls-enabled="false"></a-camera>
 
             <a-entity id="uiRoot" jfvr-ui-manager position="0 -0.3 -1.6" scale="1 1 1" visible="false">
+                <!-- Debug Version Indicator -->
+                <a-troika-text value="DEBUG: UI v1" color="#fb7185" font-size="0.06" position="0 0.65 0.05" anchor="center"></a-troika-text>
+
                 <a-entity id="uiPanel">
                     <a-entity jfvr-rounded-glass="width: 2.12; height: 1.02; radius: 0.08; color: #38bdf8; opacity: 0.15" position="0 -0.04 -0.02"></a-entity>
                     <a-entity jfvr-rounded-glass="width: 2.10; height: 1.00; radius: 0.07; color: #020617; opacity: 0.88" position="0 -0.04 -0.01"></a-entity>
