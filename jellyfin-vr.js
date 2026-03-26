@@ -274,6 +274,7 @@
       </div>
       <div class="jfvr-topbar-right">
         <div class="jfvr-meta" data-role="comfort">UI 1.90m / 1.00x</div>
+        <button class="jfvr-btn" data-role="toggle-ar" style="font-size:11px;padding:4px 8px">AR OFF</button>
         <button class="jfvr-btn primary" data-role="enter-vr">Enter VR</button>
       </div>
     </div>
@@ -486,6 +487,16 @@
             outline-width="0.002" outline-color="#000000"></a-troika-text>
 
           <!-- Row 4: Settings -->
+          <a-entity class="clickable" data-role="panel-ar" position="0 -0.36 0.02"
+            geometry="primitive: plane; width: 0.32; height: 0.13"
+            material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
+            animation__hover="property: scale; to: 1.08 1.08 1; dur: 100; startEvents: mouseenter"
+            animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
+            <a-troika-text data-role="panel-ar-label" value="AR OFF" color="#94a3b8" font-size="0.034"
+              anchor="center" baseline="center" position="0 0 0.01"
+              outline-width="0.002" outline-color="#000000"></a-troika-text>
+          </a-entity>
+
           <a-entity class="clickable" data-role="panel-near" position="-0.56 -0.36 0.02"
             geometry="primitive: plane; width: 0.18; height: 0.13"
             material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
@@ -775,6 +786,7 @@
             </div>
             <div id="topbar-right">
                 <div id="comfortDisplay">UI 1.90m / 1.00x</div>
+                <button class="hud-btn" id="toggleArBtn" style="font-size:11px;padding:4px 8px">AR OFF</button>
                 <button class="hud-btn primary" id="enterVrBtn">Enter VR</button>
             </div>
         </div>
@@ -991,6 +1003,16 @@
                     outline-width="0.002" outline-color="#000000"></a-troika-text>
 
                 <!-- Row 4: Settings -->
+                <a-entity class="clickable" id="uiAr3d" position="0 -0.36 0.02"
+                    geometry="primitive: plane; width: 0.32; height: 0.13"
+                    material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
+                    animation__hover="property: scale; to: 1.08 1.08 1; dur: 100; startEvents: mouseenter"
+                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
+                    <a-troika-text id="uiAr3dLabel" value="AR OFF" color="#94a3b8" font-size="0.034"
+                        anchor="center" baseline="center" position="0 0 0.01"
+                        outline-width="0.002" outline-color="#000000"></a-troika-text>
+                </a-entity>
+
                 <a-entity class="clickable" id="uiNear3d" position="-0.56 -0.36 0.02"
                     geometry="primitive: plane; width: 0.18; height: 0.13"
                     material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
@@ -1076,6 +1098,7 @@
             var assetsEl = document.getElementById('assets');
             var closeBtn = document.getElementById('closeBtn');
             var enterVrBtn = document.getElementById('enterVrBtn');
+            var toggleArBtn = document.getElementById('toggleArBtn');
             var modeChip = document.getElementById('modeChip');
             var statusChip = document.getElementById('statusChip');
             var comfortDisplay = document.getElementById('comfortDisplay');
@@ -1093,6 +1116,8 @@
             var uiModeBtnBg3d = document.getElementById('uiModeBtnBg3d');
             var modeListRoot3d = document.getElementById('modeListRoot3d');
             var modeListOpen = false;
+            var uiAr3d = document.getElementById('uiAr3d');
+            var uiAr3dLabel = document.getElementById('uiAr3dLabel');
             var uiExit3d = document.getElementById('uiExit3d');
             var uiSeekBack3d = document.getElementById('uiSeekBack3d');
             var uiPlay3d = document.getElementById('uiPlay3d');
@@ -1541,6 +1566,11 @@
                 var preferLabel = playerState.preferAR && playerState.arSupported ? 'AR' : 'VR';
                 enterVrBtn.textContent = inVr ? (isAR ? 'Exit AR' : 'Exit VR') : ('Enter ' + preferLabel);
                 setEntityText(uiEnterVr3dLabel, inVr ? (isAR ? 'Exit' : 'Exit') : preferLabel);
+                var arOn = playerState.preferAR && playerState.arSupported;
+                toggleArBtn.textContent = arOn ? 'AR ON' : 'AR OFF';
+                toggleArBtn.style.color = arOn ? '#6ee7b7' : '';
+                setEntityText(uiAr3dLabel, arOn ? 'AR ON' : 'AR OFF');
+                if (uiAr3dLabel) uiAr3dLabel.setAttribute('color', arOn ? '#6ee7b7' : '#94a3b8');
                 updateVolumeFill();
             }
 
@@ -2365,6 +2395,7 @@
                     seekTo((video ? video.currentTime : 0) + 10);
                 });
                 registerPanelButton(uiEnterVr3d, '#0a4a3d', '#0e6b58', toggleVrSession);
+                registerPanelButton(uiAr3d, '#1e293b', '#334155', toggleSessionMode);
                 registerPanelButton(uiSwap3d, '#13283a', '#1b3951', function () {
                     if (playerState.currentMode.stereo === 'mono') return;
                     swapEyes = !swapEyes;
@@ -2433,6 +2464,7 @@
             muteBtn.addEventListener('click', toggleMute);
             closeBtn.addEventListener('click', closePlayer);
             enterVrBtn.addEventListener('click', toggleVrSession);
+            toggleArBtn.addEventListener('click', toggleSessionMode);
 
             volumeSlider.addEventListener('input', function () {
                 var video = getVolumeTargetVideo();
@@ -3304,6 +3336,8 @@
     const panelPlayIcon = q('[data-role="play-icon"]');
     const panelPauseIcon = q('[data-role="pause-icon"]');
     const panelVrLabel = q('[data-role="panel-vr-label"]');
+    const toggleArBtn = q('[data-role="toggle-ar"]');
+    const panelArLabel = q('[data-role="panel-ar-label"]');
     const panelMuteIcon = q('[data-role="mute-icon"]');
     const panelMutedIcon = q('[data-role="muted-icon"]');
     const seekTrack3d = q('[data-role="seek-track"]');
@@ -3399,6 +3433,9 @@
       const preferLabel = state.preferAR && state.arSupported ? 'AR' : 'VR';
       enterVrBtn.textContent = state.isImmersive ? (isAR ? 'Exit AR' : 'Exit VR') : ('Enter ' + preferLabel);
       setText3d(panelVrLabel, state.isImmersive ? 'Exit' : preferLabel);
+      const arOn = state.preferAR && state.arSupported;
+      if (toggleArBtn) { toggleArBtn.textContent = arOn ? 'AR ON' : 'AR OFF'; toggleArBtn.style.color = arOn ? '#6ee7b7' : ''; }
+      if (panelArLabel) { setText3d(panelArLabel, arOn ? 'AR ON' : 'AR OFF'); panelArLabel.setAttribute('color', arOn ? '#6ee7b7' : '#94a3b8'); }
       updateVolumeFill();
     }
 
@@ -3961,6 +3998,8 @@
       if (state.isImmersive && sceneEl.exitVR) sceneEl.exitVR().catch(() => {});
       else requestEnterXr();
     });
+    setPanelButtonBehavior('[data-role="panel-ar"]', '#1e293b', '#334155', toggleSessionMode);
+    if (toggleArBtn) on(toggleArBtn, 'click', toggleSessionMode);
     setPanelButtonBehavior('[data-role="panel-swap"]', '#13283a', '#1b3951', () => {
       if (state.currentMode.stereo === 'mono') return;
       state.swapEyes = !state.swapEyes;
