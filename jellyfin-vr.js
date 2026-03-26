@@ -2604,6 +2604,8 @@
        mode: MODES_BY_ID[modeId] || MODES_BY_ID['360-mono'],
        isImmersive: false,
        swapEyes: false,
+       uiVisible: true,
+       lastInteraction: Date.now(),
        uiDistance: -2,
        uiScale: 1
     };
@@ -2655,6 +2657,10 @@
       renderer.xr.setReferenceSpaceType('local');
       container.appendChild(renderer.domElement);
 
+      container.addEventListener('mousemove', wake);
+      container.addEventListener('touchstart', wake);
+      container.addEventListener('mousedown', wake);
+
       scene = new THREE.Scene();
       scene.background = new THREE.Color(0x000000);
       camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -2689,12 +2695,40 @@
             xrCamera.cameras[1].layers.enable(2);
             xrCamera.cameras[1].layers.disable(1);
          }
+         updateStereoVisibility();
       });
       renderer.xr.addEventListener('sessionend', () => {
          state.isImmersive = false;
          scene.background = new THREE.Color(0x000000);
          uiGroup.position.set(0, 0, -2);
+         updateStereoVisibility();
       });
+
+      function updateStereoVisibility() {
+         const mode = state.mode;
+         const useStereo = mode.stereo !== 'mono' && state.isImmersive && !state.uiVisible;
+         if (meshes.preview) meshes.preview.visible = !useStereo;
+         if (meshes.left) meshes.left.visible = useStereo;
+         if (meshes.right) meshes.right.visible = useStereo;
+      }
+
+      function wake() {
+         state.lastInteraction = Date.now();
+         if (!state.uiVisible) {
+            state.uiVisible = true;
+            if (uiGroup) uiGroup.visible = true;
+            updateStereoVisibility();
+         }
+      }
+
+      function toggleUI() {
+         state.uiVisible = !state.uiVisible;
+         if (uiGroup) uiGroup.visible = state.uiVisible;
+         if (state.uiVisible) {
+            state.lastInteraction = Date.now();
+         }
+         updateStereoVisibility();
+      }
 
       // Video Setup
       videoTexture = new THREE.VideoTexture(jellyfinVideo);
@@ -2777,10 +2811,7 @@
          
          if (modeTextObj) modeTextObj.text = mode.label;
          
-         const useStereo = mode.stereo !== 'mono' && state.isImmersive;
-         meshes.preview.visible = !useStereo;
-         meshes.left.visible = useStereo;
-         meshes.right.visible = useStereo;
+         updateStereoVisibility();
       }
       applyMode(modeId);
 
@@ -2885,6 +2916,7 @@
       let hoveredObj = null;
 
       function onSelectStart(event) {
+         if (!state.uiVisible) return;
          const controller = event.target;
          tempMatrix.identity().extractRotation(controller.matrixWorld);
          raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
@@ -2903,7 +2935,15 @@
       for (let i = 0; i < 2; i++) {
          const controller = renderer.xr.getController(i);
          scene.add(controller);
-         controller.addEventListener('selectstart', onSelectStart);
+         controller.addEventListener('selectstart', (e) => {
+            if (!state.uiVisible) {
+               wake();
+            } else {
+               wake();
+               onSelectStart(e);
+            }
+         });
+         controller.addEventListener('squeezestart', toggleUI);
          
          const grip = renderer.xr.getControllerGrip(i);
          grip.add(controllerModelFactory.createControllerModel(grip));
@@ -2921,6 +2961,18 @@
 
       function updateHover(controllers) {
          let hit = false;
+         if (!state.uiVisible) {
+            for(let i=0; i<controllers.length; i++) {
+               const cont = controllers[i];
+               if (cont && cont.children[0]) cont.children[0].scale.z = 1;
+            }
+            if (hoveredObj) {
+               hoveredObj.material.color.setHex(hoveredObj.userData.bg);
+               hoveredObj = null;
+            }
+            return;
+         }
+
          for(let i=0; i<controllers.length; i++) {
             const controller = controllers[i];
             if (!controller.visible) continue;
@@ -2936,6 +2988,7 @@
                hoveredObj = obj;
                hoveredObj.material.color.setHex(hoveredObj.userData.hover);
                hit = true;
+               state.lastInteraction = Date.now();
                
                // shorten pointer line
                const dist = intersects[0].distance;
@@ -2973,6 +3026,10 @@
          }
 
          updateHover([renderer.xr.getController(0), renderer.xr.getController(1)]);
+
+         if (state.uiVisible && Date.now() - state.lastInteraction > 4000) {
+            toggleUI();
+         }
 
          renderer.render(scene, camera);
       });
