@@ -2498,7 +2498,7 @@
     if (backdrop) backdrop.remove();
   }
 
-  function openModeMenu(anchorButton) {
+  function openModeMenu(anchorButton, preferAR = false) {
     injectParentStyles();
 
     const existing = document.getElementById('jfvr-mode-menu');
@@ -2532,7 +2532,7 @@
         }
         optionButton.addEventListener('click', () => {
           removeModeMenu();
-          openPlayer(mode.id);
+          openPlayer(mode.id, preferAR);
         });
         section.appendChild(optionButton);
       });
@@ -2607,7 +2607,10 @@
        uiVisible: true,
        lastInteraction: Date.now(),
        uiDistance: -2,
-       uiScale: 1
+       uiScale: 1,
+       isAR: preferAR,
+       passthroughEnabled: preferAR,
+       passthroughBrightness: 1.0
     };
     let interactables = [];
 
@@ -2643,6 +2646,7 @@
       injectImportMap();
       const THREE = await import('three');
       const { VRButton } = await import('three/addons/webxr/VRButton.js');
+      const { ARButton } = await import('three/addons/webxr/ARButton.js');
       const { XRControllerModelFactory } = await import('three/addons/webxr/XRControllerModelFactory.js');
       const { XRHandModelFactory } = await import('three/addons/webxr/XRHandModelFactory.js');
       const { Text } = await import('troika-three-text');
@@ -2671,7 +2675,11 @@
       dl.position.set(0, 10, 0);
       scene.add(dl);
 
-      vrButton = VRButton.createButton(renderer, { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking', 'layers'] });
+      if (preferAR) {
+        vrButton = ARButton.createButton(renderer, { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking', 'layers'] });
+      } else {
+        vrButton = VRButton.createButton(renderer, { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking', 'layers'] });
+      }
       vrButton.style.position = 'absolute';
       vrButton.style.bottom = '20px';
       vrButton.style.left = '50%';
@@ -2682,7 +2690,7 @@
       renderer.xr.addEventListener('sessionstart', () => {
          state.isImmersive = true;
          // Note: WebXR sub-cameras default to layer 1 (left) and 2 (right).
-         scene.background = null; // Transparent background in AR/VR
+         scene.background = state.passthroughEnabled ? null : new THREE.Color(0x000000);
          if (uiGroup) uiGroup.position.set(0, -0.4, -1.8);
          camera.layers.enable(0);
          camera.layers.enable(1);
@@ -2761,6 +2769,11 @@
 
       const surfaceRoot = new THREE.Group();
       scene.add(surfaceRoot);
+      
+      const dimSphereGeo = new THREE.SphereGeometry(90, 32, 32);
+      const dimSphereMat = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.BackSide, transparent: true, opacity: 0.0 });
+      const dimSphere = new THREE.Mesh(dimSphereGeo, dimSphereMat);
+      scene.add(dimSphere);
       
       meshes.preview = new THREE.Mesh(new THREE.BufferGeometry(), materials.preview);
       meshes.left = new THREE.Mesh(new THREE.BufferGeometry(), materials.left);
@@ -2927,17 +2940,60 @@
       createBtn('btn-close', 0.65, -0.1, 0.25, 0.12, 0x7f1d1d, 0x991b1b, 'Close', () => close());
 
       // Bottom Row
-      createBtn('btn-cycle', -0.6, -0.3, 0.3, 0.1, 0x1e293b, 0x334155, 'Next Mode', () => {
+      createBtn('btn-cycle', -0.6, -0.3, 0.25, 0.1, 0x1e293b, 0x334155, 'Next Mode', () => {
          let idx = VIEW_MODES.findIndex(m => m.id === state.mode.id);
          idx = (idx + 1) % VIEW_MODES.length;
          applyMode(VIEW_MODES[idx].id);
       });
-      createBtn('btn-swap', -0.2, -0.3, 0.3, 0.1, 0x1e293b, 0x334155, 'Swap Eyes', () => {
+      createBtn('btn-swap', -0.3, -0.3, 0.25, 0.1, 0x1e293b, 0x334155, 'Swap Eyes', () => {
          state.swapEyes = !state.swapEyes;
          applyMode(state.mode.id);
       });
-      createBtn('btn-mute', 0.2, -0.3, 0.3, 0.1, 0x1e293b, 0x334155, 'Mute', () => {
+      createBtn('btn-mute', 0.0, -0.3, 0.25, 0.1, 0x1e293b, 0x334155, 'Mute', () => {
          jellyfinVideo.muted = !jellyfinVideo.muted;
+      });
+      
+      const ptBtn = createBtn('btn-pt', 0.3, -0.3, 0.25, 0.1, 0x1e293b, 0x334155, 'AR: ' + (state.passthroughEnabled ? 'On' : 'Off'), () => {
+         state.passthroughEnabled = !state.passthroughEnabled;
+         ptBtn.children[0].text = 'AR: ' + (state.passthroughEnabled ? 'On' : 'Off');
+         scene.background = state.passthroughEnabled ? null : new THREE.Color(0x000000);
+      });
+
+      const dimGroup = new THREE.Group();
+      dimGroup.visible = false;
+      dimGroup.position.set(0.3, -0.42, 0);
+      uiGroup.add(dimGroup);
+
+      const dimBgGeo = new THREE.PlaneGeometry(0.6, 0.04);
+      const dimBgMat = new THREE.MeshBasicMaterial({ color: 0x1e293b });
+      const dimBg = new THREE.Mesh(dimBgGeo, dimBgMat);
+      dimBg.position.set(0, 0, 0);
+      dimBg.userData = { isSeek: true, hover: 0x334155, bg: 0x1e293b, onClick: (pt) => {
+         const local = dimBg.worldToLocal(pt.clone());
+         const raw = (local.x + 0.3) / 0.6; 
+         const brightness = Math.max(0, Math.min(1, raw));
+         state.passthroughBrightness = brightness;
+         dimSphereMat.opacity = 1.0 - brightness; 
+         
+         dimFill.scale.x = brightness || 0.001;
+         dimFill.position.x = -0.3 + (0.6 * brightness) / 2;
+         dimTextObj.text = `${Math.round(brightness * 100)}%`;
+      }};
+      dimGroup.add(dimBg); interactables.push(dimBg);
+
+      const dimFillGeo = new THREE.PlaneGeometry(0.6, 0.04);
+      const dimFillMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
+      const dimFill = new THREE.Mesh(dimFillGeo, dimFillMat);
+      dimFill.position.set(0, 0, 0.005);
+      dimFill.scale.x = 1;
+      dimFill.position.x = 0;
+      dimGroup.add(dimFill);
+
+      const dimTextObj = createTextObj('100%', 0.42, 0, 0.04, 0xe2e8f0);
+      dimGroup.add(dimTextObj);
+
+      createBtn('btn-bulb', 0.55, -0.3, 0.15, 0.1, 0x1e293b, 0x334155, '💡', () => {
+         dimGroup.visible = !dimGroup.visible;
       });
 
       // Pointer & Raycasting Setup
@@ -3091,7 +3147,7 @@
 
     return { close };
   }
-  async function openInlinePlayer(modeId) {
+  async function openInlinePlayer(modeId, preferAR = false) {
     const jellyfinVideo = getCurrentJellyfinVideo();
     if (!jellyfinVideo || !(jellyfinVideo.currentSrc || jellyfinVideo.src)) {
       window.alert('No video is currently playing in Jellyfin. Start playback first.');
@@ -3121,7 +3177,7 @@
     overlay.innerHTML = INLINE_PLAYER_HTML;
     document.body.appendChild(overlay);
 
-    activeInlinePlayer = createInlinePlayerRuntime(overlay, styleEl, jellyfinVideo, modeId);
+    activeInlinePlayer = createInlinePlayerRuntime(overlay, styleEl, jellyfinVideo, modeId, preferAR);
   }
 
   function requestPlayerState(playerWindow) {
@@ -3218,8 +3274,8 @@
     }
   }
 
-  function openPlayer(modeId) {
-    openInlinePlayer(modeId);
+  function openPlayer(modeId, preferAR = false) {
+    openInlinePlayer(modeId, preferAR);
   }
 
   function createVRButton() {
@@ -3228,32 +3284,42 @@
     const fullscreenBtn = document.querySelector('.btnFullscreen');
     if (!fullscreenBtn || !fullscreenBtn.parentNode) return;
 
-    const button = document.createElement('button');
-    button.id = 'vr360-toggleplay';
-    button.setAttribute('is', 'paper-icon-button-light');
-    button.className = 'autoSize paper-icon-button-light';
-    button.title = 'VR Player';
-    button.setAttribute('aria-label', 'VR Player');
+    const container = fullscreenBtn.parentNode;
 
-    const label = document.createElement('span');
-    label.className = 'largePaperIconButton';
-    label.setAttribute('aria-hidden', 'true');
-    label.textContent = 'VR';
-    label.style.cssText = 'font-family: "Segoe UI", Arial, sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; display:inline-flex; align-items:center; justify-content:center;';
-
-    button.appendChild(label);
-    button.addEventListener('click', (event) => {
+    const buttonVR = document.createElement('button');
+    buttonVR.id = 'vr360-toggleplay';
+    buttonVR.setAttribute('is', 'paper-icon-button-light');
+    buttonVR.className = 'autoSize paper-icon-button-light';
+    buttonVR.title = 'VR Player';
+    buttonVR.setAttribute('aria-label', 'VR Player');
+    buttonVR.innerHTML = `<span class="largePaperIconButton" aria-hidden="true" style="font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; display:inline-flex; align-items:center; justify-content:center;">VR</span>`;
+    buttonVR.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
-      openModeMenu(button);
+      openModeMenu(buttonVR, false);
     });
+    container.insertBefore(buttonVR, fullscreenBtn);
 
-    fullscreenBtn.parentNode.insertBefore(button, fullscreenBtn);
+    const buttonAR = document.createElement('button');
+    buttonAR.id = 'ar360-toggleplay';
+    buttonAR.setAttribute('is', 'paper-icon-button-light');
+    buttonAR.className = 'autoSize paper-icon-button-light';
+    buttonAR.title = 'AR Player';
+    buttonAR.setAttribute('aria-label', 'AR Player');
+    buttonAR.innerHTML = `<span class="largePaperIconButton" aria-hidden="true" style="font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; display:inline-flex; align-items:center; justify-content:center; color: #7dd3fc;">AR</span>`;
+    buttonAR.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      openModeMenu(buttonAR, true);
+    });
+    container.insertBefore(buttonAR, fullscreenBtn);
   }
 
   function removeVRButton() {
-    const button = document.getElementById('vr360-toggleplay');
-    if (button) button.remove();
+    const buttonVR = document.getElementById('vr360-toggleplay');
+    if (buttonVR) buttonVR.remove();
+    const buttonAR = document.getElementById('ar360-toggleplay');
+    if (buttonAR) buttonAR.remove();
     removeModeMenu();
   }
 
