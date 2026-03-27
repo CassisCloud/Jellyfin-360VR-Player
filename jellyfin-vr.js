@@ -398,6 +398,8 @@
         raycaster__mouse="objects: .clickable; far: 30">
         <a-assets id="assets"></a-assets>
 
+        <a-entity id="videoSurfaceEntity" class="clickable"></a-entity>
+
         <a-entity id="cameraRig" position="0 0 0">
             <a-camera id="camera" position="0 1.6 0" look-controls="enabled: true" wasd-controls-enabled="false"></a-camera>
 
@@ -596,6 +598,15 @@
                     <a-entity position="0 0 0.01"
                         geometry="primitive: triangle; vertexA: -0.018 0.022 0; vertexB: -0.018 -0.022 0; vertexC: 0.012 0 0"
                         material="shader: flat; color: #94a3b8; side: double"></a-entity>
+                </a-entity>
+
+                <a-entity class="clickable" id="uiRecenterVideo3d" position="0 -0.36 0.02"
+                    geometry="primitive: plane; width: 0.22; height: 0.13"
+                    material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
+                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
+                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
+                    <a-troika-text value="Front" color="#94a3b8" font-size="0.04"
+                        anchor="center" baseline="center" position="0 0 0.01"></a-troika-text>
                 </a-entity>
 
                 <a-entity class="clickable" id="uiScaleDown3d" position="0.32 -0.36 0.02"
@@ -899,7 +910,17 @@
                         }
                         var cp = new THREE.Vector3(); ctrl.object3D.getWorldPosition(cp);
                         var tp = new THREE.Vector3(); tgt.obj.getWorldPosition(tp);
-                        this.grabs[hand] = { tgt: tgt, ctrl: ctrl, off: tp.sub(cp), q0: ctrl.object3D.quaternion.clone(), two: false };
+                        var q0_obj = tgt.obj.quaternion.clone();
+                        var fwd0 = new THREE.Vector3(0, 0, -1).applyQuaternion(ctrl.object3D.quaternion);
+                        this.grabs[hand] = { 
+                            tgt: tgt, ctrl: ctrl, 
+                            off: tp.sub(cp), 
+                            q0: ctrl.object3D.quaternion.clone(), 
+                            cp0: cp.clone(),
+                            fwd0: fwd0,
+                            q0_obj: q0_obj,
+                            two: false 
+                        };
                     },
                     endGrab: function (hand) {
                         this.lastRelease[hand] = Date.now();
@@ -914,6 +935,9 @@
                                 var tp = new THREE.Vector3(); g.tgt.obj.getWorldPosition(tp);
                                 og.off = tp.sub(cp);
                                 og.q0 = og.ctrl.object3D.quaternion.clone();
+                                og.cp0 = cp.clone();
+                                og.fwd0 = new THREE.Vector3(0, 0, -1).applyQuaternion(og.ctrl.object3D.quaternion);
+                                og.q0_obj = g.tgt.obj.quaternion.clone();
                             }
                         }
                         this.grabs[hand] = null;
@@ -928,18 +952,42 @@
                     onStick: function (hand, detail) {
                         var g = this.grabs[hand];
                         if (!g || !g.tgt || g.two) return;
-                        if (Math.abs(detail.y) > 0.15) {
+                        
+                        var isSphere = false;
+                        if (typeof playerState !== 'undefined' && playerState.currentMode) {
+                            isSphere = (playerState.currentMode.projection === '180' || playerState.currentMode.projection === '360');
+                        }
+                        var isSurface = g.tgt.obj.el && g.tgt.obj.el.id === 'videoSurfaceEntity';
+
+                        if (Math.abs(detail.y) > 0.15 && !(isSurface && isSphere)) {
                             var fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(g.ctrl.object3D.quaternion);
-                            var delta = fwd.multiplyScalar(-detail.y * 0.03);
-                            g.tgt.obj.position.add(delta);
-                            g.off.add(delta);
+                            var offLen = g.off.length();
+                            var deltaMag = -detail.y * (offLen * 0.02 + 0.01);
+                            var delta = fwd.multiplyScalar(deltaMag);
+                            
+                            var newLen = offLen + deltaMag;
+                            if (newLen > 0.5 && newLen < 250.0) {
+                                g.off.add(delta);
+                                g.tgt.obj.position.add(delta);
+                            }
                         }
                         if (Math.abs(detail.x) > 0.15) {
-                            g.tgt.obj.rotation.y += detail.x * 0.025;
+                            var rotDelta = detail.x * 0.025;
+                            if (isSurface && isSphere) {
+                                g.tgt.obj.rotation.y += rotDelta;
+                                g.q0_obj.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), rotDelta));
+                            } else {
+                                g.tgt.obj.rotation.y += rotDelta;
+                            }
                         }
                     },
                     tick: function () {
                         var self = this;
+                        var cam = this.el.sceneEl.camera;
+                        var isSphere = false;
+                        if (typeof playerState !== 'undefined' && playerState.currentMode) {
+                            isSphere = (playerState.currentMode.projection === '180' || playerState.currentMode.projection === '360');
+                        }
                         ['left', 'right'].forEach(function (hand) {
                             var g = self.grabs[hand];
                             if (!g || !g.tgt) return;
@@ -960,6 +1008,32 @@
                             var cp = new THREE.Vector3();
                             g.ctrl.object3D.getWorldPosition(cp);
                             var dq = g.ctrl.object3D.quaternion.clone().multiply(g.q0.clone().invert());
+                            
+                            var isSurface = g.tgt.obj.el && g.tgt.obj.el.id === 'videoSurfaceEntity';
+
+                            if (isSurface && isSphere) {
+                                var headPos = new THREE.Vector3();
+                                if (cam) cam.getWorldPosition(headPos);
+                                var v0 = g.cp0.clone().sub(headPos).normalize();
+                                var v1 = cp.clone().sub(headPos).normalize();
+                                var dragRot = new THREE.Quaternion().setFromUnitVectors(v0, v1);
+                                var totalDq = dragRot.multiply(dq);
+                                g.tgt.obj.quaternion.copy(totalDq.multiply(g.q0_obj));
+                                return;
+                            }
+
+                            if (g.lastCp) {
+                                var dp = cp.clone().sub(g.lastCp);
+                                var push = dp.dot(g.fwd0);
+                                if (Math.abs(push) > 0.0001) {
+                                    var offLen = g.off.length();
+                                    offLen += push * 6.0;
+                                    offLen = Math.max(0.3, Math.min(offLen, 250.0));
+                                    g.off.normalize().multiplyScalar(offLen);
+                                }
+                            }
+                            g.lastCp = cp.clone();
+
                             var ro = g.off.clone().applyQuaternion(dq);
                             g.tgt.obj.position.copy(cp).add(ro);
                         });
@@ -1313,17 +1387,38 @@
                 return new THREE.SphereGeometry(radius, 96, 64);
             }
 
-            function applyProjectionPlacement(mode) {
-                if (!playerState.surfaceRoot) return;
+            function resetVideoRotation() {
+                var surfaceEntity = document.getElementById('videoSurfaceEntity');
+                if (!surfaceEntity) return;
+                var mode = playerState.currentMode;
+                var cam = sceneEl.camera;
+                var camObj = cam ? (cam.el ? cam.el.object3D : cam.object3D || cam) : null;
 
-                if (mode.projection === 'screen') {
-                    playerState.surfaceRoot.position.set(0, 1.6, -12);
-                    playerState.surfaceRoot.rotation.set(0, 0, 0);
-                    return;
+                var euler = new THREE.Euler(0, 0, 0, 'YXZ');
+                var pos = new THREE.Vector3(0, 1.6, 0);
+
+                if (camObj && camObj.getWorldQuaternion) {
+                    euler.setFromQuaternion(camObj.getWorldQuaternion(new THREE.Quaternion()), 'YXZ');
+                    camObj.getWorldPosition(pos);
                 }
 
-                playerState.surfaceRoot.position.set(0, 0, 0);
-                playerState.surfaceRoot.rotation.set(0, Math.PI, 0);
+                if (mode && mode.projection === 'screen') {
+                    var d = 12;
+                    pos.y = Math.max(0.5, pos.y);
+                    pos.x -= Math.sin(euler.y) * d;
+                    pos.z -= Math.cos(euler.y) * d;
+                    surfaceEntity.object3D.position.copy(pos);
+                    surfaceEntity.object3D.rotation.set(0, euler.y, 0);
+                    surfaceEntity.object3D.scale.set(1, 1, 1);
+                } else {
+                    surfaceEntity.object3D.position.set(0, 0, 0);
+                    surfaceEntity.object3D.rotation.set(0, euler.y + Math.PI, 0);
+                    surfaceEntity.object3D.scale.set(1, 1, 1);
+                }
+            }
+
+            function applyProjectionPlacement(mode) {
+                resetVideoRotation();
             }
 
             function applyProjectionMaterialSettings(mode) {
@@ -1922,7 +2017,13 @@
                 surfaceRoot.add(previewMesh);
                 surfaceRoot.add(leftMesh);
                 surfaceRoot.add(rightMesh);
-                sceneEl.object3D.add(surfaceRoot);
+
+                var videoSurfaceEntity = document.getElementById('videoSurfaceEntity');
+                if (videoSurfaceEntity) {
+                    videoSurfaceEntity.object3D.add(surfaceRoot);
+                } else {
+                    sceneEl.object3D.add(surfaceRoot);
+                }
 
                 playerState.surfaceRoot = surfaceRoot;
                 playerState.meshes = {
@@ -1936,7 +2037,11 @@
 
                 var grabMgr = sceneEl.components['jfvr-grab-manager'];
                 if (grabMgr) {
-                    grabMgr.addTarget(surfaceRoot);
+                    if (videoSurfaceEntity) {
+                        grabMgr.addTarget(videoSurfaceEntity.object3D);
+                    } else {
+                        grabMgr.addTarget(surfaceRoot);
+                    }
                     var uiRootEl = document.getElementById('uiRoot');
                     if (uiRootEl) grabMgr.addTarget(uiRootEl.object3D);
                 }
@@ -1984,6 +2089,13 @@
                     panelScale = clamp(panelScale + 0.08, 0.7, 1.55);
                     updateComfortUi();
                 });
+                var uiRecenterVideo3d = document.getElementById('uiRecenterVideo3d');
+                if (uiRecenterVideo3d) {
+                    registerPanelButton(uiRecenterVideo3d, '#13283a', '#1b3951', function () {
+                        resetVideoRotation();
+                        setStatus('Video recentered', false);
+                    });
+                }
                 registerPanelButton(seekTrack3d, '#102131', '#163248', seekFrom3dEvent);
                 registerPanelButton(uiVolTrack3d, '#1e293b', '#2a3a4d', function (event) {
                     var audioVideo = getVolumeTargetVideo();
@@ -2119,7 +2231,7 @@
                 updateSurfaceVisibility();
                 retryStereoLayers(15);
                 setStatus(isAR ? 'Passthrough AR active' : 'Immersive VR active', false);
-                setTimeout(function () { tryMediaLayers(); }, 500);
+                setTimeout(function () { tryMediaLayers(); resetVideoRotation(); }, 500);
             });
             sceneEl.addEventListener('exit-vr', function () {
                 destroyMediaLayer();
