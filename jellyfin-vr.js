@@ -2606,7 +2606,7 @@
        swapEyes: false,
        uiVisible: true,
        lastInteraction: Date.now(),
-       uiDistance: parseFloat(localStorage.getItem('jfvr:ui-distance')) || -2.3,
+       uiDistance: Math.abs(parseFloat(localStorage.getItem('jfvr:ui-distance'))) || 2.3,
        uiScale: parseFloat(localStorage.getItem('jfvr:ui-scale')) || 1.0,
        isAR: false,
        passthroughEnabled: false,
@@ -2716,7 +2716,7 @@
          state.isImmersive = true;
          if (typeof updatePassthroughVisuals === 'function') updatePassthroughVisuals();
          if (ptBtnText) ptBtnText.text = state.passthroughEnabled ? '👁️' : '🕶️';
-         if (uiGroup) uiGroup.position.set(0, -0.4, state.uiDistance);
+         if (uiGroup) uiGroup.position.set(0, -0.4, -state.uiDistance);
          camera.layers.enable(0);
          camera.layers.enable(1);
          camera.layers.enable(2);
@@ -2725,7 +2725,7 @@
       renderer.xr.addEventListener('sessionend', () => {
          state.isImmersive = false;
          scene.background = new THREE.Color(0x000000);
-         if (uiGroup) uiGroup.position.set(0, -0.4, state.uiDistance);
+         if (uiGroup) uiGroup.position.set(0, -0.4, -state.uiDistance);
          updateStereoVisibility();
       });
 
@@ -2745,7 +2745,7 @@
          origin.setFromMatrixPosition(controller.matrixWorld);
          const dir = new THREE.Vector3(0, 0, -1).applyMatrix4(tempMatrix);
          
-         const targetPos = origin.clone().add(dir.multiplyScalar(-state.uiDistance));
+         const targetPos = origin.clone().add(dir.multiplyScalar(state.uiDistance));
          uiGroup.position.copy(targetPos);
          
          const xrCam = renderer.xr.getCamera();
@@ -2782,7 +2782,7 @@
                   xrCam.getWorldPosition(camPos);
                   const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(xrCam.quaternion);
                   dir.y = 0; dir.normalize(); // Horizon level
-                  uiGroup.position.copy(camPos).add(dir.multiplyScalar(-state.uiDistance));
+                  uiGroup.position.copy(camPos).add(dir.multiplyScalar(state.uiDistance));
                   uiGroup.position.y = camPos.y - 0.5;
                   uiGroup.lookAt(camPos.x, uiGroup.position.y, camPos.z);
                }
@@ -2939,15 +2939,12 @@
 
       // UI Builder
       uiGroup = new THREE.Group();
-      uiGroup.position.set(0, -0.4, state.uiDistance);
+      uiGroup.position.set(0, -0.4, -state.uiDistance);
       scene.add(uiGroup);
 
       // Materials
-      const frostedMat = new THREE.MeshPhysicalMaterial({
+      const frostedMat = new THREE.MeshBasicMaterial({
          color: 0x0f172a,
-         metalness: 0.1,
-         roughness: 0.8,
-         transmission: 0.2, 
          transparent: true,
          opacity: 0.85,
          side: THREE.DoubleSide
@@ -3137,9 +3134,9 @@
 
       // Sliders Column 2 (Passthrough Params)
       createTextObj('UI Dist', settingsGroup, 0.15, sY1, 0.03, 0x94a3b8, 'left');
-      const initUIDist = (state.uiDistance - (-4)) / (-1 - (-4));
+      const initUIDist = (state.uiDistance - 1) / (4 - 1);
       const sUIDist = createSlider('s-uidist', settingsGroup, 0.55, sY1, 0.4, 0.03, initUIDist, (v) => { 
-         state.uiDistance = -4 + (v * 3); 
+         state.uiDistance = 1 + (v * 3); 
          localStorage.setItem('jfvr:ui-distance', state.uiDistance.toString());
       });
 
