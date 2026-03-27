@@ -100,6 +100,15 @@
       variant: 'half'
     },
     {
+      id: 'screen-mono',
+      label: '2D Screen',
+      shortLabel: '2D Screen',
+      description: 'Flat theater screen for standard 2D video playback.',
+      projection: 'screen',
+      stereo: 'mono',
+      variant: 'mono'
+    },
+    {
       id: '3d-sbs-full',
       label: '3D Full SBS',
       shortLabel: '3D SBS',
@@ -430,9 +439,11 @@
     button.dataset.modeId = mode.id;
 
     const modeTag = mode.projection === 'screen'
-      ? '3D ' + mode.stereo.toUpperCase()
+      ? (mode.stereo === 'mono' ? 'Screen 2D' : 'Screen 3D ' + mode.stereo.toUpperCase())
       : (mode.stereo === 'mono' ? mode.projection + ' Mono' : mode.projection + ' ' + mode.stereo.toUpperCase());
-    const variantLabel = mode.variant === 'mono' ? 'Mono' : mode.variant === 'full' ? 'Full layout' : 'Half layout';
+    const variantLabel = mode.projection === 'screen' && mode.stereo === 'mono'
+      ? 'Single view'
+      : (mode.variant === 'mono' ? 'Mono' : mode.variant === 'full' ? 'Full layout' : 'Half layout');
 
     button.innerHTML = `
       <div class="jfvr-mode-topline">
@@ -481,7 +492,7 @@
     const groupDefinitions = [
       { projection: '180', title: '180 VR Modes' },
       { projection: '360', title: '360 VR Modes' },
-      { projection: 'screen', title: '3D Screen Modes' }
+      { projection: 'screen', title: 'Theater Screen Modes' }
     ];
 
     const groups = groupDefinitions.map(({ projection, title }) => {
@@ -509,7 +520,7 @@
         <div class="jfvr-menu-head-top">
           <div>
             <div class="jfvr-menu-title">Choose a VR projection</div>
-            <div class="jfvr-menu-subtitle">Pick the layout that matches the file. 180 and 360 stay immersive, while 3D SBS opens as a stereo theater screen.</div>
+            <div class="jfvr-menu-subtitle">Pick the layout that matches the file. 180/360 stays immersive, while Screen modes open as theater playback in 2D or 3D.</div>
           </div>
           <div class="jfvr-menu-recommend">Recommended: ${escapeHtml(recommended.label)}</div>
         </div>
@@ -561,20 +572,22 @@
 
   function createInlinePlayerRuntime(overlay, styleEl, jellyfinVideo, modeId) {
     let active = true;
-    let renderer, scene, camera, vrButton, arButton;
+    let renderer, scene, camera, vrButton, arButton, ambientLight, directionalLight;
     let uiGroup;
     let videoTexture, materials = {}, meshes = {};
     let interactables = [];
     let sliderControls = [];
     let modeButtons = [];
+    let inputSources = [];
     let bufferedSegments = [];
     let seekTrackMesh, seekFillMesh, seekThumbMesh;
-    let titleTextObj, detailTextObj, statusTextObj, timeTextObj;
-    let modePanelCurrentObj, screenPanelHintObj, screenPanelValueObj;
-    let playBtnObj, modeMenuBtnObj, screenBtnObj;
-    let modeMenuGroup, screenSettingsGroup;
+    let titleTextObj, detailTextObj, statusTextObj, timeTextObj, bufferTextObj;
+    let screenPanelHintObj, screenPanelValueObj, envHintObj, stereoValueObj, passthroughValueObj, stereoToggleBtnObj, passthroughToggleBtnObj;
+    let playBtnObj, modeMenuBtnObj, screenBtnObj, envBtnObj;
+    let modeMenuGroup, screenSettingsGroup, environmentSettingsGroup;
     const SEEK_WIDTH = 2.12;
     const SEEK_LEFT = -SEEK_WIDTH / 2;
+    const MAX_BUFFER_SEGMENTS = 12;
 
     function clamp(value, min, max) {
       return Math.min(max, Math.max(min, value));
@@ -589,7 +602,6 @@
     let state = {
        mode: MODES_BY_ID[modeId] || MODES_BY_ID['360-mono'],
        isImmersive: false,
-       swapEyes: false,
        uiVisible: true,
        lastInteraction: Date.now(),
        uiDistance: -2,
@@ -611,6 +623,54 @@
     function setStatus(message, durationMs = 1800) {
       state.statusMessage = message;
       state.statusUntil = Date.now() + durationMs;
+    }
+
+    function findMonoMode(projection) {
+      return VIEW_MODES.find((mode) => mode.projection === projection && mode.stereo === 'mono') || null;
+    }
+
+    function findStereoMode(projection, preferredStereo, preferredVariant) {
+      return VIEW_MODES.find((mode) =>
+        mode.projection === projection &&
+        mode.stereo !== 'mono' &&
+        mode.stereo === preferredStereo &&
+        mode.variant === preferredVariant
+      )
+        || VIEW_MODES.find((mode) =>
+          mode.projection === projection &&
+          mode.stereo !== 'mono' &&
+          mode.stereo === preferredStereo
+        )
+        || VIEW_MODES.find((mode) => mode.projection === projection && mode.stereo !== 'mono')
+        || null;
+    }
+
+    function toggle2D3DMode() {
+      const current = state.mode;
+      let nextMode = null;
+      if (current.stereo === 'mono') {
+        const preferredStereo = current.projection === '180' ? 'ou' : 'sbs';
+        const preferredVariant = current.projection === 'screen' ? 'half' : 'full';
+        nextMode = findStereoMode(current.projection, preferredStereo, preferredVariant);
+      } else {
+        nextMode = findMonoMode(current.projection);
+      }
+
+      if (!nextMode || nextMode.id === current.id) {
+        setStatus('No alternate 2D/3D mode available');
+        return;
+      }
+
+      applyMode(nextMode.id);
+      updateModeCards();
+      updateScreenPanelState();
+      updateEnvironmentPanelState();
+      setStatus(current.stereo === 'mono' ? 'Switched to 3D mode' : 'Switched to 2D mode');
+      state.lastInteraction = Date.now();
+    }
+
+    function getPointerLine(source) {
+      return source && source.userData ? source.userData.pointerLine : null;
     }
 
     function injectImportMap() {
@@ -666,10 +726,11 @@
       camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
       scene.add(camera);
 
-      scene.add(new THREE.AmbientLight(0xffffff, 1.0));
-      const dl = new THREE.DirectionalLight(0xffffff, 2.0);
-      dl.position.set(0, 10, 0);
-      scene.add(dl);
+      ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
+      scene.add(ambientLight);
+      directionalLight = new THREE.DirectionalLight(0xffffff, 2.0);
+      directionalLight.position.set(0, 10, 0);
+      scene.add(directionalLight);
 
       const buttonsContainer = document.createElement('div');
       buttonsContainer.style.position = 'absolute';
@@ -710,6 +771,7 @@
       vrButton.addEventListener('click', () => {
          state.isAR = false;
          state.passthroughEnabled = false;
+         if (typeof updatePassthroughVisuals === 'function') updatePassthroughVisuals();
       });
       buttonsContainer.appendChild(vrButton);
 
@@ -718,23 +780,32 @@
       arButton.addEventListener('click', () => {
          state.isAR = true;
          state.passthroughEnabled = true;
+         if (typeof updatePassthroughVisuals === 'function') updatePassthroughVisuals();
       });
       buttonsContainer.appendChild(arButton);
 
       renderer.xr.addEventListener('sessionstart', () => {
+         const session = renderer.xr.getSession();
          state.isImmersive = true;
-         // Update visually when session starts based on parsed AR request
-         if (typeof updatePassthroughVisuals === 'function') updatePassthroughVisuals();
+         state.isAR = Boolean(session && session.environmentBlendMode !== 'opaque');
+         if (state.isAR && !state.passthroughEnabled) {
+            state.passthroughEnabled = true;
+         }
          if (uiGroup) uiGroup.position.set(0, -0.4, -1.8);
          camera.layers.enable(0);
          camera.layers.enable(1);
          camera.layers.enable(2);
+         if (typeof updatePassthroughVisuals === 'function') updatePassthroughVisuals();
+         updateEnvironmentPanelState();
          updateStereoVisibility();
       });
       renderer.xr.addEventListener('sessionend', () => {
          state.isImmersive = false;
+         state.isAR = false;
          scene.background = new THREE.Color(0x000000);
          if (uiGroup) uiGroup.position.set(0, -0.4, -2);
+         if (typeof updatePassthroughVisuals === 'function') updatePassthroughVisuals();
+         updateEnvironmentPanelState();
          updateStereoVisibility();
       });
 
@@ -808,6 +879,23 @@
       const dimSphereMat = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.BackSide, transparent: true, opacity: 0.0 });
       const dimSphere = new THREE.Mesh(dimSphereGeo, dimSphereMat);
       scene.add(dimSphere);
+
+      function updatePassthroughVisuals() {
+         const isPassthroughActive = state.isImmersive && state.isAR && state.passthroughEnabled;
+         const normalizedBrightness = clamp(state.passthroughBrightness, 0.45, 1.8);
+
+         if (isPassthroughActive) {
+            scene.background = null;
+            dimSphereMat.opacity = clamp((1 - normalizedBrightness) * 0.52, 0, 0.48);
+            ambientLight.intensity = 0.7 + (normalizedBrightness * 0.42);
+            directionalLight.intensity = 1.1 + (normalizedBrightness * 0.95);
+         } else {
+            scene.background = new THREE.Color(0x000000);
+            dimSphereMat.opacity = state.isImmersive ? 0.08 : 0.0;
+            ambientLight.intensity = 1.0;
+            directionalLight.intensity = 2.0;
+         }
+      }
       
       meshes.preview = new THREE.Mesh(new THREE.BufferGeometry(), materials.preview);
       meshes.left = new THREE.Mesh(new THREE.BufferGeometry(), materials.left);
@@ -887,9 +975,6 @@
             return eye === 'right' ? { x: 1, y: 0, rx: -1, ry: 0.5 } : { x: 1, y: 0.5, rx: -1, ry: 0.5 };
          }
 
-         const leftEye = state.swapEyes ? 'right' : 'left';
-         const rightEye = state.swapEyes ? 'left' : 'right';
-
          function applyViewportToGeometry(geom, viewport) {
             const uv = geom.attributes.uv;
             for (let i = 0; i < uv.count; i++) {
@@ -900,9 +985,9 @@
             uv.needsUpdate = true;
          }
 
-         applyViewportToGeometry(meshes.preview.geometry, getViewport(mode, leftEye));
-         applyViewportToGeometry(meshes.left.geometry, getViewport(mode, leftEye));
-         applyViewportToGeometry(meshes.right.geometry, getViewport(mode, rightEye));
+         applyViewportToGeometry(meshes.preview.geometry, getViewport(mode, 'left'));
+         applyViewportToGeometry(meshes.left.geometry, getViewport(mode, 'left'));
+         applyViewportToGeometry(meshes.right.geometry, getViewport(mode, 'right'));
 
          if (videoTexture) {
             videoTexture.wrapS = THREE.ClampToEdgeWrapping;
@@ -974,12 +1059,12 @@
             h + 0.08,
             Math.min(r + 0.04, (h + 0.08) / 2),
             options.auraColor || 0x38bdf8,
-            options.auraOpacity ?? 0.12
+            options.auraOpacity ?? 0.13
          );
          aura.position.z = -0.03;
          group.add(aura);
 
-         const base = createPanel(w, h, r, options.baseColor || 0x08111c, options.baseOpacity ?? 0.84);
+         const base = createPanel(w, h, r, options.baseColor || 0x0a1422, options.baseOpacity ?? 0.78);
          base.position.z = -0.01;
          group.add(base);
 
@@ -988,7 +1073,7 @@
             Math.max(h * 0.46, 0.08),
             Math.min(r * 0.72, (h * 0.46) / 2),
             options.sheenColor || 0xffffff,
-            options.sheenOpacity ?? 0.06
+            options.sheenOpacity ?? 0.1
          );
          sheen.position.set(0, h * 0.18, 0.002);
          group.add(sheen);
@@ -1041,10 +1126,38 @@
          return { group, hit, icon, label, halo };
       }
 
+      function createPillButton(config) {
+         const group = new THREE.Group();
+         group.position.set(config.x || 0, config.y || 0, 0.04);
+         config.parent.add(group);
+
+         const glow = createPanel(config.width + 0.04, config.height + 0.04, config.radius + 0.02, 0x38bdf8, 0.1);
+         glow.position.z = -0.01;
+         group.add(glow);
+
+         const hit = createPanel(config.width, config.height, config.radius, config.bg || 0x0f1f32, 0.95);
+         group.add(hit);
+         hit.userData = {
+            id: config.id,
+            defaultBg: config.bg || 0x0f1f32,
+            defaultHover: config.hover || 0x193652,
+            selectedBg: config.selectedBg || 0x1a3f61,
+            selectedHover: config.selectedHover || 0x245a83,
+            bg: config.bg || 0x0f1f32,
+            hover: config.hover || 0x193652,
+            onClick: config.onClick
+         };
+         interactables.push(hit);
+
+         const label = createTextObj(config.label, -config.width / 2 + 0.08, 0.004, 0.03, 0xe7f2ff, 'left', group, config.width - 0.3);
+         const valueText = createTextObj(config.value || '', config.width / 2 - 0.08, 0.004, 0.03, 0x7dd3fc, 'right', group, 0.28);
+         return { group, hit, glow, label, valueText };
+      }
+
       function getModeGlyph(mode) {
          if (mode.projection === '360') return '◎';
          if (mode.projection === '180') return '◖';
-         return '▭';
+         return mode.stereo === 'mono' ? '▢' : '▭';
       }
 
       function getModeBadge(mode) {
@@ -1067,8 +1180,10 @@
          state.activePanel = state.activePanel === panelName ? null : panelName;
          modeMenuGroup.visible = state.activePanel === 'modes';
          screenSettingsGroup.visible = state.activePanel === 'screen';
+         environmentSettingsGroup.visible = state.activePanel === 'env';
          setButtonSelected(modeMenuBtnObj, state.activePanel === 'modes');
          setButtonSelected(screenBtnObj, state.activePanel === 'screen');
+         setButtonSelected(envBtnObj, state.activePanel === 'env');
          state.lastInteraction = Date.now();
       }
 
@@ -1093,9 +1208,10 @@
             hover: 0x123049,
             onClick: () => {
                applyMode(mode.id);
-               setStatus(`Mode: ${mode.label}`);
+               setStatus(`Switched to ${mode.label}`);
                updateModeCards();
                updateScreenPanelState();
+               updateEnvironmentPanelState();
                state.lastInteraction = Date.now();
             }
          };
@@ -1105,7 +1221,9 @@
          const title = createTextObj(mode.shortLabel || mode.label, -0.08, 0.07, 0.038, 0xf8fbff, 'left', group, 0.42);
          const badge = createTextObj(getModeBadge(mode), -0.08, -0.03, 0.026, 0x7dd3fc, 'left', group, 0.42);
          const desc = createTextObj(
-            mode.projection === 'screen' ? 'Curved theater screen' : `${mode.projection} immersive surface`,
+            mode.projection === 'screen'
+               ? (mode.stereo === 'mono' ? 'Theater screen for 2D playback' : 'Stereo theater screen for 3D playback')
+               : `${mode.projection} immersive surface`,
             -0.08,
             -0.1,
             0.022,
@@ -1129,10 +1247,6 @@
             entry.badge.color = selected ? 0xdff6ff : 0x7dd3fc;
             entry.title.color = selected ? 0xffffff : 0xf4f8ff;
          });
-
-         if (modePanelCurrentObj) {
-            modePanelCurrentObj.text = `Current: ${state.mode.label}`;
-         }
       }
 
       function createSlider(config) {
@@ -1142,13 +1256,19 @@
 
          const label = createTextObj(config.label, -0.58, 0.09, 0.03, 0xe4eef9, 'left', group);
          const valueText = createTextObj('', 0.58, 0.09, 0.03, 0x7dd3fc, 'right', group);
-         const track = createPanel(1.16, 0.08, 0.04, 0x132234, 0.9);
+         const hitZone = createPanel(1.22, 0.22, 0.08, 0xffffff, 0.001);
+         hitZone.position.set(0, -0.01, 0.001);
+         group.add(hitZone);
+         const track = createPanel(1.16, 0.09, 0.045, 0x132234, 0.9);
          track.position.set(0, -0.01, 0);
          group.add(track);
-         const fill = createPanel(1.16, 0.08, 0.04, 0x38bdf8, 0.96);
+         const fill = createPanel(1.16, 0.09, 0.045, 0x38bdf8, 0.96);
          fill.position.set(0, -0.01, 0.004);
          group.add(fill);
-         const thumb = createCircle(0.05, 0xf8fbff, 0.98);
+         const thumbAura = createCircle(0.078, 0x7dd3fc, 0.22);
+         thumbAura.position.set(0, -0.01, 0.01);
+         group.add(thumbAura);
+         const thumb = createCircle(0.058, 0xf8fbff, 0.98);
          thumb.position.set(0, -0.01, 0.012);
          group.add(thumb);
 
@@ -1157,6 +1277,7 @@
             track,
             fill,
             thumb,
+            hitZone,
             valueText,
             min: config.min,
             max: config.max,
@@ -1169,6 +1290,7 @@
                fill.scale.x = Math.max(ratio, 0.001);
                fill.position.x = -slider.width / 2 + ((slider.width * Math.max(ratio, 0.001)) / 2);
                thumb.position.x = -slider.width / 2 + (slider.width * ratio);
+               thumbAura.position.x = thumb.position.x;
                valueText.text = slider.formatValue(slider.getValue());
             }
          };
@@ -1182,7 +1304,7 @@
             state.lastInteraction = Date.now();
          }
 
-         track.userData = {
+         const dragData = {
             id: `slider-${config.id}`,
             defaultBg: 0x132234,
             defaultHover: 0x1a3247,
@@ -1191,7 +1313,26 @@
             onClick: applySliderFromPoint,
             onDrag: applySliderFromPoint
          };
-         interactables.push(track);
+         track.userData = dragData;
+         hitZone.userData = {
+            id: `slider-hit-${config.id}`,
+            defaultBg: 0xffffff,
+            defaultHover: 0xffffff,
+            bg: 0xffffff,
+            hover: 0xffffff,
+            onClick: applySliderFromPoint,
+            onDrag: applySliderFromPoint
+         };
+         thumb.userData = {
+            id: `slider-thumb-${config.id}`,
+            defaultBg: 0xf8fbff,
+            defaultHover: 0xdbeafe,
+            bg: 0xf8fbff,
+            hover: 0xdbeafe,
+            onClick: applySliderFromPoint,
+            onDrag: applySliderFromPoint
+         };
+         interactables.push(hitZone, track, thumb);
          sliderControls.push(slider);
          slider.sync();
          return slider;
@@ -1200,11 +1341,41 @@
       function updateScreenPanelState() {
          if (!screenPanelHintObj || !screenPanelValueObj) return;
          if (state.mode.projection === 'screen') {
-            screenPanelHintObj.text = 'Live on the current 3D screen.';
+            screenPanelHintObj.text = state.mode.stereo === 'mono'
+               ? 'Live on the current 2D theater screen.'
+               : 'Live on the current 3D theater screen.';
          } else {
-            screenPanelHintObj.text = 'Switch to a 3D screen mode to preview curvature.';
+            screenPanelHintObj.text = 'Switch to a screen mode to preview curvature and size.';
          }
          screenPanelValueObj.text = `${state.screenDistance.toFixed(1)}m  •  ${(state.screenScale * 100).toFixed(0)}%  •  ${(state.screenCurve * 100).toFixed(0)}% curve`;
+      }
+
+      function updateEnvironmentPanelState() {
+         if (stereoValueObj) {
+            stereoValueObj.text = state.mode.stereo === 'mono' ? '2D' : '3D';
+         }
+         if (passthroughValueObj) {
+            passthroughValueObj.text = state.passthroughEnabled ? 'ON' : 'OFF';
+         }
+         if (stereoToggleBtnObj && stereoToggleBtnObj.hit) {
+            const stereoButtonColor = state.mode.stereo === 'mono' ? 0x0f1f32 : 0x1a3f61;
+            stereoToggleBtnObj.hit.material.color.setHex(stereoButtonColor);
+            stereoToggleBtnObj.hit.userData.bg = stereoButtonColor;
+         }
+         if (passthroughToggleBtnObj && passthroughToggleBtnObj.hit) {
+            const passthroughColor = state.passthroughEnabled ? 0x1a3f61 : 0x0f1f32;
+            passthroughToggleBtnObj.hit.material.color.setHex(passthroughColor);
+            passthroughToggleBtnObj.hit.userData.bg = passthroughColor;
+         }
+         if (envHintObj) {
+            if (state.passthroughEnabled && !state.isAR) {
+               envHintObj.text = 'Passthrough ON. Enter AR session to view camera blend.';
+            } else if (state.isAR && state.passthroughEnabled) {
+               envHintObj.text = 'AR passthrough active. Tune lighting for comfort.';
+            } else {
+               envHintObj.text = 'Use AR + Passthrough for mixed reality viewing.';
+            }
+         }
       }
 
       function applyScreenValue(key, value, storageKey, label, decimals = 2) {
@@ -1213,6 +1384,7 @@
          applyMode(state.mode.id);
          updateModeCards();
          updateScreenPanelState();
+         updateEnvironmentPanelState();
          const displayValue = key === 'screenDistance'
             ? `${state[key].toFixed(1)}m`
             : `${(state[key] * 100).toFixed(0)}%`;
@@ -1242,7 +1414,11 @@
       dockPanel.group.add(seekTrackMesh);
       interactables.push(seekTrackMesh);
 
-      bufferedSegments = Array.from({ length: 6 }, () => {
+      const seekHitZone = createPanel(SEEK_WIDTH + 0.08, 0.24, 0.09, 0xffffff, 0.001);
+      seekHitZone.position.set(0, 0.08, 0.02);
+      dockPanel.group.add(seekHitZone);
+
+      bufferedSegments = Array.from({ length: MAX_BUFFER_SEGMENTS }, () => {
          const segment = createPanel(SEEK_WIDTH, 0.08, 0.04, 0x64748b, 0.52);
          segment.position.set(0, 0.08, 0.008);
          segment.visible = false;
@@ -1254,7 +1430,11 @@
       seekFillMesh.position.set(0, 0.08, 0.012);
       dockPanel.group.add(seekFillMesh);
 
-      seekThumbMesh = createCircle(0.055, 0xf8fbff, 1.0);
+      const seekThumbHalo = createCircle(0.078, 0x7dd3fc, 0.24);
+      seekThumbHalo.position.set(SEEK_LEFT, 0.08, 0.015);
+      dockPanel.group.add(seekThumbHalo);
+
+      seekThumbMesh = createCircle(0.062, 0xf8fbff, 1.0);
       seekThumbMesh.position.set(SEEK_LEFT, 0.08, 0.018);
       dockPanel.group.add(seekThumbMesh);
 
@@ -1269,19 +1449,42 @@
          state.lastInteraction = Date.now();
       };
 
-      seekTrackMesh.userData.onClick = scrubToPoint;
-      seekTrackMesh.userData.onDrag = scrubToPoint;
+      const seekInteractionData = {
+         onClick: scrubToPoint,
+         onDrag: scrubToPoint
+      };
+      seekTrackMesh.userData.onClick = seekInteractionData.onClick;
+      seekTrackMesh.userData.onDrag = seekInteractionData.onDrag;
+      seekHitZone.userData = {
+         id: 'seek-hit-zone',
+         defaultBg: 0xffffff,
+         defaultHover: 0xffffff,
+         bg: 0xffffff,
+         hover: 0xffffff,
+         onClick: seekInteractionData.onClick,
+         onDrag: seekInteractionData.onDrag
+      };
+      seekThumbMesh.userData = {
+         id: 'seek-thumb',
+         defaultBg: 0xf8fbff,
+         defaultHover: 0xdbeafe,
+         bg: 0xf8fbff,
+         hover: 0xdbeafe,
+         onClick: seekInteractionData.onClick,
+         onDrag: seekInteractionData.onDrag
+      };
+      interactables.push(seekHitZone, seekThumbMesh);
 
       const itemNameEl = document.querySelector('.itemName');
       titleTextObj = createTextObj(itemNameEl ? itemNameEl.textContent.trim() : 'Jellyfin VR Player', -1.08, 0.42, 0.058, 0xffffff, 'left', dockPanel.group, 1.74);
       detailTextObj = createTextObj('Glass UI for VR playback', -1.08, 0.32, 0.03, 0x9eb8ce, 'left', dockPanel.group, 1.74);
       statusTextObj = createTextObj('Ready', 1.08, 0.39, 0.03, 0xdff6ff, 'right', dockPanel.group, 0.86);
       timeTextObj = createTextObj('0:00 / 0:00', 1.08, -0.03, 0.032, 0xd5e7f6, 'right', dockPanel.group);
-      createTextObj('Scrub with trigger or drag', -1.08, -0.03, 0.028, 0x89a4bc, 'left', dockPanel.group, 1.3);
+      bufferTextObj = createTextObj('Buffered 0%', -1.08, -0.03, 0.028, 0x89a4bc, 'left', dockPanel.group, 1.3);
 
       createCircleButton({
          id: 'btn-close',
-         x: -1.04,
+         x: -1.12,
          y: -0.35,
          radius: 0.105,
          icon: '✕',
@@ -1296,7 +1499,7 @@
 
       createCircleButton({
          id: 'btn-back',
-         x: -0.62,
+         x: -0.72,
          y: -0.35,
          radius: 0.1,
          icon: '↺',
@@ -1309,7 +1512,7 @@
 
       playBtnObj = createCircleButton({
          id: 'btn-play',
-         x: -0.2,
+         x: -0.28,
          y: -0.35,
          radius: 0.126,
          icon: '▶',
@@ -1332,7 +1535,7 @@
 
       createCircleButton({
          id: 'btn-forward',
-         x: 0.24,
+         x: 0.16,
          y: -0.35,
          radius: 0.1,
          icon: '↻',
@@ -1345,7 +1548,7 @@
 
       modeMenuBtnObj = createCircleButton({
          id: 'btn-modes',
-         x: 0.68,
+         x: 0.58,
          y: -0.35,
          radius: 0.1,
          icon: '◎',
@@ -1356,7 +1559,7 @@
 
       screenBtnObj = createCircleButton({
          id: 'btn-screen',
-         x: 1.06,
+         x: 0.96,
          y: -0.35,
          radius: 0.1,
          icon: '▭',
@@ -1365,25 +1568,41 @@
          onClick: () => togglePanel('screen')
       });
 
+      envBtnObj = createCircleButton({
+         id: 'btn-env',
+         x: 1.32,
+         y: -0.35,
+         radius: 0.1,
+         icon: '◍',
+         label: 'Env',
+         glow: 0x67e8f9,
+         onClick: () => togglePanel('env')
+      });
+
       modeMenuGroup = new THREE.Group();
       modeMenuGroup.position.set(0, 0.9, 0.06);
       modeMenuGroup.visible = false;
       uiGroup.add(modeMenuGroup);
 
-      const modePanel = createGlassPanel(2.58, 1.42, 0.18, modeMenuGroup, { auraOpacity: 0.14 });
+      const modePanel = createGlassPanel(2.58, 1.86, 0.18, modeMenuGroup, { auraOpacity: 0.14 });
       modePanel.group.position.set(0, 0, 0);
-      createTextObj('Projection Menu', -1.08, 0.6, 0.05, 0xffffff, 'left', modePanel.group);
-      createTextObj('Switch instantly between immersive and theater layouts.', -1.08, 0.5, 0.03, 0x97b1c6, 'left', modePanel.group, 1.88);
-      modePanelCurrentObj = createTextObj(`Current: ${state.mode.label}`, 1.08, 0.6, 0.03, 0xdff6ff, 'right', modePanel.group, 0.9);
+      createTextObj('Projection Menu', -1.08, 0.81, 0.05, 0xffffff, 'left', modePanel.group);
+      createTextObj('Switch instantly between immersive and theater layouts.', -1.08, 0.71, 0.03, 0x97b1c6, 'left', modePanel.group, 1.88);
 
       const modeGrid = new THREE.Group();
-      modeGrid.position.set(0, -0.02, 0.02);
+      modeGrid.position.set(0, -0.08, 0.02);
       modePanel.group.add(modeGrid);
 
+      const MODE_COLUMNS = 3;
+      const MODE_ROW_GAP = 0.3;
+      const MODE_START_X = -0.76;
+      const MODE_COLUMN_GAP = 0.78;
+      const modeRows = Math.ceil(VIEW_MODES.length / MODE_COLUMNS);
+      const modeStartY = ((modeRows - 1) * MODE_ROW_GAP) / 2;
       VIEW_MODES.forEach((mode, index) => {
-         const column = index % 3;
-         const row = Math.floor(index / 3);
-         createModeCard(mode, -0.76 + (column * 0.78), 0.26 - (row * 0.34), modeGrid);
+         const column = index % MODE_COLUMNS;
+         const row = Math.floor(index / MODE_COLUMNS);
+         createModeCard(mode, MODE_START_X + (column * MODE_COLUMN_GAP), modeStartY - (row * MODE_ROW_GAP), modeGrid);
       });
 
       screenSettingsGroup = new THREE.Group();
@@ -1433,8 +1652,72 @@
          applyValue: (value) => applyScreenValue('screenCurve', value, STORAGE_KEYS.screenCurve, 'Curve', 2)
       });
 
+      environmentSettingsGroup = new THREE.Group();
+      environmentSettingsGroup.position.set(-0.86, 0.76, 0.06);
+      environmentSettingsGroup.visible = false;
+      uiGroup.add(environmentSettingsGroup);
+
+      const envPanel = createGlassPanel(1.62, 1.04, 0.18, environmentSettingsGroup, { auraOpacity: 0.14 });
+      envPanel.group.position.set(0, 0, 0);
+      createTextObj('Environment', -0.62, 0.39, 0.046, 0xffffff, 'left', envPanel.group);
+      envHintObj = createTextObj('', -0.62, 0.29, 0.026, 0x94aec5, 'left', envPanel.group, 1.2);
+
+      const stereoToggle = createPillButton({
+         id: 'btn-2d-3d',
+         parent: envPanel.group,
+         x: 0,
+         y: 0.14,
+         width: 1.26,
+         height: 0.18,
+         radius: 0.09,
+         label: 'Render Mode',
+         value: '2D',
+         onClick: () => toggle2D3DMode()
+      });
+      stereoToggleBtnObj = stereoToggle;
+      stereoValueObj = stereoToggle.valueText;
+
+      const passthroughToggle = createPillButton({
+         id: 'btn-passthrough',
+         parent: envPanel.group,
+         x: 0,
+         y: -0.11,
+         width: 1.26,
+         height: 0.18,
+         radius: 0.09,
+         label: 'Passthrough',
+         value: 'OFF',
+         onClick: () => {
+            state.passthroughEnabled = !state.passthroughEnabled;
+            updatePassthroughVisuals();
+            updateEnvironmentPanelState();
+            setStatus(state.passthroughEnabled ? 'Passthrough enabled' : 'Passthrough disabled');
+            state.lastInteraction = Date.now();
+         }
+      });
+      passthroughToggleBtnObj = passthroughToggle;
+      passthroughValueObj = passthroughToggle.valueText;
+
+      createSlider({
+         id: 'passthrough-brightness',
+         label: 'Passthrough Light',
+         parent: envPanel.group,
+         y: -0.37,
+         min: 0.45,
+         max: 1.8,
+         getValue: () => state.passthroughBrightness,
+         formatValue: (value) => `${Math.round(value * 100)}%`,
+         applyValue: (value) => {
+            state.passthroughBrightness = Number(value.toFixed(2));
+            updatePassthroughVisuals();
+            updateEnvironmentPanelState();
+            setStatus(`Passthrough light: ${Math.round(state.passthroughBrightness * 100)}%`);
+         }
+      });
+
       updateModeCards();
       updateScreenPanelState();
+      updateEnvironmentPanelState();
       window.jfvrShowStatus = (msg) => { setStatus(msg, 2500); };
 
       // Pointer & Raycasting Setup
@@ -1442,29 +1725,33 @@
       const tempMatrix = new THREE.Matrix4();
       let hoveredObj = null;
 
+      function setRayFromInput(inputSource) {
+         tempMatrix.identity().extractRotation(inputSource.matrixWorld);
+         raycaster.ray.origin.setFromMatrixPosition(inputSource.matrixWorld);
+         raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+      }
+
       function onSelectStart(event) {
-         const controller = event.target;
+         const source = event.target;
          if (!state.uiVisible) {
-            toggleUI(controller);
+            toggleUI(source);
             return;
          }
-         tempMatrix.identity().extractRotation(controller.matrixWorld);
-         raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
-         raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+         setRayFromInput(source);
          const intersects = raycaster.intersectObjects(interactables, false);
          if (intersects.length > 0) {
             const obj = intersects[0].object;
             if (obj.userData.onClick) obj.userData.onClick(intersects[0].point);
-            if (obj.userData.onDrag) controller.userData.dragTarget = obj;
+            if (obj.userData.onDrag) source.userData.dragTarget = obj;
          } else {
-            toggleUI(controller);
+            toggleUI(source);
          }
       }
 
       function onSelectEnd(event) {
-         const controller = event.target;
-         if (controller.userData.dragTarget) {
-            controller.userData.dragTarget = null;
+         const source = event.target;
+         if (source.userData.dragTarget) {
+            source.userData.dragTarget = null;
          }
       }
 
@@ -1475,6 +1762,7 @@
       for (let i = 0; i < 2; i++) {
          const controller = renderer.xr.getController(i);
          scene.add(controller);
+         inputSources.push(controller);
          controller.addEventListener('selectstart', (e) => {
             state.lastInteraction = Date.now();
             onSelectStart(e);
@@ -1491,19 +1779,35 @@
          const hand = renderer.xr.getHand(i);
          hand.add(handModelFactory.createHandModel(hand, 'boxes'));
          scene.add(hand);
+         inputSources.push(hand);
+         hand.addEventListener('pinchstart', (e) => {
+            state.lastInteraction = Date.now();
+            onSelectStart(e);
+         });
+         hand.addEventListener('pinchend', (e) => {
+            onSelectEnd(e);
+         });
 
          // Helper line
          const geometryLine = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -5)]);
          const line = new THREE.Line(geometryLine, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 }));
          controller.add(line);
+         controller.userData.pointerLine = line;
+         controller.userData.pointerLength = 5;
+
+         const handLineGeom = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -2.6)]);
+         const handLine = new THREE.Line(handLineGeom, new THREE.LineBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.35 }));
+         hand.add(handLine);
+         hand.userData.pointerLine = handLine;
+         hand.userData.pointerLength = 2.6;
       }
 
-      function updateHover(controllers) {
+      function updateHover(inputs) {
          let hit = false;
          if (!state.uiVisible) {
-            for(let i=0; i<controllers.length; i++) {
-               const cont = controllers[i];
-               if (cont && cont.children[0]) cont.children[0].scale.z = 1;
+            for (let i = 0; i < inputs.length; i++) {
+               const line = getPointerLine(inputs[i]);
+               if (line) line.scale.z = 1;
             }
             if (hoveredObj) {
                hoveredObj.material.color.setHex(hoveredObj.userData.bg);
@@ -1512,12 +1816,10 @@
             return;
          }
 
-         for(let i=0; i<controllers.length; i++) {
-            const controller = controllers[i];
-            if (!controller.visible) continue;
-            tempMatrix.identity().extractRotation(controller.matrixWorld);
-            raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
-            raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+         for (let i = 0; i < inputs.length; i++) {
+            const source = inputs[i];
+            if (!source.visible) continue;
+            setRayFromInput(source);
             const intersects = raycaster.intersectObjects(interactables, false);
             if (intersects.length > 0) {
                const obj = intersects[0].object;
@@ -1529,12 +1831,12 @@
                hit = true;
                state.lastInteraction = Date.now();
                
-               // shorten pointer line
                const dist = intersects[0].distance;
-               const line = controller.children[0];
-               if (line) line.scale.z = dist / 5;
+               const line = getPointerLine(source);
+               const pointerLength = (source.userData && source.userData.pointerLength) || 5;
+               if (line) line.scale.z = dist / pointerLength;
             } else {
-               const line = controller.children[0];
+               const line = getPointerLine(source);
                if (line) line.scale.z = 1;
             }
          }
@@ -1568,12 +1870,17 @@
                 ? 'Mode menu open'
                 : state.activePanel === 'screen'
                   ? 'Screen tuning open'
+                  : state.activePanel === 'env'
+                    ? 'Environment controls open'
                   : state.isImmersive
                     ? 'Immersive controls active'
                     : 'Desktop preview';
 
          setBarSpan(seekFillMesh, 0, Math.max(ratio, 0.001));
          seekThumbMesh.position.x = SEEK_LEFT + (SEEK_WIDTH * ratio);
+         seekThumbHalo.position.x = seekThumbMesh.position.x;
+
+         let bufferedMax = 0;
 
          for (let i = 0; i < bufferedSegments.length; i++) {
             const segment = bufferedSegments[i];
@@ -1581,9 +1888,13 @@
                const start = jellyfinVideo.buffered.start(i) / dur;
                const end = jellyfinVideo.buffered.end(i) / dur;
                setBarSpan(segment, start, end);
+               bufferedMax = Math.max(bufferedMax, end);
             } else {
                segment.visible = false;
             }
+         }
+         if (bufferTextObj) {
+            bufferTextObj.text = `Buffered ${Math.round(clamp(bufferedMax, 0, 1) * 100)}%`;
          }
 
          if (playBtnObj && playBtnObj.icon) {
@@ -1595,15 +1906,13 @@
 
          sliderControls.forEach((slider) => slider.sync());
 
-         updateHover([renderer.xr.getController(0), renderer.xr.getController(1)]);
+         updateHover(inputSources);
 
-         for(let i=0; i<2; i++) {
-            const controller = renderer.xr.getController(i);
-            if (controller && controller.userData && controller.userData.dragTarget) {
-               const obj = controller.userData.dragTarget;
-               tempMatrix.identity().extractRotation(controller.matrixWorld);
-               raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
-               raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+         for (let i = 0; i < inputSources.length; i++) {
+            const source = inputSources[i];
+            if (source && source.userData && source.userData.dragTarget) {
+               const obj = source.userData.dragTarget;
+               setRayFromInput(source);
                const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1).applyQuaternion(uiGroup.quaternion), 0);
                plane.translate(uiGroup.position);
                const intersectPoint = new THREE.Vector3();
