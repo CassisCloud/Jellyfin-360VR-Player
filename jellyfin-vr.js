@@ -2606,17 +2606,21 @@
        swapEyes: false,
        uiVisible: true,
        lastInteraction: Date.now(),
-       uiDistance: -2,
-       uiScale: 1,
+       uiDistance: parseFloat(localStorage.getItem('jfvr:ui-distance')) || -2.3,
+       uiScale: parseFloat(localStorage.getItem('jfvr:ui-scale')) || 1.0,
        isAR: false,
        passthroughEnabled: false,
-       passthroughBrightness: 1.0
+       passthroughBrightness: 1.0,
+       screenCurvature: 0.0,
+       screenSize: 1.0,
+       screenDistance: -12.0,
+       showingSettings: false
     };
     let interactables = [];
-    let ptBtn;
-
-    // UI elements references
-    let timeTextObj, playBtnObj, modeTextObj;
+    let timeTextObj, playBtnText, modeTextObj;
+    let seekBg, seekBuf, seekFill;
+    let bgMesh, settingsGroup;
+    let ptBtnText, curveFill, distFill, sizeFill, dimFill;
 
     function injectImportMap() {
       if (document.querySelector('script#jfvr-importmap')) return;
@@ -2710,12 +2714,9 @@
 
       renderer.xr.addEventListener('sessionstart', () => {
          state.isImmersive = true;
-         // Update visually when session starts based on parsed AR request
          if (typeof updatePassthroughVisuals === 'function') updatePassthroughVisuals();
-         if (ptBtn && ptBtn.children && ptBtn.children.length > 0) {
-             ptBtn.children[0].text = state.passthroughEnabled ? '👁️' : '🕶️';
-         }
-         if (uiGroup) uiGroup.position.set(0, -0.4, -1.8);
+         if (ptBtnText) ptBtnText.text = state.passthroughEnabled ? '👁️' : '🕶️';
+         if (uiGroup) uiGroup.position.set(0, -0.4, state.uiDistance);
          camera.layers.enable(0);
          camera.layers.enable(1);
          camera.layers.enable(2);
@@ -2724,7 +2725,7 @@
       renderer.xr.addEventListener('sessionend', () => {
          state.isImmersive = false;
          scene.background = new THREE.Color(0x000000);
-         if (uiGroup) uiGroup.position.set(0, -0.4, -2);
+         if (uiGroup) uiGroup.position.set(0, -0.4, state.uiDistance);
          updateStereoVisibility();
       });
 
@@ -2744,14 +2745,15 @@
          origin.setFromMatrixPosition(controller.matrixWorld);
          const dir = new THREE.Vector3(0, 0, -1).applyMatrix4(tempMatrix);
          
-         const targetPos = origin.clone().add(dir.multiplyScalar(1.8));
+         const targetPos = origin.clone().add(dir.multiplyScalar(-state.uiDistance));
          uiGroup.position.copy(targetPos);
          
          const xrCam = renderer.xr.getCamera();
          if (xrCam) {
             const camPos = new THREE.Vector3();
             xrCam.getWorldPosition(camPos);
-            uiGroup.lookAt(camPos);
+            // Lock Y rotation only
+            uiGroup.lookAt(camPos.x, uiGroup.position.y, camPos.z);
          }
       }
 
@@ -2773,15 +2775,26 @@
             uiGroup.visible = state.uiVisible;
             if (state.uiVisible && controller && controller.matrixWorld) {
                positionUIAtController(controller);
+            } else if (state.uiVisible) {
+               const xrCam = renderer.xr.getCamera();
+               if (xrCam) {
+                  const camPos = new THREE.Vector3();
+                  xrCam.getWorldPosition(camPos);
+                  const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(xrCam.quaternion);
+                  dir.y = 0; dir.normalize(); // Horizon level
+                  uiGroup.position.copy(camPos).add(dir.multiplyScalar(-state.uiDistance));
+                  uiGroup.position.y = camPos.y - 0.5;
+                  uiGroup.lookAt(camPos.x, uiGroup.position.y, camPos.z);
+               }
             }
          }
          if (state.uiVisible) {
             state.lastInteraction = Date.now();
+            settingsGroup.visible = false;
          }
          updateStereoVisibility();
       }
 
-      // Video Setup
       videoTexture = new THREE.VideoTexture(jellyfinVideo);
       videoTexture.minFilter = THREE.LinearFilter;
       videoTexture.magFilter = THREE.LinearFilter;
@@ -2811,14 +2824,33 @@
       surfaceRoot.add(meshes.left);
       surfaceRoot.add(meshes.right);
 
-      function applyMode(modeId) {
-         state.mode = MODES_BY_ID[modeId] || MODES_BY_ID['360-mono'];
+      function updatePassthroughVisuals() {
+         if (state.passthroughEnabled) {
+            scene.background = null;
+            if (typeof dimSphereMat !== 'undefined') dimSphereMat.opacity = 1.0 - state.passthroughBrightness;
+         } else {
+            scene.background = new THREE.Color(0x000000);
+            if (typeof dimSphereMat !== 'undefined') dimSphereMat.opacity = 1.0; 
+         }
+      }
+
+      function applyModeFromState() {
          let mode = state.mode;
-         
          let geometry;
+         surfaceRoot.scale.setScalar(state.screenSize);
+
          if (mode.projection === 'screen') {
-            geometry = new THREE.PlaneGeometry(18, 10.125);
-            surfaceRoot.position.set(0, 1.6, -12);
+            if (state.screenCurvature > 0.05) {
+               // Cylinder curve
+               const radius = 18 / state.screenCurvature;
+               const theta = 18 / radius;
+               geometry = new THREE.CylinderGeometry(radius, radius, 10.125, 64, 1, true, -theta/2 + Math.PI/2, theta);
+               geometry.scale(-1, 1, 1);
+               surfaceRoot.position.set(0, 1.6, state.screenDistance + radius);
+            } else {
+               geometry = new THREE.PlaneGeometry(18, 10.125);
+               surfaceRoot.position.set(0, 1.6, state.screenDistance);
+            }
             surfaceRoot.rotation.set(0, 0, 0);
          } else if (mode.projection === '180') {
             geometry = new THREE.SphereGeometry(32, 96, 64, 0, Math.PI, 0, Math.PI);
@@ -2840,10 +2872,10 @@
          const side = mode.projection === 'screen' ? THREE.FrontSide : THREE.BackSide;
          materials.preview.side = side; materials.left.side = side; materials.right.side = side;
 
-         // Viewports
          function getViewport(m, eye) {
             if (m.projection === 'screen') {
                if (m.stereo === 'sbs') return eye === 'right' ? {x:0.5, y:0, rx:0.5, ry:1} : {x:0, y:0, rx:0.5, ry:1};
+               if (m.stereo === 'ou') return eye === 'right' ? {x:0, y:0, rx:1, ry:0.5} : {x:0, y:0.5, rx:1, ry:0.5};
                return {x:0, y:0, rx:1, ry:1};
             }
             if (m.stereo === 'mono') return {x:1, y:0, rx:-1, ry:1};
@@ -2876,180 +2908,246 @@
             videoTexture.needsUpdate = true;
          }
          
-         if (modeTextObj) modeTextObj.text = mode.label;
-         
+         if (modeTextObj) modeTextObj.text = state.mode.label;
          updateStereoVisibility();
       }
-      applyMode(modeId);
+
+      function switchMode(newModeId) {
+         if (MODES_BY_ID[newModeId]) {
+            state.mode = MODES_BY_ID[newModeId];
+            jellyfinVideo.dataset.currentMode = newModeId;
+            applyModeFromState();
+         }
+      }
+
+      // Rounded Geometries Utility
+      function createRoundedRectGeometry(width, height, radius, segments) {
+         const shape = new THREE.Shape();
+         const w = width / 2;
+         const h = height / 2;
+         shape.moveTo(-w, -h + radius);
+         shape.lineTo(-w, h - radius);
+         shape.quadraticCurveTo(-w, h, -w + radius, h);
+         shape.lineTo(w - radius, h);
+         shape.quadraticCurveTo(w, h, w, h - radius);
+         shape.lineTo(w, -h + radius);
+         shape.quadraticCurveTo(w, -h, w - radius, -h);
+         shape.lineTo(-w + radius, -h);
+         shape.quadraticCurveTo(-w, -h, -w, -h + radius);
+         return new THREE.ShapeGeometry(shape, segments || 16);
+      }
 
       // UI Builder
       uiGroup = new THREE.Group();
-      uiGroup.position.set(0, -0.4, -2);
+      uiGroup.position.set(0, -0.4, state.uiDistance);
       scene.add(uiGroup);
 
-      function createTextObj(str, x, y, size, color) {
+      // Materials
+      const frostedMat = new THREE.MeshPhysicalMaterial({
+         color: 0x0f172a,
+         metalness: 0.1,
+         roughness: 0.8,
+         transmission: 0.2, 
+         transparent: true,
+         opacity: 0.85,
+         side: THREE.DoubleSide
+      });
+
+      const btnMatBase = new THREE.MeshBasicMaterial({ color: 0x1e293b, transparent: true, opacity: 0.9 });
+      const iconMatColor = 0xe2e8f0;
+
+      function createTextObj(str, parent, x, y, size, color, align) {
          const t = new Text();
          t.text = str;
          t.fontSize = size;
          t.color = color;
          t.position.set(x, y, 0.01);
-         t.anchorX = 'center';
+         t.anchorX = align || 'center';
          t.anchorY = 'middle';
-         uiGroup.add(t);
+         parent.add(t);
          return t;
       }
 
-      function createBtn(id, x, y, w, h, bg, hover, label, onClick) {
-         const geo = new THREE.PlaneGeometry(w, h);
-         const mat = new THREE.MeshBasicMaterial({ color: bg, transparent: true, opacity: 0.9 });
+      function createRoundBtn(id, parent, x, y, radius, label, onClick) {
+         const geo = new THREE.CircleGeometry(radius, 48);
+         const mat = btnMatBase.clone();
          const mesh = new THREE.Mesh(geo, mat);
-         mesh.position.set(x, y, 0);
-         mesh.userData = { id, isBtn: true, bg, hover, onClick };
-         uiGroup.add(mesh);
+         mesh.position.set(x, y, 0.005);
+         mesh.userData = { id, isBtn: true, bg: 0x1e293b, hover: 0x334155, onClick };
+         parent.add(mesh);
          interactables.push(mesh);
+         let textObj = null;
          if (label) {
-            const t = new Text(); t.text = label; t.fontSize = h * 0.4; t.color = 0xffffff;
-            t.position.set(0, 0, 0.01); t.anchorX = 'center'; t.anchorY = 'middle';
-            mesh.add(t);
+            textObj = createTextObj(label, mesh, 0, 0, radius * 0.9, iconMatColor);
          }
-         return mesh;
+         return { mesh, textObj };
       }
 
-      function createRoundBtn(id, x, y, radius, bg, hover, label, onClick) {
-         const geo = new THREE.CircleGeometry(radius, 32);
-         const mat = new THREE.MeshBasicMaterial({ color: bg, transparent: true, opacity: 0.9 });
-         const mesh = new THREE.Mesh(geo, mat);
-         mesh.position.set(x, y, 0);
-         mesh.userData = { id, isBtn: true, bg, hover, onClick };
-         uiGroup.add(mesh);
-         interactables.push(mesh);
-         if (label) {
-            const t = new Text(); t.text = label; t.fontSize = radius * 0.9; t.color = 0xffffff;
-            t.position.set(0, 0, 0.01); t.anchorX = 'center'; t.anchorY = 'middle';
-            mesh.add(t);
-         }
-         return mesh;
+      function createSlider(id, parent, x, y, w, h, initVal, onChange) {
+         const group = new THREE.Group();
+         group.position.set(x, y, 0.01);
+         parent.add(group);
+
+         const bgGeo = createRoundedRectGeometry(w, h, h/2);
+         const bgMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
+         const bg = new THREE.Mesh(bgGeo, bgMat);
+         
+         const fillGeo = createRoundedRectGeometry(w, h, h/2);
+         const fillMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+         const fill = new THREE.Mesh(fillGeo, fillMat);
+         fill.position.z = 0.001;
+
+         group.add(bg);
+         group.add(fill);
+
+         const updateFill = (val) => {
+            const ratio = Math.max(0, Math.min(1, val));
+            if (ratio === 0) {
+                fill.visible = false;
+            } else {
+                fill.visible = true;
+                fill.scale.x = ratio;
+                fill.position.x = (-w/2) + (w * ratio)/2;
+            }
+         };
+         updateFill(initVal);
+
+         const dragHandler = (pt) => {
+            const local = bg.worldToLocal(pt.clone());
+            const raw = (local.x + (w/2)) / w;
+            const ratio = Math.max(0, Math.min(1, raw));
+            updateFill(ratio);
+            if (onChange) onChange(ratio);
+         };
+
+         bg.userData = { id, hover: 0x1e293b, bg: 0x0f172a, onClick: dragHandler, onDrag: dragHandler };
+         interactables.push(bg);
+
+         return { group, updateFill };
       }
 
-      function updatePassthroughVisuals() {
-         if (state.passthroughEnabled) {
-            scene.background = null;
-            if (typeof dimSphereMat !== 'undefined') dimSphereMat.opacity = 1.0 - state.passthroughBrightness;
-         } else {
-            scene.background = new THREE.Color(0x000000);
-            if (typeof dimSphereMat !== 'undefined') dimSphereMat.opacity = 1.0; 
-         }
-      }
-
-      // UI Layout
-      const bgGeo = new THREE.PlaneGeometry(2.0, 0.8);
-      const bgMat = new THREE.MeshBasicMaterial({ color: 0x0f172a, transparent: true, opacity: 0.8 });
-      const bgMesh = new THREE.Mesh(bgGeo, bgMat);
-      bgMesh.position.set(0, 0, -0.01);
+      // --- Main Dock ---
+      const dockGeo = createRoundedRectGeometry(2.2, 0.35, 0.175);
+      bgMesh = new THREE.Mesh(dockGeo, frostedMat);
+      bgMesh.position.set(0, 0, 0);
       uiGroup.add(bgMesh);
 
-      // Top Row
-      modeTextObj = createTextObj(state.mode.label, -0.5, 0.3, 0.05, 0x7dd3fc);
-      createBtn('btn-recenter', 0.5, 0.3, 0.4, 0.1, 0x1e293b, 0x334155, 'Recenter UI', () => {
-         const xrCam = renderer.xr.getCamera();
-         const tempV = new THREE.Vector3();
-         xrCam.getWorldPosition(tempV);
-         const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(xrCam.quaternion);
-         uiGroup.position.copy(tempV).add(dir.multiplyScalar(2));
-         uiGroup.lookAt(tempV);
-      });
+      // Top of dock: Seekbar Wrapper
+      const seekW = 1.9;
+      const seekH = 0.04;
+      const seekGroup = new THREE.Group();
+      seekGroup.position.set(0, 0.08, 0.01);
+      uiGroup.add(seekGroup);
 
-      // Seek Track
-      const seekBgGeo = new THREE.PlaneGeometry(1.6, 0.04);
-      const seekBgMat = new THREE.MeshBasicMaterial({ color: 0x1e293b });
-      const seekBg = new THREE.Mesh(seekBgGeo, seekBgMat);
-      seekBg.position.set(0, 0.1, 0);
+      const sBgGeo = createRoundedRectGeometry(seekW, seekH, seekH/2);
+      seekBg = new THREE.Mesh(sBgGeo, new THREE.MeshBasicMaterial({ color: 0x0f172a }));
+      seekGroup.add(seekBg);
+
+      const sBufGeo = createRoundedRectGeometry(seekW, seekH, seekH/2);
+      seekBuf = new THREE.Mesh(sBufGeo, new THREE.MeshBasicMaterial({ color: 0x475569 }));
+      seekBuf.position.z = 0.001;
+      seekGroup.add(seekBuf);
+
+      const sFillGeo = createRoundedRectGeometry(seekW, seekH, seekH/2);
+      seekFill = new THREE.Mesh(sFillGeo, new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+      seekFill.position.z = 0.002;
+      seekGroup.add(seekFill);
+
       const handleSeekDrag = (pt) => {
          const local = seekBg.worldToLocal(pt.clone());
-         const raw = (local.x + 0.8) / 1.6;
+         const raw = (local.x + seekW/2) / seekW;
          const ratio = Math.max(0, Math.min(1, raw));
          if (Number.isFinite(jellyfinVideo.duration)) jellyfinVideo.currentTime = ratio * jellyfinVideo.duration;
       };
-      seekBg.userData = { isSeek: true, hover: 0x334155, bg: 0x1e293b, onClick: handleSeekDrag, onDrag: handleSeekDrag };
-      uiGroup.add(seekBg); interactables.push(seekBg);
-      
-      const seekFillGeo = new THREE.PlaneGeometry(1.6, 0.04);
-      const seekFillMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
-      const seekFill = new THREE.Mesh(seekFillGeo, seekFillMat);
-      seekFill.position.set(0, 0.1, 0.005);
-      uiGroup.add(seekFill);
+      seekBg.userData = { hover: 0x1e293b, bg: 0x0f172a, onClick: handleSeekDrag, onDrag: handleSeekDrag };
+      interactables.push(seekBg);
 
-      timeTextObj = createTextObj('0:00 / 0:00', 0, 0.18, 0.04, 0xe2e8f0);
+      timeTextObj = createTextObj('0:00 / 0:00', uiGroup, -0.9, 0.15, 0.035, 0x94a3b8, 'left');
+      modeTextObj = createTextObj(state.mode.shortLabel, uiGroup, 0.9, 0.15, 0.035, 0x38bdf8, 'right');
 
-      // Controls Row
-      createBtn('btn-back', -0.6, -0.1, 0.25, 0.12, 0x1e293b, 0x334155, '-10s', () => jellyfinVideo.currentTime -= 10);
-      playBtnObj = createBtn('btn-play', -0.2, -0.1, 0.35, 0.15, 0x11415a, 0x15597a, 'Pause', () => {
-         jellyfinVideo.paused ? jellyfinVideo.play() : jellyfinVideo.pause();
-      });
-      createBtn('btn-fwd',  0.2, -0.1, 0.25, 0.12, 0x1e293b, 0x334155, '+10s', () => jellyfinVideo.currentTime += 10);
+      // Bottom of dock: Toolbar Buttons
+      let btnY = -0.07;
+      let spacing = 0.18;
       
-      createBtn('btn-close', 0.65, -0.1, 0.25, 0.12, 0x7f1d1d, 0x991b1b, 'Close', () => close());
+      createRoundBtn('btn-back', uiGroup, -spacing*3.5, btnY, 0.065, '⏪', () => jellyfinVideo.currentTime -= 10);
+      const pb = createRoundBtn('btn-play', uiGroup, -spacing*2.5, btnY, 0.075, '⏸️', () => jellyfinVideo.paused ? jellyfinVideo.play() : jellyfinVideo.pause());
+      playBtnText = pb.textObj;
+      createRoundBtn('btn-fwd', uiGroup, -spacing*1.5, btnY, 0.065, '⏩', () => jellyfinVideo.currentTime += 10);
 
-      // Bottom Row
-      createBtn('btn-cycle', -0.6, -0.3, 0.25, 0.1, 0x1e293b, 0x334155, 'Next Mode', () => {
-         let idx = VIEW_MODES.findIndex(m => m.id === state.mode.id);
-         idx = (idx + 1) % VIEW_MODES.length;
-         applyMode(VIEW_MODES[idx].id);
-      });
-      createBtn('btn-swap', -0.3, -0.3, 0.25, 0.1, 0x1e293b, 0x334155, 'Swap Eyes', () => {
-         state.swapEyes = !state.swapEyes;
-         applyMode(state.mode.id);
-      });
-      createBtn('btn-mute', 0.0, -0.3, 0.25, 0.1, 0x1e293b, 0x334155, 'Mute', () => {
-         jellyfinVideo.muted = !jellyfinVideo.muted;
-      });
+      createRoundBtn('btn-mute', uiGroup, 0, btnY, 0.065, '🔇', () => jellyfinVideo.muted = !jellyfinVideo.muted);
       
-      ptBtn = createRoundBtn('btn-pt', 0.25, -0.3, 0.05, 0x1e293b, 0x334155, state.passthroughEnabled ? '👁️' : '🕶️', () => {
+      const ptBtn = createRoundBtn('btn-pt', uiGroup, spacing*1.5, btnY, 0.065, '🕶️', () => {
          state.passthroughEnabled = !state.passthroughEnabled;
-         if (ptBtn.children && ptBtn.children.length > 0) ptBtn.children[0].text = state.passthroughEnabled ? '👁️' : '🕶️';
          updatePassthroughVisuals();
       });
+      ptBtnText = ptBtn.textObj;
 
-      const dimGroup = new THREE.Group();
-      dimGroup.visible = false;
-      dimGroup.position.set(0.3, -0.42, 0);
-      uiGroup.add(dimGroup);
+      createRoundBtn('btn-settings', uiGroup, spacing*2.5, btnY, 0.065, '⚙️', () => {
+         state.showingSettings = !state.showingSettings;
+         settingsGroup.visible = state.showingSettings;
+      });
 
-      const dimBgGeo = new THREE.PlaneGeometry(0.6, 0.04);
-      const dimBgMat = new THREE.MeshBasicMaterial({ color: 0x1e293b });
-      const dimBg = new THREE.Mesh(dimBgGeo, dimBgMat);
-      dimBg.position.set(0, 0, 0);
+      createRoundBtn('btn-close', uiGroup, spacing*3.5, btnY, 0.065, '✖️', () => close());
+
+
+      // --- Settings Menu ---
+      settingsGroup = new THREE.Group();
+      settingsGroup.position.set(0, 0.45, 0);
+      settingsGroup.visible = false;
+      uiGroup.add(settingsGroup);
+
+      const setGeo = createRoundedRectGeometry(1.6, 0.5, 0.08);
+      const setBg = new THREE.Mesh(setGeo, frostedMat);
+      settingsGroup.add(setBg);
+
+      // Presets row
+      const pY = 0.16;
+      createTextObj('Layout', settingsGroup, -0.65, pY, 0.035, 0xe2e8f0, 'left');
       
-      const handleDimDrag = (pt) => {
-         const local = dimBg.worldToLocal(pt.clone());
-         const raw = (local.x + 0.3) / 0.6; 
-         const brightness = Math.max(0, Math.min(1, raw));
-         state.passthroughBrightness = brightness;
-         updatePassthroughVisuals();
-         
-         dimFill.scale.x = brightness || 0.001;
-         dimFill.position.x = -0.3 + (0.6 * brightness) / 2;
-         dimTextObj.text = `${Math.round(brightness * 100)}%`;
-      };
-      dimBg.userData = { isSeek: true, hover: 0x334155, bg: 0x1e293b, onClick: handleDimDrag, onDrag: handleDimDrag };
-      dimGroup.add(dimBg); interactables.push(dimBg);
+      createRoundBtn('m-2d', settingsGroup, -0.3, pY, 0.045, '2D', () => switchMode('3d-sbs-half')).textObj.fontSize = 0.025; // using 3d mapping generically and toggle fixes it
+      createRoundBtn('m-3d', settingsGroup, -0.15, pY, 0.045, '3D', () => {
+         const b = state.mode.stereo === 'mono' ? 'sbs' : 'mono';
+         const id = state.mode.projection === 'screen' ? (b==='mono'?'3d-sbs-half':'3d-sbs-full') : state.mode.projection + '-' + b + '-full';
+         switchMode(id);
+      }).textObj.fontSize = 0.025;
+      
+      createRoundBtn('m-180', settingsGroup, 0.1, pY, 0.045, '180', () => switchMode('180-sbs-full')).textObj.fontSize = 0.025;
+      createRoundBtn('m-360', settingsGroup, 0.25, pY, 0.045, '360', () => switchMode('360-sbs-full')).textObj.fontSize = 0.025;
 
-      const dimFillGeo = new THREE.PlaneGeometry(0.6, 0.04);
-      const dimFillMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
-      const dimFill = new THREE.Mesh(dimFillGeo, dimFillMat);
-      dimFill.position.set(0, 0, 0.005);
-      dimFill.scale.x = 1;
-      dimFill.position.x = 0;
-      dimGroup.add(dimFill);
+      createRoundBtn('btn-tgl-stereo', settingsGroup, 0.5, pY, 0.05, '🔄', () => {
+          let m = state.mode;
+          let ns = m.stereo === 'mono' ? 'sbs' : (m.stereo === 'sbs' ? 'ou' : 'mono');
+          if (m.projection === 'screen' && ns === 'mono') ns = 'sbs'; 
+          const id = m.projection === 'screen' ? '3d-sbs-full' : `${m.projection}-${ns}-full`;
+          if (MODES_BY_ID[id]) switchMode(id);
+      }).textObj.fontSize = 0.04;
 
-      const dimTextObj = createTextObj('100%', 0.42, 0, 0.04, 0xe2e8f0);
-      dimGroup.add(dimTextObj);
+      // Sliders Column 1 (Screen Params)
+      const sY1 = 0.02; const sY2 = -0.06; const sY3 = -0.14;
+      createTextObj('Curve', settingsGroup, -0.65, sY1, 0.03, 0x94a3b8, 'left');
+      const sCrv = createSlider('s-curve', settingsGroup, -0.2, sY1, 0.5, 0.03, state.screenCurvature, (v) => { state.screenCurvature = v; applyModeFromState(); });
+      
+      createTextObj('Dist.', settingsGroup, -0.65, sY2, 0.03, 0x94a3b8, 'left');
+      const initDistRatio = (state.screenDistance - (-20)) / (-4 - (-20));
+      const sDist = createSlider('s-dist', settingsGroup, -0.2, sY2, 0.5, 0.03, initDistRatio, (v) => { state.screenDistance = -20 + (v * 16); applyModeFromState(); });
 
-      createRoundBtn('btn-bulb', 0.4, -0.3, 0.05, 0x1e293b, 0x334155, '💡', () => {
-         dimGroup.visible = !dimGroup.visible;
+      createTextObj('Size', settingsGroup, -0.65, sY3, 0.03, 0x94a3b8, 'left');
+      const initSizeRatio = (state.screenSize - 0.5) / (3.0 - 0.5);
+      const sSize = createSlider('s-size', settingsGroup, -0.2, sY3, 0.5, 0.03, initSizeRatio, (v) => { state.screenSize = 0.5 + (v * 2.5); applyModeFromState(); });
+
+      // Sliders Column 2 (Passthrough Params)
+      createTextObj('UI Dist', settingsGroup, 0.15, sY1, 0.03, 0x94a3b8, 'left');
+      const initUIDist = (state.uiDistance - (-4)) / (-1 - (-4));
+      const sUIDist = createSlider('s-uidist', settingsGroup, 0.55, sY1, 0.4, 0.03, initUIDist, (v) => { 
+         state.uiDistance = -4 + (v * 3); 
+         localStorage.setItem('jfvr:ui-distance', state.uiDistance.toString());
       });
 
-      // Pointer & Raycasting Setup
+      createTextObj('Dimmer', settingsGroup, 0.15, sY2, 0.03, 0x94a3b8, 'left');
+      const sDim = createSlider('s-dimmer', settingsGroup, 0.55, sY2, 0.4, 0.03, state.passthroughBrightness, (v) => { state.passthroughBrightness = v; updatePassthroughVisuals(); });
+
+
+      // Raycaster & Interaction
       const raycaster = new THREE.Raycaster();
       const tempMatrix = new THREE.Matrix4();
       let hoveredObj = null;
@@ -3080,7 +3178,6 @@
          }
       }
 
-      // Init controllers & hands
       const controllerModelFactory = new XRControllerModelFactory();
       const handModelFactory = new XRHandModelFactory();
 
@@ -3104,7 +3201,6 @@
          hand.add(handModelFactory.createHandModel(hand, 'boxes'));
          scene.add(hand);
 
-         // Helper line
          const geometryLine = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -5)]);
          const line = new THREE.Line(geometryLine, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 }));
          controller.add(line);
@@ -3118,7 +3214,7 @@
                if (cont && cont.children[0]) cont.children[0].scale.z = 1;
             }
             if (hoveredObj) {
-               hoveredObj.material.color.setHex(hoveredObj.userData.bg);
+               if (hoveredObj.material.color) hoveredObj.material.color.setHex(hoveredObj.userData.bg);
                hoveredObj = null;
             }
             return;
@@ -3134,14 +3230,13 @@
             if (intersects.length > 0) {
                const obj = intersects[0].object;
                if (hoveredObj && hoveredObj !== obj) {
-                  hoveredObj.material.color.setHex(hoveredObj.userData.bg);
+                  if (hoveredObj.material.color) hoveredObj.material.color.setHex(hoveredObj.userData.bg);
                }
                hoveredObj = obj;
-               hoveredObj.material.color.setHex(hoveredObj.userData.hover);
+               if (hoveredObj.material.color) hoveredObj.material.color.setHex(hoveredObj.userData.hover);
                hit = true;
                state.lastInteraction = Date.now();
                
-               // shorten pointer line
                const dist = intersects[0].distance;
                const line = controller.children[0];
                if (line) line.scale.z = dist / 5;
@@ -3151,7 +3246,7 @@
             }
          }
          if (!hit && hoveredObj) {
-            hoveredObj.material.color.setHex(hoveredObj.userData.bg);
+            if (hoveredObj.material.color) hoveredObj.material.color.setHex(hoveredObj.userData.bg);
             hoveredObj = null;
          }
       }
@@ -3162,23 +3257,37 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
       });
 
+      // Init the scene look
+      applyModeFromState();
+
       renderer.setAnimationLoop(() => {
-         // UI updates mapping player state
          const dur = jellyfinVideo.duration || 0;
          const cur = jellyfinVideo.currentTime || 0;
-         timeTextObj.text = `${formatTime(cur)} / ${formatTime(dur)}`;
+         if (timeTextObj) timeTextObj.text = `${formatTime(cur)} / ${formatTime(dur)}`;
          
          const ratio = dur > 0 ? (cur / dur) : 0;
+         const sW = 1.9;
          seekFill.scale.x = ratio || 0.001;
-         seekFill.position.x = -0.8 + (1.6 * ratio) / 2;
+         seekFill.position.x = (-sW/2) + (sW * ratio) / 2;
 
-         if (playBtnObj && playBtnObj.children[0]) {
-            playBtnObj.children[0].text = jellyfinVideo.paused ? 'Play' : 'Pause';
+         if (jellyfinVideo.buffered && jellyfinVideo.buffered.length > 0) {
+             const bufEnd = jellyfinVideo.buffered.end(jellyfinVideo.buffered.length - 1);
+             const bRatio = dur > 0 ? (bufEnd / dur) : 0;
+             seekBuf.scale.x = bRatio || 0.001;
+             seekBuf.position.x = (-sW/2) + (sW * bRatio) / 2;
+         } else {
+             seekBuf.scale.x = 0.001;
+         }
+
+         if (playBtnText) {
+            playBtnText.text = jellyfinVideo.paused ? '▶️' : '⏸️';
+         }
+         if (ptBtnText) {
+            ptBtnText.text = state.passthroughEnabled ? '👁️' : '🕶️';
          }
 
          updateHover([renderer.xr.getController(0), renderer.xr.getController(1)]);
 
-         // Handle dragging
          for(let i=0; i<2; i++) {
             const controller = renderer.xr.getController(i);
             if (controller && controller.userData && controller.userData.dragTarget) {
@@ -3186,8 +3295,14 @@
                tempMatrix.identity().extractRotation(controller.matrixWorld);
                raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
                raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
-               const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1).applyQuaternion(uiGroup.quaternion), 0);
-               plane.translate(uiGroup.position);
+               
+               // Intersect against local plane of the UI
+               const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(uiGroup.quaternion);
+               let dragPlanePos = obj.getWorldPosition(new THREE.Vector3());
+               if (obj.parent) dragPlanePos = obj.parent.getWorldPosition(new THREE.Vector3());
+               else dragPlanePos = uiGroup.getWorldPosition(new THREE.Vector3());
+
+               const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, dragPlanePos);
                const intersectPoint = new THREE.Vector3();
                if (raycaster.ray.intersectPlane(plane, intersectPoint)) {
                   if (obj.userData.onDrag) obj.userData.onDrag(intersectPoint);
@@ -3196,7 +3311,7 @@
             }
          }
 
-         if (state.uiVisible && Date.now() - state.lastInteraction > 4000) {
+         if (state.uiVisible && Date.now() - state.lastInteraction > 5000) {
             toggleUI();
          }
 
@@ -3223,12 +3338,12 @@
     
     initThree().catch(err => {
       console.error("Three.js initialization failed:", err);
-      // fallback
       overlay.innerHTML = '<div style="color:white;padding:20px;">Failed to load VR Player. Check console.</div>';
     });
 
     return { close };
   }
+
   async function openInlinePlayer(modeId) {
     const jellyfinVideo = getCurrentJellyfinVideo();
     if (!jellyfinVideo || !(jellyfinVideo.currentSrc || jellyfinVideo.src)) {
