@@ -771,13 +771,12 @@
                             var controllers = document.querySelectorAll('[laser-controls]');
                             controllers.forEach(function(ctrl) {
                                 ctrl.addEventListener('triggerdown', wake);
-                                ctrl.addEventListener('gripdown', toggleUi);
+                                ctrl.addEventListener('abuttondown', toggleUi);
                                 ctrl.addEventListener('bbuttondown', wake);
                                 ctrl.addEventListener('ybuttondown', wakeAndRecenter);
                             });
                             var handEls = document.querySelectorAll('[hand-tracking-controls]');
                             handEls.forEach(function(h) {
-                                h.addEventListener('pinchstarted', wake);
                                 h.addEventListener('pinchended', wake);
                             });
                         }, 1000);
@@ -1423,9 +1422,13 @@
                     surfaceEntity.object3D.position.copy(pos);
                     surfaceEntity.object3D.rotation.set(0, euler.y, 0);
                     surfaceEntity.object3D.scale.set(1, 1, 1);
-                } else {
+                } else if (mode && mode.projection === '180') {
                     surfaceEntity.object3D.position.set(0, 0, 0);
                     surfaceEntity.object3D.rotation.set(0, euler.y + Math.PI, 0);
+                    surfaceEntity.object3D.scale.set(1, 1, 1);
+                } else {
+                    surfaceEntity.object3D.position.set(0, 0, 0);
+                    surfaceEntity.object3D.rotation.set(0, euler.y + Math.PI / 2, 0);
                     surfaceEntity.object3D.scale.set(1, 1, 1);
                 }
             }
@@ -2055,8 +2058,7 @@
                     } else {
                         grabMgr.addTarget(surfaceRoot);
                     }
-                    var uiRootEl = document.getElementById('uiRoot');
-                    if (uiRootEl) grabMgr.addTarget(uiRootEl.object3D);
+                    // uiRoot is not a grab target; use recenter button instead
                 }
 
                 registerPanelButton(uiModeBtnBg3d, '#0f172a', '#1b2a40', function () { toggleModeList(); });
