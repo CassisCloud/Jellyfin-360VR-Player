@@ -2729,10 +2729,14 @@
             showingSettings: false
         };
         let interactables = [];
-        let timeTextObj, playBtnText, modeTextObj;
+        let timeCurrentObj, timeDurationObj, titleTextObj;
+        let playIconGroup, pauseIconGroup;
         let seekBg, seekBuf, seekFill;
         let bgMesh, settingsGroup;
-        let ptBtnText, curveFill, distFill, sizeFill, dimFill;
+        let volSliderGroup, ptSliderGroup;
+        let volSliderUpdateFill, ptSliderUpdateFill;
+        let volSliderVisible = false, ptSliderVisible = false;
+        let marqueeOffset = 0, marqueeDir = 0, marqueePauseTimer = 0;
 
         function injectImportMap() {
             if (document.querySelector('script#jfvr-importmap')) return;
@@ -2827,7 +2831,7 @@
             renderer.xr.addEventListener('sessionstart', () => {
                 state.isImmersive = true;
                 if (typeof updatePassthroughVisuals === 'function') updatePassthroughVisuals();
-                if (ptBtnText) ptBtnText.text = state.passthroughEnabled ? '👁️' : '🕶️';
+                if (ptSliderUpdateFill) ptSliderUpdateFill(state.passthroughBrightness);
                 if (uiGroup) uiGroup.position.set(0, -0.4, -state.uiDistance);
                 camera.layers.enable(0);
                 camera.layers.enable(1);
@@ -3020,7 +3024,10 @@
                     videoTexture.needsUpdate = true;
                 }
 
-                if (modeTextObj) modeTextObj.text = state.mode.label;
+                if (titleTextObj) {
+                    const t = getVideoTitle();
+                    if (t) titleTextObj.text = t;
+                }
                 updateStereoVisibility();
             }
 
@@ -3135,17 +3142,370 @@
                 return { group, updateFill };
             }
 
-            // --- Main Dock ---
-            const dockGeo = createRoundedRectGeometry(2.2, 0.35, 0.175);
+            // --- Helper: get video title from Jellyfin DOM ---
+            function getVideoTitle() {
+                const titleEl = document.querySelector('.osdTitle, .videoOsdTitle, h3.osdTitle');
+                if (titleEl && titleEl.textContent.trim()) return titleEl.textContent.trim();
+                const headerEl = document.querySelector('.itemName, .nowPlayingTitle, [data-type="title"]');
+                if (headerEl && headerEl.textContent.trim()) return headerEl.textContent.trim();
+                if (document.title && document.title !== 'Jellyfin') return document.title.replace(' | Jellyfin', '').trim();
+                return '';
+            }
+
+            // --- Helper: create mesh-based icons (no squares) ---
+            function createPlayIcon(parent, x, y, scale, color) {
+                const group = new THREE.Group();
+                group.position.set(x, y, 0.01);
+                const s = scale;
+                const shape = new THREE.Shape();
+                shape.moveTo(-0.025 * s, 0.035 * s);
+                shape.lineTo(-0.025 * s, -0.035 * s);
+                shape.lineTo(0.03 * s, 0);
+                shape.closePath();
+                const geo = new THREE.ShapeGeometry(shape);
+                const mat = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide });
+                group.add(new THREE.Mesh(geo, mat));
+                parent.add(group);
+                return group;
+            }
+
+            function createPauseIcon(parent, x, y, scale, color) {
+                const group = new THREE.Group();
+                group.position.set(x, y, 0.01);
+                const s = scale;
+                const barW = 0.012 * s, barH = 0.06 * s, gap = 0.016 * s;
+                const mat = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide });
+                const lGeo = new THREE.PlaneGeometry(barW, barH);
+                const rGeo = new THREE.PlaneGeometry(barW, barH);
+                const lBar = new THREE.Mesh(lGeo, mat);
+                lBar.position.x = -gap;
+                const rBar = new THREE.Mesh(rGeo, mat);
+                rBar.position.x = gap;
+                group.add(lBar);
+                group.add(rBar);
+                parent.add(group);
+                return group;
+            }
+
+            function createSeekBackIcon(parent, x, y, scale, color) {
+                const group = new THREE.Group();
+                group.position.set(x, y, 0.01);
+                const s = scale;
+                const mat = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide });
+                const t1 = new THREE.Shape();
+                t1.moveTo(0.015 * s, 0.025 * s);
+                t1.lineTo(0.015 * s, -0.025 * s);
+                t1.lineTo(-0.015 * s, 0);
+                t1.closePath();
+                const m1 = new THREE.Mesh(new THREE.ShapeGeometry(t1), mat);
+                m1.position.x = -0.01 * s;
+                group.add(m1);
+                const t2 = new THREE.Shape();
+                t2.moveTo(0.015 * s, 0.025 * s);
+                t2.lineTo(0.015 * s, -0.025 * s);
+                t2.lineTo(-0.015 * s, 0);
+                t2.closePath();
+                const m2 = new THREE.Mesh(new THREE.ShapeGeometry(t2), mat);
+                m2.position.x = 0.015 * s;
+                group.add(m2);
+                parent.add(group);
+                return group;
+            }
+
+            function createSeekFwdIcon(parent, x, y, scale, color) {
+                const group = new THREE.Group();
+                group.position.set(x, y, 0.01);
+                const s = scale;
+                const mat = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide });
+                const t1 = new THREE.Shape();
+                t1.moveTo(-0.015 * s, 0.025 * s);
+                t1.lineTo(-0.015 * s, -0.025 * s);
+                t1.lineTo(0.015 * s, 0);
+                t1.closePath();
+                const m1 = new THREE.Mesh(new THREE.ShapeGeometry(t1), mat);
+                m1.position.x = -0.015 * s;
+                group.add(m1);
+                const t2 = new THREE.Shape();
+                t2.moveTo(-0.015 * s, 0.025 * s);
+                t2.lineTo(-0.015 * s, -0.025 * s);
+                t2.lineTo(0.015 * s, 0);
+                t2.closePath();
+                const m2 = new THREE.Mesh(new THREE.ShapeGeometry(t2), mat);
+                m2.position.x = 0.01 * s;
+                group.add(m2);
+                parent.add(group);
+                return group;
+            }
+
+            function createSpeakerIcon(parent, x, y, scale, color) {
+                const group = new THREE.Group();
+                group.position.set(x, y, 0.01);
+                const s = scale;
+                const mat = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide });
+                const body = new THREE.PlaneGeometry(0.014 * s, 0.022 * s);
+                const bm = new THREE.Mesh(body, mat);
+                bm.position.x = -0.016 * s;
+                group.add(bm);
+                const cone = new THREE.Shape();
+                cone.moveTo(-0.008 * s, 0.015 * s);
+                cone.lineTo(-0.008 * s, -0.015 * s);
+                cone.lineTo(0.012 * s, -0.028 * s);
+                cone.lineTo(0.012 * s, 0.028 * s);
+                cone.closePath();
+                group.add(new THREE.Mesh(new THREE.ShapeGeometry(cone), mat));
+                parent.add(group);
+                return group;
+            }
+
+            function createSunIcon(parent, x, y, scale, color) {
+                const group = new THREE.Group();
+                group.position.set(x, y, 0.01);
+                const s = scale;
+                const mat = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide });
+                const circle = new THREE.CircleGeometry(0.012 * s, 24);
+                group.add(new THREE.Mesh(circle, mat));
+                for (let i = 0; i < 8; i++) {
+                    const angle = (i / 8) * Math.PI * 2;
+                    const ray = new THREE.PlaneGeometry(0.004 * s, 0.012 * s);
+                    const rm = new THREE.Mesh(ray, mat);
+                    rm.position.set(Math.cos(angle) * 0.022 * s, Math.sin(angle) * 0.022 * s, 0);
+                    rm.rotation.z = angle;
+                    group.add(rm);
+                }
+                parent.add(group);
+                return group;
+            }
+
+            function createGearIcon(parent, x, y, scale, color) {
+                const group = new THREE.Group();
+                group.position.set(x, y, 0.01);
+                const s = scale;
+                const mat = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide });
+                const inner = new THREE.CircleGeometry(0.015 * s, 24);
+                group.add(new THREE.Mesh(inner, mat));
+                for (let i = 0; i < 6; i++) {
+                    const angle = (i / 6) * Math.PI * 2;
+                    const tooth = new THREE.PlaneGeometry(0.01 * s, 0.008 * s);
+                    const tm = new THREE.Mesh(tooth, mat);
+                    tm.position.set(Math.cos(angle) * 0.022 * s, Math.sin(angle) * 0.022 * s, 0);
+                    tm.rotation.z = angle;
+                    group.add(tm);
+                }
+                const hole = new THREE.CircleGeometry(0.007 * s, 24);
+                const holeMat = new THREE.MeshBasicMaterial({ color: 0x1e293b, side: THREE.DoubleSide });
+                const hm = new THREE.Mesh(hole, holeMat);
+                hm.position.z = 0.001;
+                group.add(hm);
+                parent.add(group);
+                return group;
+            }
+
+            function createCloseIcon(parent, x, y, scale, color) {
+                const group = new THREE.Group();
+                group.position.set(x, y, 0.01);
+                const s = scale;
+                const mat = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide });
+                const bar1 = new THREE.PlaneGeometry(0.05 * s, 0.008 * s);
+                const m1 = new THREE.Mesh(bar1, mat);
+                m1.rotation.z = Math.PI / 4;
+                group.add(m1);
+                const bar2 = new THREE.PlaneGeometry(0.05 * s, 0.008 * s);
+                const m2 = new THREE.Mesh(bar2, mat);
+                m2.rotation.z = -Math.PI / 4;
+                group.add(m2);
+                parent.add(group);
+                return group;
+            }
+
+            // --- Helper: vertical slider with top/bottom icons ---
+            function createVerticalSlider(id, parent, x, y, w, h, initVal, onChange, bottomIcon, topIcon) {
+                const group = new THREE.Group();
+                group.position.set(x, y, 0.02);
+                group.visible = false;
+                parent.add(group);
+
+                const panelH = h + 0.12;
+                const panelGeo = createRoundedRectGeometry(w + 0.06, panelH, 0.04);
+                const panelBg = new THREE.Mesh(panelGeo, frostedMat.clone());
+                panelBg.position.set(0, 0, -0.005);
+                group.add(panelBg);
+
+                const bgGeo = createRoundedRectGeometry(w, h, w / 2);
+                const bgMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
+                const bg = new THREE.Mesh(bgGeo, bgMat);
+                group.add(bg);
+
+                const fillGeo = createRoundedRectGeometry(w, h, w / 2);
+                const fillMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+                const fill = new THREE.Mesh(fillGeo, fillMat);
+                fill.position.z = 0.001;
+                group.add(fill);
+
+                const updateFill = (val) => {
+                    const ratio = Math.max(0, Math.min(1, val));
+                    if (ratio === 0) {
+                        fill.visible = false;
+                    } else {
+                        fill.visible = true;
+                        fill.scale.y = ratio;
+                        fill.position.y = (-h / 2) + (h * ratio) / 2;
+                    }
+                };
+                updateFill(initVal);
+
+                if (bottomIcon) bottomIcon(group, 0, -h / 2 - 0.045, 0.7, 0x64748b);
+                if (topIcon) topIcon(group, 0, h / 2 + 0.045, 0.7, 0xe2e8f0);
+
+                const dragHandler = (pt) => {
+                    const local = bg.worldToLocal(pt.clone());
+                    const raw = (local.y + (h / 2)) / h;
+                    const ratio = Math.max(0, Math.min(1, raw));
+                    updateFill(ratio);
+                    if (onChange) onChange(ratio);
+                };
+
+                bg.userData = { id, hover: 0x1e293b, bg: 0x0f172a, onClick: dragHandler, onDrag: dragHandler };
+                interactables.push(bg);
+
+                return { group, updateFill };
+            }
+
+            // --- Main Dock (3 rows: title / controls / seekbar+time) ---
+            const dockW = 2.2;
+            const dockH = 0.48;
+            const dockGeo = createRoundedRectGeometry(dockW, dockH, 0.08);
             bgMesh = new THREE.Mesh(dockGeo, frostedMat);
             bgMesh.position.set(0, 0, 0);
             uiGroup.add(bgMesh);
 
-            // Top of dock: Seekbar Wrapper
+            // === Row 1 (top): Video Title with marquee ===
+            const titleY = 0.16;
+            const titleMaxW = 1.9;
+            const titleClipGroup = new THREE.Group();
+            titleClipGroup.position.set(0, titleY, 0.01);
+            uiGroup.add(titleClipGroup);
+
+            const videoTitle = getVideoTitle();
+            titleTextObj = new Text();
+            titleTextObj.text = videoTitle || 'Loading...';
+            titleTextObj.fontSize = 0.038;
+            titleTextObj.color = 0xf0f6ff;
+            titleTextObj.anchorX = 'center';
+            titleTextObj.anchorY = 'middle';
+            titleTextObj.maxWidth = 8;
+            titleTextObj.position.set(0, 0, 0.01);
+            titleClipGroup.add(titleTextObj);
+
+            // === Row 2 (middle): Control buttons ===
+            const btnY = 0.02;
+            const btnR = 0.055;
+            const playR = 0.065;
+            const ctrlSpacing = 0.16;
+            const sideSpacing = 0.22;
+
+            // Close button (left end)
+            const closeBtn3d = createRoundBtn('btn-close', uiGroup, -0.92, btnY, btnR, null, () => close());
+            createCloseIcon(closeBtn3d.mesh, 0, 0, 1.0, 0xfca5a5);
+
+            // Seek Back
+            const seekBackBtn3d = createRoundBtn('btn-back', uiGroup, -ctrlSpacing, btnY, btnR, null, () => jellyfinVideo.currentTime -= 10);
+            createSeekBackIcon(seekBackBtn3d.mesh, 0, 0, 1.0, 0xe2e8f0);
+
+            // Play / Pause (center)
+            const playBtn3d = createRoundBtn('btn-play', uiGroup, 0, btnY, playR, null, () => jellyfinVideo.paused ? jellyfinVideo.play() : jellyfinVideo.pause());
+            playIconGroup = createPlayIcon(playBtn3d.mesh, 0, 0, 1.0, 0x7dd3fc);
+            pauseIconGroup = createPauseIcon(playBtn3d.mesh, 0, 0, 1.0, 0x7dd3fc);
+            pauseIconGroup.visible = false;
+
+            // Seek Forward
+            const seekFwdBtn3d = createRoundBtn('btn-fwd', uiGroup, ctrlSpacing, btnY, btnR, null, () => jellyfinVideo.currentTime += 10);
+            createSeekFwdIcon(seekFwdBtn3d.mesh, 0, 0, 1.0, 0xe2e8f0);
+
+            // Volume button (right of playback controls)
+            const volBtnX = ctrlSpacing + sideSpacing;
+            const volBtn3d = createRoundBtn('btn-vol', uiGroup, volBtnX, btnY, btnR, null, () => {
+                volSliderVisible = !volSliderVisible;
+                volSliderGroup.visible = volSliderVisible;
+                if (volSliderVisible) { ptSliderVisible = false; ptSliderGroup.visible = false; }
+            });
+            createSpeakerIcon(volBtn3d.mesh, 0, 0, 1.0, 0xe2e8f0);
+
+            // Passthrough lighting button
+            const ptBtnX = volBtnX + 0.14;
+            const ptBtn3d = createRoundBtn('btn-pt', uiGroup, ptBtnX, btnY, btnR, null, () => {
+                ptSliderVisible = !ptSliderVisible;
+                ptSliderGroup.visible = ptSliderVisible;
+                if (ptSliderVisible) { volSliderVisible = false; volSliderGroup.visible = false; }
+                if (!state.passthroughEnabled) {
+                    state.passthroughEnabled = true;
+                    updatePassthroughVisuals();
+                }
+            });
+            createSunIcon(ptBtn3d.mesh, 0, 0, 1.0, 0xfbbf24);
+
+            // Settings button (right end)
+            const settingsBtn3d = createRoundBtn('btn-settings', uiGroup, 0.92, btnY, btnR, null, () => {
+                state.showingSettings = !state.showingSettings;
+                settingsGroup.visible = state.showingSettings;
+            });
+            createGearIcon(settingsBtn3d.mesh, 0, 0, 1.0, 0x94a3b8);
+
+            // === Vertical Sliders (above buttons) ===
+            const vSliderW = 0.05;
+            const vSliderH = 0.35;
+
+            // Volume vertical slider
+            const volSld = createVerticalSlider('vs-vol', uiGroup, volBtnX, btnY + 0.32, vSliderW, vSliderH,
+                jellyfinVideo.volume || 1,
+                (v) => {
+                    jellyfinVideo.volume = v;
+                    jellyfinVideo.muted = (v === 0);
+                },
+                (p, x, y, s, c) => {
+                    const mat = new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide });
+                    const body = new THREE.PlaneGeometry(0.01 * s, 0.015 * s);
+                    const bm = new THREE.Mesh(body, mat);
+                    bm.position.set(x, y, 0.01);
+                    p.add(bm);
+                },
+                (p, x, y, s, c) => {
+                    createSpeakerIcon(p, x, y, s, c);
+                    const mat = new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide });
+                    const w1 = new THREE.Mesh(new THREE.PlaneGeometry(0.004 * s, 0.016 * s), mat);
+                    w1.rotation.z = 0.3;
+                    w1.position.set(x + 0.02 * s, y, 0.01);
+                    p.add(w1);
+                    const w2 = new THREE.Mesh(new THREE.PlaneGeometry(0.004 * s, 0.022 * s), mat);
+                    w2.rotation.z = 0.25;
+                    w2.position.set(x + 0.028 * s, y, 0.01);
+                    p.add(w2);
+                }
+            );
+            volSliderGroup = volSld.group;
+            volSliderUpdateFill = volSld.updateFill;
+
+            // Passthrough lighting vertical slider
+            const ptSld = createVerticalSlider('vs-pt', uiGroup, ptBtnX, btnY + 0.32, vSliderW, vSliderH,
+                state.passthroughBrightness,
+                (v) => { state.passthroughBrightness = v; updatePassthroughVisuals(); },
+                (p, x, y, s, c) => {
+                    const mat = new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide });
+                    const crescent = new THREE.CircleGeometry(0.012 * s, 24);
+                    const cm = new THREE.Mesh(crescent, mat);
+                    cm.position.set(x, y, 0.01);
+                    p.add(cm);
+                },
+                (p, x, y, s, c) => { createSunIcon(p, x, y, s, c); }
+            );
+            ptSliderGroup = ptSld.group;
+            ptSliderUpdateFill = ptSld.updateFill;
+
+            // === Row 3 (bottom): Seekbar + split time ===
+            const seekY = -0.14;
             const seekW = 1.9;
             const seekH = 0.04;
             const seekGroup = new THREE.Group();
-            seekGroup.position.set(0, 0.08, 0.01);
+            seekGroup.position.set(0, seekY, 0.01);
             uiGroup.add(seekGroup);
 
             const sBgGeo = createRoundedRectGeometry(seekW, seekH, seekH / 2);
@@ -3171,37 +3531,12 @@
             seekBg.userData = { hover: 0x1e293b, bg: 0x0f172a, onClick: handleSeekDrag, onDrag: handleSeekDrag };
             interactables.push(seekBg);
 
-            timeTextObj = createTextObj('0:00 / 0:00', uiGroup, -0.9, 0.15, 0.035, 0x94a3b8, 'left');
-            modeTextObj = createTextObj(state.mode.shortLabel, uiGroup, 0.9, 0.15, 0.035, 0x38bdf8, 'right');
-
-            // Bottom of dock: Toolbar Buttons
-            let btnY = -0.07;
-            let spacing = 0.18;
-
-            createRoundBtn('btn-back', uiGroup, -spacing * 3.5, btnY, 0.065, '⏪', () => jellyfinVideo.currentTime -= 10);
-            const pb = createRoundBtn('btn-play', uiGroup, -spacing * 2.5, btnY, 0.075, '⏸️', () => jellyfinVideo.paused ? jellyfinVideo.play() : jellyfinVideo.pause());
-            playBtnText = pb.textObj;
-            createRoundBtn('btn-fwd', uiGroup, -spacing * 1.5, btnY, 0.065, '⏩', () => jellyfinVideo.currentTime += 10);
-
-            createRoundBtn('btn-mute', uiGroup, 0, btnY, 0.065, '🔇', () => jellyfinVideo.muted = !jellyfinVideo.muted);
-
-            const ptBtn = createRoundBtn('btn-pt', uiGroup, spacing * 1.5, btnY, 0.065, '🕶️', () => {
-                state.passthroughEnabled = !state.passthroughEnabled;
-                updatePassthroughVisuals();
-            });
-            ptBtnText = ptBtn.textObj;
-
-            createRoundBtn('btn-settings', uiGroup, spacing * 2.5, btnY, 0.065, '⚙️', () => {
-                state.showingSettings = !state.showingSettings;
-                settingsGroup.visible = state.showingSettings;
-            });
-
-            createRoundBtn('btn-close', uiGroup, spacing * 3.5, btnY, 0.065, '✖️', () => close());
-
+            timeCurrentObj = createTextObj('0:00', uiGroup, -seekW / 2, seekY - 0.04, 0.03, 0x94a3b8, 'left');
+            timeDurationObj = createTextObj('0:00', uiGroup, seekW / 2, seekY - 0.04, 0.03, 0x94a3b8, 'right');
 
             // --- Settings Menu ---
             settingsGroup = new THREE.Group();
-            settingsGroup.position.set(0, 0.45, 0);
+            settingsGroup.position.set(0, 0.55, 0);
             settingsGroup.visible = false;
             uiGroup.add(settingsGroup);
 
@@ -3209,11 +3544,10 @@
             const setBg = new THREE.Mesh(setGeo, frostedMat);
             settingsGroup.add(setBg);
 
-            // Presets row
             const pY = 0.16;
             createTextObj('Layout', settingsGroup, -0.65, pY, 0.035, 0xe2e8f0, 'left');
 
-            createRoundBtn('m-2d', settingsGroup, -0.3, pY, 0.045, '2D', () => switchMode('3d-sbs-half')).textObj.fontSize = 0.025; // using 3d mapping generically and toggle fixes it
+            createRoundBtn('m-2d', settingsGroup, -0.3, pY, 0.045, '2D', () => switchMode('3d-sbs-half')).textObj.fontSize = 0.025;
             createRoundBtn('m-3d', settingsGroup, -0.15, pY, 0.045, '3D', () => {
                 const b = state.mode.stereo === 'mono' ? 'sbs' : 'mono';
                 const id = state.mode.projection === 'screen' ? (b === 'mono' ? '3d-sbs-half' : '3d-sbs-full') : state.mode.projection + '-' + b + '-full';
@@ -3223,15 +3557,6 @@
             createRoundBtn('m-180', settingsGroup, 0.1, pY, 0.045, '180', () => switchMode('180-sbs-full')).textObj.fontSize = 0.025;
             createRoundBtn('m-360', settingsGroup, 0.25, pY, 0.045, '360', () => switchMode('360-sbs-full')).textObj.fontSize = 0.025;
 
-            createRoundBtn('btn-tgl-stereo', settingsGroup, 0.5, pY, 0.05, '🔄', () => {
-                let m = state.mode;
-                let ns = m.stereo === 'mono' ? 'sbs' : (m.stereo === 'sbs' ? 'ou' : 'mono');
-                if (m.projection === 'screen' && ns === 'mono') ns = 'sbs';
-                const id = m.projection === 'screen' ? '3d-sbs-full' : `${m.projection}-${ns}-full`;
-                if (MODES_BY_ID[id]) switchMode(id);
-            }).textObj.fontSize = 0.04;
-
-            // Sliders Column 1 (Screen Params)
             const sY1 = 0.02; const sY2 = -0.06; const sY3 = -0.14;
             createTextObj('Curve', settingsGroup, -0.65, sY1, 0.03, 0x94a3b8, 'left');
             const sCrv = createSlider('s-curve', settingsGroup, -0.2, sY1, 0.5, 0.03, state.screenCurvature, (v) => { state.screenCurvature = v; applyModeFromState(); });
@@ -3244,7 +3569,6 @@
             const initSizeRatio = (state.screenSize - 0.5) / (3.0 - 0.5);
             const sSize = createSlider('s-size', settingsGroup, -0.2, sY3, 0.5, 0.03, initSizeRatio, (v) => { state.screenSize = 0.5 + (v * 2.5); applyModeFromState(); });
 
-            // Sliders Column 2 (Passthrough Params)
             createTextObj('UI Dist', settingsGroup, 0.15, sY1, 0.03, 0x94a3b8, 'left');
             const initUIDist = (state.uiDistance - 1) / (4 - 1);
             const sUIDist = createSlider('s-uidist', settingsGroup, 0.55, sY1, 0.4, 0.03, initUIDist, (v) => {
@@ -3372,7 +3696,8 @@
             renderer.setAnimationLoop(() => {
                 const dur = jellyfinVideo.duration || 0;
                 const cur = jellyfinVideo.currentTime || 0;
-                if (timeTextObj) timeTextObj.text = `${formatTime(cur)} / ${formatTime(dur)}`;
+                if (timeCurrentObj) timeCurrentObj.text = formatTime(cur);
+                if (timeDurationObj) timeDurationObj.text = formatTime(dur);
 
                 const ratio = dur > 0 ? (cur / dur) : 0;
                 const sW = 1.9;
@@ -3388,11 +3713,37 @@
                     seekBuf.scale.x = 0.001;
                 }
 
-                if (playBtnText) {
-                    playBtnText.text = jellyfinVideo.paused ? '▶️' : '⏸️';
+                if (playIconGroup && pauseIconGroup) {
+                    playIconGroup.visible = jellyfinVideo.paused;
+                    pauseIconGroup.visible = !jellyfinVideo.paused;
                 }
-                if (ptBtnText) {
-                    ptBtnText.text = state.passthroughEnabled ? '👁️' : '🕶️';
+
+                // Marquee scroll for long titles
+                if (titleTextObj && titleTextObj.textRenderInfo) {
+                    const titleW = titleTextObj.textRenderInfo.blockBounds
+                        ? (titleTextObj.textRenderInfo.blockBounds[2] - titleTextObj.textRenderInfo.blockBounds[0])
+                        : 0;
+                    const clipW = 1.9;
+                    if (titleW > clipW) {
+                        const overflow = titleW - clipW;
+                        if (marqueePauseTimer > 0) {
+                            marqueePauseTimer -= 0.016;
+                        } else {
+                            marqueeOffset += (marqueeDir === 0 ? -0.3 : 0.3) * 0.016;
+                            if (marqueeOffset < -overflow / 2) {
+                                marqueeOffset = -overflow / 2;
+                                marqueeDir = 1;
+                                marqueePauseTimer = 1.5;
+                            } else if (marqueeOffset > 0) {
+                                marqueeOffset = 0;
+                                marqueeDir = 0;
+                                marqueePauseTimer = 2.0;
+                            }
+                        }
+                        titleTextObj.position.x = marqueeOffset;
+                    } else {
+                        titleTextObj.position.x = 0;
+                    }
                 }
 
                 updateHover([renderer.xr.getController(0), renderer.xr.getController(1)]);
