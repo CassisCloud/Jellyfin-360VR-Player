@@ -132,6 +132,537 @@
     const INLINE_PLAYER_HTML = `
   <div id="jfvr-canvas-container" style="width:100%; height:100%;"></div>
 `;
+
+    const PLAYER_HTML = String.raw`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jellyfin VR Player</title>
+    <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
+    <script src="https://unpkg.com/aframe-troika-text/dist/aframe-troika-text.min.js"></script>
+    <style>
+        :root {
+            color-scheme: dark;
+            --panel-bg: rgba(4, 12, 20, 0.86);
+            --panel-line: rgba(148, 163, 184, 0.22);
+            --panel-text: #e5eef7;
+            --panel-muted: #94a3b8;
+            --panel-accent: #38bdf8;
+            --panel-accent-strong: #0ea5e9;
+            --panel-button: rgba(15, 23, 42, 0.92);
+            --panel-button-hover: rgba(30, 41, 59, 0.98);
+            --panel-danger: #fb7185;
+            --panel-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+            background:
+                radial-gradient(circle at top, rgba(14, 165, 233, 0.20), transparent 28%),
+                radial-gradient(circle at bottom, rgba(59, 130, 246, 0.16), transparent 24%),
+                #000;
+            color: var(--panel-text);
+            font-family: "Segoe UI", Arial, sans-serif;
+        }
+
+        #hud {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 20;
+        }
+
+        .hud-card {
+            pointer-events: auto;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-line);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            box-shadow: var(--panel-shadow);
+        }
+
+        #topbar {
+            position: fixed;
+            top: 18px;
+            left: 18px;
+            right: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        #topbar-left,
+        #topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .hud-btn,
+        .hud-chip {
+            border-radius: 999px;
+            border: 1px solid var(--panel-line);
+            background: rgba(2, 8, 14, 0.78);
+            color: var(--panel-text);
+            font: inherit;
+        }
+
+        .hud-btn {
+            cursor: pointer;
+            padding: 10px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+        }
+
+        .hud-btn:hover,
+        .hud-btn:focus-visible {
+            background: rgba(15, 23, 42, 0.95);
+            border-color: rgba(56, 189, 248, 0.4);
+            transform: translateY(-1px);
+            outline: none;
+        }
+
+        .hud-btn.primary {
+            background: linear-gradient(135deg, rgba(14, 165, 233, 0.9), rgba(56, 189, 248, 0.7));
+            color: #04111b;
+            border-color: rgba(56, 189, 248, 0.65);
+        }
+
+        .hud-chip {
+            padding: 9px 14px;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .hud-chip.mode {
+            color: #7dd3fc;
+        }
+
+        .hud-chip.status {
+            color: var(--panel-muted);
+            min-width: 120px;
+            text-align: center;
+        }
+
+        #dock {
+            position: fixed;
+            left: 18px;
+            right: 18px;
+            bottom: 18px;
+            padding: 14px 16px;
+            border-radius: 22px;
+        }
+
+        #dock-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        #seek-wrap {
+            flex: 1 1 260px;
+            display: grid;
+            gap: 6px;
+            min-width: 220px;
+        }
+
+        #seekInput {
+            width: 100%;
+            accent-color: var(--panel-accent-strong);
+            cursor: pointer;
+        }
+
+        #timeDisplay,
+        #comfortDisplay,
+        #hintText {
+            color: var(--panel-muted);
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        #dockControls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        #volumeSlider {
+            width: 110px;
+            accent-color: var(--panel-accent-strong);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        a-scene {
+            width: 100%;
+            height: 100%;
+        }
+
+        .a-enter-vr,
+        .a-enter-ar {
+            display: none !important;
+        }
+
+        @media (max-width: 720px) {
+            #topbar {
+                top: 12px;
+                left: 12px;
+                right: 12px;
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            #topbar-left,
+            #topbar-right {
+                justify-content: space-between;
+            }
+
+            #dock {
+                left: 12px;
+                right: 12px;
+                bottom: 12px;
+            }
+
+            #dock-row {
+                align-items: stretch;
+            }
+
+            #dockControls {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            #volumeSlider {
+                width: 80px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="hud">
+        <div id="topbar">
+            <div id="topbar-left">
+                <button class="hud-btn" id="closeBtn">Back</button>
+                <div class="hud-chip mode" id="modeChip">360 Mono</div>
+                <div class="hud-chip status" id="statusChip">Loading...</div>
+            </div>
+            <div id="topbar-right">
+                <div id="comfortDisplay">UI 1.90m / 1.00x</div>
+                <button class="hud-btn primary" id="enterVrBtn">Enter VR</button>
+            </div>
+        </div>
+
+        <div class="hud-card" id="dock">
+            <div id="dock-row">
+                <div id="dockControls">
+                    <button class="hud-btn" id="playPauseBtn">Pause</button>
+                    <button class="hud-btn" id="seekBackBtn">-10s</button>
+                    <button class="hud-btn" id="seekFwdBtn">+10s</button>
+                    <button class="hud-btn" id="muteBtn">Mute</button>
+                    <input id="volumeSlider" type="range" min="0" max="1" step="0.02" value="1">
+                </div>
+
+                <div id="seek-wrap">
+                    <input id="seekInput" type="range" min="0" max="1000" step="1" value="0">
+                    <div id="timeDisplay">0:00 / 0:00</div>
+                </div>
+
+                <div id="hintText"></div>
+            </div>
+        </div>
+    </div>
+
+    <a-scene
+        id="scene"
+        background="color: #000"
+        renderer="antialias: true; colorManagement: true; highRefreshRate: true; alpha: true"
+        embedded
+        xr-mode-ui="enabled: true"
+        webxr="referenceSpaceType: local; optionalFeatures: local-floor,bounded-floor,hand-tracking,layers"
+        jfvr-grab-manager
+        cursor__mouse="rayOrigin: mouse"
+        raycaster__mouse="objects: .clickable; far: 30">
+        <a-assets id="assets"></a-assets>
+
+        <a-entity id="videoSurfaceEntity" class="clickable"></a-entity>
+
+        <a-entity id="cameraRig" position="0 0 0">
+            <a-camera id="camera" position="0 1.6 0" look-controls="enabled: true" wasd-controls-enabled="false"></a-camera>
+
+            <a-entity id="uiRoot" jfvr-ui-manager position="0 -0.65 -1.6" scale="1 1 1" visible="false">
+                <a-entity id="uiPanel">
+                    <a-plane width="2.2" height="1.02" color="#0ea5e9" opacity="0.06"
+                        material="shader: flat; transparent: true; opacity: 0.06; blending: additive"
+                        position="0 -0.04 -0.02"></a-plane>
+                    <a-plane width="2.1" height="0.96" color="#060e16" opacity="0.94"
+                        material="shader: flat; transparent: true; opacity: 0.94"
+                        position="0 -0.04 -0.01"></a-plane>
+                    <a-plane width="2.08" height="0.94"
+                        material="shader: flat; wireframe: true; color: #1e3a5f; transparent: true; opacity: 0.25"
+                        position="0 -0.04 0"></a-plane>
+                </a-entity>
+
+                <!-- Row 1: Mode selector (clickable) + Status -->
+                <a-entity class="clickable" id="uiModeBtnBg3d" position="-0.20 0.30 0.02"
+                    geometry="primitive: plane; width: 1.20; height: 0.14"
+                    material="shader: flat; color: #0f172a; opacity: 0.95; transparent: true"
+                    animation__hover="property: scale; to: 1.04 1.1 1; dur: 100; startEvents: mouseenter"
+                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
+                    <a-troika-text id="panelModeText" value="360 Mono" color="#f0f6ff" font-size="0.046"
+                        anchor="center" baseline="center" position="0 0 0.01" max-width="1.1"
+                        outline-width="0.003" outline-color="#000000"></a-troika-text>
+                    <a-entity position="0.52 0 0.01"
+                        geometry="primitive: triangle; vertexA: -0.018 0.012 0; vertexB: 0.018 0.012 0; vertexC: 0 -0.012 0"
+                        material="shader: flat; color: #7dd3fc; side: double"></a-entity>
+                </a-entity>
+
+                <a-troika-text id="panelStatusText" value="Ready" color="#7dd3fc" font-size="0.032"
+                    anchor="right" baseline="center" position="0.98 0.30 0.02" max-width="0.5"
+                    outline-width="0.002" outline-color="#000000"></a-troika-text>
+
+                <!-- Mode list overlay (hidden by default) -->
+                <a-entity id="modeListRoot3d" visible="false" position="0 0.30 0.05">
+                </a-entity>
+
+                <!-- Row 2: Seek bar + Time -->
+                <a-entity class="clickable" id="seekTrack3d" position="0 0.12 0.02"
+                    geometry="primitive: plane; width: 1.80; height: 0.05"
+                    material="shader: flat; color: #1e293b; opacity: 0.98; transparent: true"
+                    animation__hover="property: scale; to: 1.02 1.4 1; dur: 150; startEvents: mouseenter"
+                    animation__leave="property: scale; to: 1 1 1; dur: 150; startEvents: mouseleave"></a-entity>
+                <a-entity id="seekBuffered3d" position="-0.9 0.12 0.025"
+                    geometry="primitive: plane; width: 0.001; height: 0.05"
+                    material="shader: flat; color: #475569; opacity: 0.8"></a-entity>
+                <a-entity id="seekPlayed3d" position="-0.9 0.12 0.03"
+                    geometry="primitive: plane; width: 0.001; height: 0.05"
+                    material="shader: flat; color: #38bdf8; opacity: 1"></a-entity>
+                <a-troika-text id="seekTime3d" value="0:00 / 0:00" color="#c8ddf0" font-size="0.032"
+                    anchor="right" baseline="center" position="0.98 0.03 0.02" max-width="1.0"
+                    outline-width="0.002" outline-color="#000000"></a-troika-text>
+
+                <!-- Row 3: Main controls -->
+                <a-entity class="clickable" id="uiExit3d" position="-0.92 -0.10 0.02"
+                    geometry="primitive: plane; width: 0.20; height: 0.17"
+                    material="shader: flat; color: #450a0a; opacity: 0.95; transparent: true"
+                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
+                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
+                    <a-entity position="0 0 0.01" rotation="0 0 45"
+                        geometry="primitive: plane; width: 0.06; height: 0.012"
+                        material="shader: flat; color: #fca5a5; side: double"></a-entity>
+                    <a-entity position="0 0 0.01" rotation="0 0 -45"
+                        geometry="primitive: plane; width: 0.06; height: 0.012"
+                        material="shader: flat; color: #fca5a5; side: double"></a-entity>
+                </a-entity>
+
+                <a-entity class="clickable" id="uiRecenterVideo3d" position="-0.74 -0.10 0.02"
+                    geometry="primitive: circle; radius: 0.07"
+                    material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
+                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
+                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
+                    <a-entity position="0 0 0.01" geometry="primitive: circle; radius: 0.035" material="shader: flat; wireframe: true; color: #7dd3fc"></a-entity>
+                    <a-entity position="0 0 0.01" geometry="primitive: circle; radius: 0.012" material="shader: flat; color: #7dd3fc"></a-entity>
+                </a-entity>
+
+                <a-entity class="clickable" id="uiSeekBack3d" position="-0.56 -0.10 0.02"
+                    geometry="primitive: plane; width: 0.22; height: 0.17"
+                    material="shader: flat; color: #0f172a; opacity: 0.95; transparent: true"
+                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
+                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
+                    <a-entity position="-0.01 0 0.01"
+                        geometry="primitive: triangle; vertexA: 0.02 0.03 0; vertexB: 0.02 -0.03 0; vertexC: -0.02 0 0"
+                        material="shader: flat; color: #94a3b8; side: double"></a-entity>
+                    <a-entity position="0.03 0 0.01"
+                        geometry="primitive: triangle; vertexA: 0.02 0.03 0; vertexB: 0.02 -0.03 0; vertexC: -0.02 0 0"
+                        material="shader: flat; color: #94a3b8; side: double"></a-entity>
+                </a-entity>
+
+                <a-entity class="clickable" id="uiPlay3d" position="-0.22 -0.10 0.02"
+                    geometry="primitive: plane; width: 0.26; height: 0.19"
+                    material="shader: flat; color: #0c4a6e; opacity: 0.98; transparent: true"
+                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
+                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
+                    <a-entity id="uiPlayIcon" position="0 0 0.01"
+                        geometry="primitive: triangle; vertexA: -0.025 0.035 0; vertexB: -0.025 -0.035 0; vertexC: 0.03 0 0"
+                        material="shader: flat; color: #7dd3fc; side: double"></a-entity>
+                    <a-entity id="uiPauseIcon" position="0 0 0.01" visible="false">
+                        <a-entity geometry="primitive: plane; width: 0.014; height: 0.06"
+                            material="shader: flat; color: #7dd3fc" position="-0.016 0 0"></a-entity>
+                        <a-entity geometry="primitive: plane; width: 0.014; height: 0.06"
+                            material="shader: flat; color: #7dd3fc" position="0.016 0 0"></a-entity>
+                    </a-entity>
+                </a-entity>
+
+                <a-entity class="clickable" id="uiSeekFwd3d" position="0.12 -0.10 0.02"
+                    geometry="primitive: plane; width: 0.22; height: 0.17"
+                    material="shader: flat; color: #0f172a; opacity: 0.95; transparent: true"
+                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
+                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
+                    <a-entity position="-0.03 0 0.01"
+                        geometry="primitive: triangle; vertexA: -0.02 0.03 0; vertexB: -0.02 -0.03 0; vertexC: 0.02 0 0"
+                        material="shader: flat; color: #94a3b8; side: double"></a-entity>
+                    <a-entity position="0.01 0 0.01"
+                        geometry="primitive: triangle; vertexA: -0.02 0.03 0; vertexB: -0.02 -0.03 0; vertexC: 0.02 0 0"
+                        material="shader: flat; color: #94a3b8; side: double"></a-entity>
+                </a-entity>
+
+                <a-entity class="clickable" id="uiEnterVr3d" position="0.44 -0.10 0.02"
+                    geometry="primitive: plane; width: 0.22; height: 0.17"
+                    material="shader: flat; color: #064e3b; opacity: 0.98; transparent: true"
+                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
+                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
+                    <a-troika-text id="uiEnterVr3dLabel" value="VR" color="#6ee7b7" font-size="0.055"
+                        anchor="center" baseline="center" position="0 0 0.01"
+                        outline-width="0.002" outline-color="#000000"></a-troika-text>
+                </a-entity>
+
+                <a-entity class="clickable" id="uiMute3d" position="0.72 -0.10 0.02"
+                    geometry="primitive: plane; width: 0.20; height: 0.17"
+                    material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
+                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
+                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
+                    <a-entity id="uiMuteIcon" position="0 0 0.01">
+                        <a-entity geometry="primitive: plane; width: 0.018; height: 0.028"
+                            material="shader: flat; color: #cbd5e1" position="-0.022 0 0"></a-entity>
+                        <a-entity geometry="primitive: triangle; vertexA: -0.01 0.02 0; vertexB: -0.01 -0.02 0; vertexC: 0.015 0.035 0"
+                            material="shader: flat; color: #cbd5e1; side: double" position="-0.005 0 0"></a-entity>
+                        <a-entity geometry="primitive: triangle; vertexA: -0.01 0.02 0; vertexB: -0.01 -0.02 0; vertexC: 0.015 -0.035 0"
+                            material="shader: flat; color: #cbd5e1; side: double" position="-0.005 0 0"></a-entity>
+                        <a-entity geometry="primitive: plane; width: 0.006; height: 0.022" rotation="0 0 20"
+                            material="shader: flat; color: #7dd3fc" position="0.018 0.006 0"></a-entity>
+                        <a-entity geometry="primitive: plane; width: 0.006; height: 0.032" rotation="0 0 15"
+                            material="shader: flat; color: #7dd3fc" position="0.030 0.005 0"></a-entity>
+                    </a-entity>
+                    <a-entity id="uiMutedIcon" position="0 0 0.01" visible="false">
+                        <a-entity geometry="primitive: plane; width: 0.018; height: 0.028"
+                            material="shader: flat; color: #64748b" position="-0.022 0 0"></a-entity>
+                        <a-entity geometry="primitive: triangle; vertexA: -0.01 0.02 0; vertexB: -0.01 -0.02 0; vertexC: 0.015 0.035 0"
+                            material="shader: flat; color: #64748b; side: double" position="-0.005 0 0"></a-entity>
+                        <a-entity geometry="primitive: triangle; vertexA: -0.01 0.02 0; vertexB: -0.01 -0.02 0; vertexC: 0.015 -0.035 0"
+                            material="shader: flat; color: #64748b; side: double" position="-0.005 0 0"></a-entity>
+                        <a-entity geometry="primitive: plane; width: 0.06; height: 0.008" rotation="0 0 45"
+                            material="shader: flat; color: #fb7185; side: double" position="0.005 0 0.005"></a-entity>
+                        <a-entity geometry="primitive: plane; width: 0.06; height: 0.008" rotation="0 0 -45"
+                            material="shader: flat; color: #fb7185; side: double" position="0.005 0 0.005"></a-entity>
+                    </a-entity>
+                </a-entity>
+
+                <a-entity class="clickable" id="uiSwap3d" position="0.98 -0.10 0.02"
+                    geometry="primitive: plane; width: 0.20; height: 0.17"
+                    material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
+                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
+                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
+                    <a-entity id="uiSwapIcon" position="0 0 0.01">
+                        <a-entity geometry="primitive: plane; width: 0.045; height: 0.008"
+                            material="shader: flat; color: #cbd5e1" position="0 0.01 0"></a-entity>
+                        <a-entity geometry="primitive: triangle; vertexA: -0.008 0.01 0; vertexB: -0.008 -0.01 0; vertexC: 0.008 0 0"
+                            material="shader: flat; color: #cbd5e1; side: double" position="0.025 0.01 0"></a-entity>
+                        <a-entity geometry="primitive: plane; width: 0.045; height: 0.008"
+                            material="shader: flat; color: #cbd5e1" position="0 -0.01 0"></a-entity>
+                        <a-entity geometry="primitive: triangle; vertexA: 0.008 0.01 0; vertexB: 0.008 -0.01 0; vertexC: -0.008 0 0"
+                            material="shader: flat; color: #cbd5e1; side: double" position="-0.025 -0.01 0"></a-entity>
+                    </a-entity>
+                </a-entity>
+
+                <!-- Volume slider -->
+                <a-entity class="clickable" id="uiVolTrack3d" position="0 -0.22 0.02"
+                    geometry="primitive: plane; width: 0.80; height: 0.04"
+                    material="shader: flat; color: #1e293b; opacity: 0.98; transparent: true"></a-entity>
+                <a-entity id="uiVolFill3d" position="-0.40 -0.22 0.025"
+                    geometry="primitive: plane; width: 0.80; height: 0.04"
+                    material="shader: flat; color: #38bdf8; opacity: 1"></a-entity>
+                <a-troika-text id="uiVolLabel3d" value="Vol 100%" color="#94a3b8" font-size="0.026"
+                    anchor="left" baseline="center" position="-0.40 -0.27 0.02" max-width="0.5"
+                    outline-width="0.002" outline-color="#000000"></a-troika-text>
+
+                <!-- Row 4: Settings -->
+                <a-entity class="clickable" id="uiNear3d" position="-0.42 -0.36 0.02"
+                    geometry="primitive: plane; width: 0.18; height: 0.13"
+                    material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
+                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
+                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
+                    <a-entity position="0 0 0.01"
+                        geometry="primitive: triangle; vertexA: 0.018 0.022 0; vertexB: 0.018 -0.022 0; vertexC: -0.012 0 0"
+                        material="shader: flat; color: #94a3b8; side: double"></a-entity>
+                </a-entity>
+
+                <a-entity class="clickable" id="uiFar3d" position="-0.14 -0.36 0.02"
+                    geometry="primitive: plane; width: 0.18; height: 0.13"
+                    material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
+                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
+                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
+                    <a-entity position="0 0 0.01"
+                        geometry="primitive: triangle; vertexA: -0.018 0.022 0; vertexB: -0.018 -0.022 0; vertexC: 0.012 0 0"
+                        material="shader: flat; color: #94a3b8; side: double"></a-entity>
+                </a-entity>
+
+                <a-entity class="clickable" id="uiScaleDown3d" position="0.14 -0.36 0.02"
+                    geometry="primitive: plane; width: 0.18; height: 0.13"
+                    material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
+                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
+                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
+                    <a-entity geometry="primitive: plane; width: 0.035; height: 0.008"
+                        material="shader: flat; color: #94a3b8" position="0 0 0.01"></a-entity>
+                </a-entity>
+
+                <a-entity class="clickable" id="uiScaleUp3d" position="0.42 -0.36 0.02"
+                    geometry="primitive: plane; width: 0.18; height: 0.13"
+                    material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
+                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
+                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
+                    <a-entity geometry="primitive: plane; width: 0.035; height: 0.008"
+                        material="shader: flat; color: #94a3b8" position="0 0 0.01"></a-entity>
+                    <a-entity geometry="primitive: plane; width: 0.008; height: 0.035"
+                        material="shader: flat; color: #94a3b8" position="0 0 0.01"></a-entity>
+                </a-entity>
+            </a-entity>
+        </a-entity>
+
+        <!-- Laser Controllers -->
+        <a-entity id="leftController" laser-controls="hand: left"
+            raycaster="objects: .clickable; far: 20; lineColor: #7dd3fc; lineOpacity: 0.6; showLine: true"
+            cursor="fuse: false"></a-entity>
+        <a-entity id="rightController" laser-controls="hand: right"
+            raycaster="objects: .clickable; far: 20; lineColor: #7dd3fc; lineOpacity: 0.6; showLine: true"
+            cursor="fuse: false"></a-entity>
+
+        <!-- Hand Tracking -->
+        <a-entity id="leftHand" hand-tracking-controls="hand: left; modelColor: #394d63"
+            raycaster="objects: .clickable; far: 5; lineColor: #7dd3fc; lineOpacity: 0.4; showLine: true"
+            cursor="fuse: false; downEvents: pinchstarted; upEvents: pinchended"></a-entity>
+        <a-entity id="rightHand" hand-tracking-controls="hand: right; modelColor: #394d63"
+            raycaster="objects: .clickable; far: 5; lineColor: #7dd3fc; lineOpacity: 0.4; showLine: true"
+            cursor="fuse: false; downEvents: pinchstarted; upEvents: pinchended"></a-entity>
+    </a-scene>
+
+    <script>
+        (function () {
+            var MODE_LIST = ${JSON.stringify(VIEW_MODES)};
+            var MODE_MAP = {};
+            MODE_LIST.forEach(function (mode) {
+                MODE_MAP[mode.id] = mode;
+            });
+
+            var STORAGE_KEYS = {
+                uiDistance: 'jfvr:ui-distance',
+                uiScale: 'jfvr:ui-scale'
+            };
+
+            var SEEK_TRACK_WIDTH = 1.80;
+            var statusTimers = [];
             var pendingPayload = null;
             var surfacesReady = false;
             var isQuestBrowser = /OculusBrowser/i.test(navigator.userAgent || '');
@@ -1470,6 +2001,303 @@
                     handler(event);
                 });
             }
+
+            function seekFrom3dEvent(event) {
+                var video = getMasterVideo();
+                if (!video || !Number.isFinite(video.duration)) return;
+                if (!event.detail || !event.detail.intersection || !event.detail.intersection.point) return;
+
+                var point = event.detail.intersection.point.clone();
+                seekTrack3d.object3D.worldToLocal(point);
+                var ratio = clamp((point.x + SEEK_TRACK_WIDTH / 2) / SEEK_TRACK_WIDTH, 0, 1);
+                seekTo(video.duration * ratio);
+            }
+
+            function bootstrapSurfaces() {
+                if (surfacesReady) return;
+                var surfaceRoot = new THREE.Group();
+
+                var geometry = buildProjectionGeometry(playerState.currentMode);
+                var fallbackMaterial = new THREE.MeshBasicMaterial({ color: 0x01070c, side: THREE.BackSide });
+
+                var previewMesh = new THREE.Mesh(geometry.clone(), fallbackMaterial.clone());
+                previewMesh.layers.set(0);
+                var leftMesh = new THREE.Mesh(geometry.clone(), fallbackMaterial.clone());
+                leftMesh.layers.set(1);
+                var rightMesh = new THREE.Mesh(geometry.clone(), fallbackMaterial.clone());
+                rightMesh.layers.set(2);
+
+                surfaceRoot.add(previewMesh);
+                surfaceRoot.add(leftMesh);
+                surfaceRoot.add(rightMesh);
+
+                var videoSurfaceEntity = document.getElementById('videoSurfaceEntity');
+                if (videoSurfaceEntity) {
+                    videoSurfaceEntity.object3D.add(surfaceRoot);
+                } else {
+                    sceneEl.object3D.add(surfaceRoot);
+                }
+
+                playerState.surfaceRoot = surfaceRoot;
+                playerState.meshes = {
+                    preview: previewMesh,
+                    left: leftMesh,
+                    right: rightMesh,
+                    currentProjection: playerState.currentMode.projection
+                };
+
+                applyProjectionPlacement(playerState.currentMode);
+
+                var grabMgr = sceneEl.components['jfvr-grab-manager'];
+                if (grabMgr) {
+                    if (videoSurfaceEntity) {
+                        grabMgr.addTarget(videoSurfaceEntity.object3D);
+                    } else {
+                        grabMgr.addTarget(surfaceRoot);
+                    }
+                    var uiRootEl = document.getElementById('uiRoot');
+                    if (uiRootEl) grabMgr.addTarget(uiRootEl.object3D);
+                }
+
+                registerPanelButton(uiModeBtnBg3d, '#0f172a', '#1b2a40', function () { toggleModeList(); });
+                registerPanelButton(uiExit3d, '#3b0b19', '#5c1025', closePlayer);
+                registerPanelButton(uiSeekBack3d, '#13283a', '#1b3951', function () {
+                    var video = getMasterVideo();
+                    seekTo((video ? video.currentTime : 0) - 10);
+                });
+                registerPanelButton(uiPlay3d, '#11415a', '#15597a', togglePlay);
+                registerPanelButton(uiSeekFwd3d, '#13283a', '#1b3951', function () {
+                    var video = getMasterVideo();
+                    seekTo((video ? video.currentTime : 0) + 10);
+                });
+                registerPanelButton(uiEnterVr3d, '#0a4a3d', '#0e6b58', toggleVrSession);
+                registerPanelButton(uiSwap3d, '#13283a', '#1b3951', function () {
+                    if (playerState.currentMode.stereo === 'mono') return;
+                    swapEyes = !swapEyes;
+                    applyMode(playerState.currentMode.id);
+                    setStatus(swapEyes ? 'Stereo eyes swapped' : 'Stereo eyes restored', false);
+                });
+                registerPanelButton(uiMute3d, '#1e293b', '#334155', function () {
+                    var audioVideo = getVolumeTargetVideo();
+                    if (!audioVideo) return;
+                    audioVideo.muted = !audioVideo.muted;
+                    if (!audioVideo.muted && audioVideo.volume === 0) {
+                        audioVideo.volume = 0.8;
+                    }
+                    updateButtonLabels();
+                });
+                registerPanelButton(uiNear3d, '#13283a', '#1b3951', function () {
+                    panelDistance = clamp(panelDistance - 0.15, 1.2, 3.4);
+                    updateComfortUi();
+                });
+                registerPanelButton(uiFar3d, '#13283a', '#1b3951', function () {
+                    panelDistance = clamp(panelDistance + 0.15, 1.2, 3.4);
+                    updateComfortUi();
+                });
+                registerPanelButton(uiScaleDown3d, '#13283a', '#1b3951', function () {
+                    panelScale = clamp(panelScale - 0.08, 0.7, 1.55);
+                    updateComfortUi();
+                });
+                registerPanelButton(uiScaleUp3d, '#13283a', '#1b3951', function () {
+                    panelScale = clamp(panelScale + 0.08, 0.7, 1.55);
+                    updateComfortUi();
+                });
+                var uiRecenterVideo3d = document.getElementById('uiRecenterVideo3d');
+                if (uiRecenterVideo3d) {
+                    registerPanelButton(uiRecenterVideo3d, '#13283a', '#1b3951', function () {
+                        resetVideoRotation();
+                        setStatus('Video recentered', false);
+                    });
+                }
+                registerPanelButton(seekTrack3d, '#102131', '#163248', seekFrom3dEvent);
+                registerPanelButton(uiVolTrack3d, '#1e293b', '#2a3a4d', function (event) {
+                    var audioVideo = getVolumeTargetVideo();
+                    if (!audioVideo) return;
+                    if (!event.detail || !event.detail.intersection || !event.detail.intersection.point) return;
+                    var point = event.detail.intersection.point.clone();
+                    uiVolTrack3d.object3D.worldToLocal(point);
+                    var vol = clamp((point.x + VOL_TRACK_WIDTH / 2) / VOL_TRACK_WIDTH, 0, 1);
+                    audioVideo.volume = vol;
+                    audioVideo.muted = (vol === 0);
+                    volumeSlider.value = String(vol);
+                    updateButtonLabels();
+                });
+
+                surfacesReady = true;
+                updateComfortUi();
+                updateModeUi();
+                updateTimeUi();
+
+                if (pendingPayload) {
+                    loadVideo(pendingPayload);
+                    pendingPayload = null;
+                }
+            }
+
+            playPauseBtn.addEventListener('click', togglePlay);
+            seekBackBtn.addEventListener('click', function () {
+                var video = getMasterVideo();
+                seekTo((video ? video.currentTime : 0) - 10);
+            });
+            seekFwdBtn.addEventListener('click', function () {
+                var video = getMasterVideo();
+                seekTo((video ? video.currentTime : 0) + 10);
+            });
+            muteBtn.addEventListener('click', toggleMute);
+            closeBtn.addEventListener('click', closePlayer);
+            enterVrBtn.addEventListener('click', toggleVrSession);
+
+            volumeSlider.addEventListener('input', function () {
+                var video = getVolumeTargetVideo();
+                if (!video) return;
+                video.volume = parseFloat(volumeSlider.value);
+                if (video.volume > 0) {
+                    video.muted = false;
+                }
+                updateButtonLabels();
+            });
+
+            seekInput.addEventListener('pointerdown', function () {
+                playerState.isSeeking = true;
+            });
+            seekInput.addEventListener('pointerup', function () {
+                playerState.isSeeking = false;
+                var video = getMasterVideo();
+                if (!video || !Number.isFinite(video.duration)) return;
+                seekTo(video.duration * (parseFloat(seekInput.value) / 1000));
+            });
+            seekInput.addEventListener('input', function () {
+                var video = getMasterVideo();
+                if (!video || !Number.isFinite(video.duration)) return;
+                var previewTime = video.duration * (parseFloat(seekInput.value) / 1000);
+                var label = formatTime(previewTime) + ' / ' + formatTime(video.duration);
+                timeDisplay.textContent = label;
+                setEntityText(seekTime3d, label);
+                updateSeekFill(seekPlayed3d, parseFloat(seekInput.value) / 1000, '#38bdf8');
+            });
+
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    closePlayer();
+                    return;
+                }
+
+                var video = getMasterVideo();
+                if (!video) return;
+
+                if (event.key === ' ') {
+                    event.preventDefault();
+                    togglePlay();
+                } else if (event.key === 'ArrowLeft') {
+                    event.preventDefault();
+                    seekTo(video.currentTime - 10);
+                } else if (event.key === 'ArrowRight') {
+                    event.preventDefault();
+                    seekTo(video.currentTime + 10);
+                } else if (event.key === 'm' || event.key === 'M') {
+                    event.preventDefault();
+                    toggleMute();
+                } else if (event.key === 'v' || event.key === 'V') {
+                    event.preventDefault();
+                    toggleVrSession();
+                } else if (event.key === 'a' || event.key === 'A') {
+                    event.preventDefault();
+                    toggleSessionMode();
+                } else if (event.key === 'x' || event.key === 'X') {
+                    event.preventDefault();
+                    if (playerState.currentMode.stereo !== 'mono') {
+                        swapEyes = !swapEyes;
+                        applyMode(playerState.currentMode.id);
+                        setStatus(swapEyes ? 'Stereo eyes swapped' : 'Stereo eyes restored', false);
+                    }
+                } else if (event.key === '[') {
+                    event.preventDefault();
+                    panelDistance = clamp(panelDistance - 0.1, 1.2, 3.4);
+                    updateComfortUi();
+                } else if (event.key === ']') {
+                    event.preventDefault();
+                    panelDistance = clamp(panelDistance + 0.1, 1.2, 3.4);
+                    updateComfortUi();
+                } else if (event.key === '-') {
+                    event.preventDefault();
+                    panelScale = clamp(panelScale - 0.06, 0.7, 1.55);
+                    updateComfortUi();
+                } else if (event.key === '=' || event.key === '+') {
+                    event.preventDefault();
+                    panelScale = clamp(panelScale + 0.06, 0.7, 1.55);
+                    updateComfortUi();
+                }
+            });
+
+            sceneEl.addEventListener('loaded', bootstrapSurfaces);
+            sceneEl.addEventListener('renderstart', configureStereoLayers);
+            sceneEl.addEventListener('enter-vr', function () {
+                playerState.isImmersive = true;
+                stereoLayersConfigured = false;
+                var isAR = typeof sceneEl.is === 'function' ? sceneEl.is('ar-mode') : false;
+                playerState.sessionMode = isAR ? 'immersive-ar' : 'immersive-vr';
+                if (isAR && sceneEl.renderer) {
+                    sceneEl.renderer.setClearColor(0x000000, 0);
+                }
+                updateButtonLabels();
+                updateSurfaceVisibility();
+                retryStereoLayers(15);
+                setStatus(isAR ? 'Passthrough AR active' : 'Immersive VR active', false);
+                setTimeout(function () { tryMediaLayers(); }, 500);
+                setTimeout(function () { resetVideoRotation(); }, 1200);
+            });
+            sceneEl.addEventListener('exit-vr', function () {
+                destroyMediaLayer();
+                playerState.isImmersive = false;
+                playerState.sessionMode = 'none';
+                stereoLayersConfigured = false;
+                if (sceneEl.renderer) {
+                    sceneEl.renderer.setClearColor(0x000000, 1);
+                }
+                updateButtonLabels();
+                updateSurfaceVisibility();
+                setStatus(isQuestBrowser ? 'Exited - tap Enter to re-enter' : 'Exited immersive session', isQuestBrowser);
+            });
+
+            if (sceneEl.hasLoaded) {
+                bootstrapSurfaces();
+            }
+
+            reportXrAvailability();
+            checkArSupport();
+            detectMediaCapabilities();
+
+            window.addEventListener('message', function (event) {
+                var data = event.data || {};
+                if (data.type === 'LOAD_VIDEO') {
+                    if (!surfacesReady) {
+                        pendingPayload = data;
+                        return;
+                    }
+                    loadVideo(data);
+                    return;
+                }
+
+                if (data.type === 'REQUEST_STATE') {
+                    sendPlayerState();
+                }
+            });
+
+            window.addEventListener('pagehide', function () {
+                sendPlayerState();
+                postToHost({ type: 'PLAYER_CLOSED' });
+            });
+
+            updateComfortUi();
+            updateButtonLabels();
+            updateModeUi();
+            setStatus('Initializing VR player...', true);
+            postToHost({ type: 'PLAYER_READY' });
+        })();
+    </script>
+</body>
+</html>`;
 
     function injectParentStyles() {
         if (document.getElementById('jfvr-style')) return;
