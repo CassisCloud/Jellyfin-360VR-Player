@@ -2738,7 +2738,7 @@
         let volSliderVisible = false, ptSliderVisible = false;
         let marqueeOffset = 0, marqueeDir = 0, marqueePauseTimer = 0;
         let surfaceRootRef;
-        const grabState = { active: false, controllerIndex: -1, offset: null, lastCp: null, fwd0: null };
+        const grabState = { active: false, controllerIndex: -1, offset: null, lastCp: null, fwd0: null, q0: null };
 
         function injectImportMap() {
             if (document.querySelector('script#jfvr-importmap')) return;
@@ -3702,23 +3702,27 @@
                             const tp = new THREE.Vector3();
                             surfaceRootRef.getWorldPosition(tp);
                             const fwd = new THREE.Vector3(0, 0, -1).applyMatrix4(tm);
+                            const q0 = new THREE.Quaternion();
+                            ctrl.getWorldQuaternion(q0);
                             grabState.active = true;
-                            grabState.controllerIndex = ctrl === renderer.xr.getController(0) ? 0 : 1;
+                            grabState.controllerIndex = i;
                             grabState.offset = tp.clone().sub(cp);
                             grabState.lastCp = cp.clone();
                             grabState.fwd0 = fwd.clone();
+                            grabState.q0 = q0;
                             return;
                         }
                     }
                     toggleUI(ctrl);
                 });
                 controller.addEventListener('squeezeend', () => {
-                    if (grabState.active) {
+                    if (grabState.active && grabState.controllerIndex === i) {
                         grabState.active = false;
                         grabState.controllerIndex = -1;
                         grabState.offset = null;
                         grabState.lastCp = null;
                         grabState.fwd0 = null;
+                        grabState.q0 = null;
                     }
                 });
 
@@ -3869,7 +3873,7 @@
 
                 if (grabState.active && surfaceRootRef) {
                     const ctrl = renderer.xr.getController(grabState.controllerIndex);
-                    if (ctrl) {
+                    if (ctrl && grabState.offset) {
                         const cp = new THREE.Vector3();
                         ctrl.getWorldPosition(cp);
                         if (grabState.lastCp && grabState.fwd0) {
@@ -3883,11 +3887,21 @@
                             }
                         }
                         grabState.lastCp = cp.clone();
-                        const tm = new THREE.Matrix4().identity().extractRotation(ctrl.matrixWorld);
-                        const dq = new THREE.Quaternion().setFromRotationMatrix(tm);
+                        const cq = new THREE.Quaternion();
+                        ctrl.getWorldQuaternion(cq);
+                        const dq = grabState.q0
+                            ? cq.clone().multiply(grabState.q0.clone().invert())
+                            : new THREE.Quaternion();
                         const ro = grabState.offset.clone().applyQuaternion(dq);
                         surfaceRootRef.position.copy(cp).add(ro);
                         state.lastInteraction = Date.now();
+                    } else {
+                        grabState.active = false;
+                        grabState.controllerIndex = -1;
+                        grabState.offset = null;
+                        grabState.lastCp = null;
+                        grabState.fwd0 = null;
+                        grabState.q0 = null;
                     }
                 }
 
