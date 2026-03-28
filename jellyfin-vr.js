@@ -2737,8 +2737,6 @@
         let volSliderUpdateFill, ptSliderUpdateFill;
         let volSliderVisible = false, ptSliderVisible = false;
         let marqueeOffset = 0, marqueeDir = 0, marqueePauseTimer = 0;
-        let surfaceRootRef;
-        const grabState = { active: false, controllerIndex: -1, offset: null, lastCp: null, fwd0: null, q0: null };
 
         function injectImportMap() {
             if (document.querySelector('script#jfvr-importmap')) return;
@@ -2834,17 +2832,16 @@
                 state.isImmersive = true;
                 if (typeof updatePassthroughVisuals === 'function') updatePassthroughVisuals();
                 if (ptSliderUpdateFill) ptSliderUpdateFill(state.passthroughBrightness);
-                if (uiGroup) uiGroup.position.set(0, -1.2, -state.uiDistance);
+                if (uiGroup) uiGroup.position.set(0, -0.4, -state.uiDistance);
                 camera.layers.enable(0);
                 camera.layers.enable(1);
                 camera.layers.enable(2);
                 updateStereoVisibility();
-                setTimeout(() => { recenterVideo(); }, 300);
             });
             renderer.xr.addEventListener('sessionend', () => {
                 state.isImmersive = false;
                 scene.background = new THREE.Color(0x000000);
-                if (uiGroup) uiGroup.position.set(0, -1.2, -state.uiDistance);
+                if (uiGroup) uiGroup.position.set(0, -0.4, -state.uiDistance);
                 updateStereoVisibility();
             });
 
@@ -2883,7 +2880,6 @@
                     if (uiGroup) {
                         uiGroup.visible = true;
                         if (controller && controller.matrixWorld) positionUIAtController(controller);
-                        else uiGroup.position.y = -1.2;
                     }
                     updateStereoVisibility();
                 }
@@ -2903,7 +2899,7 @@
                             const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(xrCam.quaternion);
                             dir.y = 0; dir.normalize(); // Horizon level
                             uiGroup.position.copy(camPos).add(dir.multiplyScalar(state.uiDistance));
-                            uiGroup.position.y = camPos.y - 0.7;
+                            uiGroup.position.y = camPos.y - 0.5;
                             uiGroup.lookAt(camPos.x, uiGroup.position.y, camPos.z);
                         }
                     }
@@ -2925,7 +2921,6 @@
             materials.right = new THREE.MeshBasicMaterial({ map: videoTexture, side: THREE.BackSide, toneMapped: false });
 
             const surfaceRoot = new THREE.Group();
-            surfaceRootRef = surfaceRoot;
             scene.add(surfaceRoot);
 
             const dimSphereGeo = new THREE.SphereGeometry(90, 32, 32);
@@ -2955,66 +2950,32 @@
                 }
             }
 
-            function getCameraYaw() {
-                let yaw = 0;
-                if (state.isImmersive && renderer && renderer.xr && renderer.xr.isPresenting) {
-                    const xrCam = renderer.xr.getCamera();
-                    if (xrCam) {
-                        const q = new THREE.Quaternion();
-                        xrCam.getWorldQuaternion(q);
-                        const e = new THREE.Euler().setFromQuaternion(q, 'YXZ');
-                        yaw = e.y;
-                    }
-                }
-                return yaw;
-            }
-
-            function getCameraWorldPos() {
-                const pos = new THREE.Vector3(0, 1.6, 0);
-                if (state.isImmersive && renderer && renderer.xr && renderer.xr.isPresenting) {
-                    const xrCam = renderer.xr.getCamera();
-                    if (xrCam) xrCam.getWorldPosition(pos);
-                }
-                return pos;
-            }
-
             function applyModeFromState() {
                 let mode = state.mode;
                 let geometry;
                 surfaceRoot.scale.setScalar(state.screenSize);
-                const yaw = getCameraYaw();
-                const camPos = getCameraWorldPos();
 
                 if (mode.projection === 'screen') {
-                    const dist = Math.abs(state.screenDistance);
                     if (state.screenCurvature > 0.05) {
                         // Cylinder curve
                         const radius = 18 / state.screenCurvature;
                         const theta = 18 / radius;
                         geometry = new THREE.CylinderGeometry(radius, radius, 10.125, 64, 1, true, -theta / 2 + Math.PI / 2, theta);
                         geometry.scale(-1, 1, 1);
-                        surfaceRoot.position.set(
-                            camPos.x - Math.sin(yaw) * (dist - radius),
-                            Math.max(0.5, camPos.y),
-                            camPos.z - Math.cos(yaw) * (dist - radius)
-                        );
+                        surfaceRoot.position.set(0, 1.6, state.screenDistance + radius);
                     } else {
                         geometry = new THREE.PlaneGeometry(18, 10.125);
-                        surfaceRoot.position.set(
-                            camPos.x - Math.sin(yaw) * dist,
-                            Math.max(0.5, camPos.y),
-                            camPos.z - Math.cos(yaw) * dist
-                        );
+                        surfaceRoot.position.set(0, 1.6, state.screenDistance);
                     }
-                    surfaceRoot.rotation.set(0, yaw, 0);
+                    surfaceRoot.rotation.set(0, 0, 0);
                 } else if (mode.projection === '180') {
                     geometry = new THREE.SphereGeometry(32, 96, 64, 0, Math.PI, 0, Math.PI);
                     surfaceRoot.position.set(0, 0, 0);
-                    surfaceRoot.rotation.set(0, yaw + Math.PI, 0);
+                    surfaceRoot.rotation.set(0, Math.PI, 0);
                 } else {
                     geometry = new THREE.SphereGeometry(32, 96, 64);
                     surfaceRoot.position.set(0, 0, 0);
-                    surfaceRoot.rotation.set(0, yaw + Math.PI, 0);
+                    surfaceRoot.rotation.set(0, Math.PI, 0);
                 }
 
                 meshes.preview.geometry.dispose();
@@ -3078,10 +3039,6 @@
                 }
             }
 
-            function recenterVideo() {
-                applyModeFromState();
-            }
-
             // Rounded Geometries Utility
             function createRoundedRectGeometry(width, height, radius, segments) {
                 const shape = new THREE.Shape();
@@ -3101,7 +3058,7 @@
 
             // UI Builder
             uiGroup = new THREE.Group();
-            uiGroup.position.set(0, -0.7, -state.uiDistance);
+            uiGroup.position.set(0, -0.4, -state.uiDistance);
             scene.add(uiGroup);
 
             // Materials
@@ -3450,25 +3407,6 @@
             const closeBtn3d = createRoundBtn('btn-close', uiGroup, -0.92, btnY, btnR, null, () => close());
             createCloseIcon(closeBtn3d.mesh, 0, 0, 1.0, 0xfca5a5);
 
-            // Recenter (Front) button
-            const recenterBtn3d = createRoundBtn('btn-recenter', uiGroup, -0.78, btnY, btnR, null, () => {
-                recenterVideo();
-            });
-            (function createRecenterIcon(parent, x, y, scale, color) {
-                const group = new THREE.Group();
-                group.position.set(x, y, 0.01);
-                const s = scale;
-                const mat = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide });
-                const ring = new THREE.RingGeometry(0.018 * s, 0.024 * s, 24);
-                group.add(new THREE.Mesh(ring, mat));
-                const hBar = new THREE.PlaneGeometry(0.04 * s, 0.005 * s);
-                group.add(new THREE.Mesh(hBar, mat));
-                const vBar = new THREE.PlaneGeometry(0.005 * s, 0.04 * s);
-                group.add(new THREE.Mesh(vBar, mat));
-                parent.add(group);
-                return group;
-            })(recenterBtn3d.mesh, 0, 0, 1.0, 0x7dd3fc);
-
             // Seek Back
             const seekBackBtn3d = createRoundBtn('btn-back', uiGroup, -ctrlSpacing, btnY, btnR, null, () => jellyfinVideo.currentTime -= 10);
             createSeekBackIcon(seekBackBtn3d.mesh, 0, 0, 1.0, 0xe2e8f0);
@@ -3686,45 +3624,7 @@
                 controller.addEventListener('selectend', (e) => {
                     onSelectEnd(e);
                 });
-                controller.addEventListener('squeezestart', (e) => {
-                    const ctrl = e.target;
-                    state.lastInteraction = Date.now();
-                    const isSphere = state.mode.projection === '180' || state.mode.projection === '360';
-                    if (!isSphere && surfaceRootRef) {
-                        const tm = new THREE.Matrix4().identity().extractRotation(ctrl.matrixWorld);
-                        const rc = new THREE.Raycaster();
-                        rc.ray.origin.setFromMatrixPosition(ctrl.matrixWorld);
-                        rc.ray.direction.set(0, 0, -1).applyMatrix4(tm);
-                        const hits = rc.intersectObjects(surfaceRootRef.children, true);
-                        if (hits.length > 0) {
-                            const cp = new THREE.Vector3();
-                            ctrl.getWorldPosition(cp);
-                            const tp = new THREE.Vector3();
-                            surfaceRootRef.getWorldPosition(tp);
-                            const fwd = new THREE.Vector3(0, 0, -1).applyMatrix4(tm);
-                            const q0 = new THREE.Quaternion();
-                            ctrl.getWorldQuaternion(q0);
-                            grabState.active = true;
-                            grabState.controllerIndex = i;
-                            grabState.offset = tp.clone().sub(cp);
-                            grabState.lastCp = cp.clone();
-                            grabState.fwd0 = fwd.clone();
-                            grabState.q0 = q0;
-                            return;
-                        }
-                    }
-                    toggleUI(ctrl);
-                });
-                controller.addEventListener('squeezeend', () => {
-                    if (grabState.active && grabState.controllerIndex === i) {
-                        grabState.active = false;
-                        grabState.controllerIndex = -1;
-                        grabState.offset = null;
-                        grabState.lastCp = null;
-                        grabState.fwd0 = null;
-                        grabState.q0 = null;
-                    }
-                });
+                controller.addEventListener('squeezestart', (e) => toggleUI(e.target));
 
                 const grip = renderer.xr.getControllerGrip(i);
                 grip.add(controllerModelFactory.createControllerModel(grip));
@@ -3868,40 +3768,6 @@
                             if (obj.userData.onDrag) obj.userData.onDrag(intersectPoint);
                         }
                         state.lastInteraction = Date.now();
-                    }
-                }
-
-                if (grabState.active && surfaceRootRef) {
-                    const ctrl = renderer.xr.getController(grabState.controllerIndex);
-                    if (ctrl && grabState.offset) {
-                        const cp = new THREE.Vector3();
-                        ctrl.getWorldPosition(cp);
-                        if (grabState.lastCp && grabState.fwd0) {
-                            const dp = cp.clone().sub(grabState.lastCp);
-                            const push = dp.dot(grabState.fwd0);
-                            if (Math.abs(push) > 0.0001) {
-                                let offLen = grabState.offset.length();
-                                offLen += push * 6.0;
-                                offLen = Math.max(0.3, Math.min(offLen, 250.0));
-                                grabState.offset.normalize().multiplyScalar(offLen);
-                            }
-                        }
-                        grabState.lastCp = cp.clone();
-                        const cq = new THREE.Quaternion();
-                        ctrl.getWorldQuaternion(cq);
-                        const dq = grabState.q0
-                            ? cq.clone().multiply(grabState.q0.clone().invert())
-                            : new THREE.Quaternion();
-                        const ro = grabState.offset.clone().applyQuaternion(dq);
-                        surfaceRootRef.position.copy(cp).add(ro);
-                        state.lastInteraction = Date.now();
-                    } else {
-                        grabState.active = false;
-                        grabState.controllerIndex = -1;
-                        grabState.offset = null;
-                        grabState.lastCp = null;
-                        grabState.fwd0 = null;
-                        grabState.q0 = null;
                     }
                 }
 
