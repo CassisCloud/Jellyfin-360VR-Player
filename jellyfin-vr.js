@@ -403,7 +403,7 @@
         <a-entity id="cameraRig" position="0 0 0">
             <a-camera id="camera" position="0 1.6 0" look-controls="enabled: true" wasd-controls-enabled="false"></a-camera>
 
-            <a-entity id="uiRoot" jfvr-ui-manager position="0 -0.3 -1.6" scale="1 1 1" visible="false">
+            <a-entity id="uiRoot" jfvr-ui-manager position="0 -0.65 -1.6" scale="1 1 1" visible="false">
                 <a-entity id="uiPanel">
                     <a-plane width="2.2" height="1.02" color="#0ea5e9" opacity="0.06"
                         material="shader: flat; transparent: true; opacity: 0.06; blending: additive"
@@ -455,7 +455,7 @@
                     outline-width="0.002" outline-color="#000000"></a-troika-text>
 
                 <!-- Row 3: Main controls -->
-                <a-entity class="clickable" id="uiExit3d" position="-0.88 -0.10 0.02"
+                <a-entity class="clickable" id="uiExit3d" position="-0.92 -0.10 0.02"
                     geometry="primitive: plane; width: 0.20; height: 0.17"
                     material="shader: flat; color: #450a0a; opacity: 0.95; transparent: true"
                     animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
@@ -466,6 +466,15 @@
                     <a-entity position="0 0 0.01" rotation="0 0 -45"
                         geometry="primitive: plane; width: 0.06; height: 0.012"
                         material="shader: flat; color: #fca5a5; side: double"></a-entity>
+                </a-entity>
+
+                <a-entity class="clickable" id="uiRecenterVideo3d" position="-0.74 -0.10 0.02"
+                    geometry="primitive: circle; radius: 0.07"
+                    material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
+                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
+                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
+                    <a-entity position="0 0 0.01" geometry="primitive: circle; radius: 0.035" material="shader: flat; wireframe: true; color: #7dd3fc"></a-entity>
+                    <a-entity position="0 0 0.01" geometry="primitive: circle; radius: 0.012" material="shader: flat; color: #7dd3fc"></a-entity>
                 </a-entity>
 
                 <a-entity class="clickable" id="uiSeekBack3d" position="-0.56 -0.10 0.02"
@@ -580,7 +589,7 @@
                     outline-width="0.002" outline-color="#000000"></a-troika-text>
 
                 <!-- Row 4: Settings -->
-                <a-entity class="clickable" id="uiNear3d" position="-0.56 -0.36 0.02"
+                <a-entity class="clickable" id="uiNear3d" position="-0.42 -0.36 0.02"
                     geometry="primitive: plane; width: 0.18; height: 0.13"
                     material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
                     animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
@@ -590,7 +599,7 @@
                         material="shader: flat; color: #94a3b8; side: double"></a-entity>
                 </a-entity>
 
-                <a-entity class="clickable" id="uiFar3d" position="-0.32 -0.36 0.02"
+                <a-entity class="clickable" id="uiFar3d" position="-0.14 -0.36 0.02"
                     geometry="primitive: plane; width: 0.18; height: 0.13"
                     material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
                     animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
@@ -600,16 +609,7 @@
                         material="shader: flat; color: #94a3b8; side: double"></a-entity>
                 </a-entity>
 
-                <a-entity class="clickable" id="uiRecenterVideo3d" position="0 -0.36 0.02"
-                    geometry="primitive: plane; width: 0.22; height: 0.13"
-                    material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
-                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
-                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
-                    <a-troika-text value="Front" color="#94a3b8" font-size="0.04"
-                        anchor="center" baseline="center" position="0 0 0.01"></a-troika-text>
-                </a-entity>
-
-                <a-entity class="clickable" id="uiScaleDown3d" position="0.32 -0.36 0.02"
+                <a-entity class="clickable" id="uiScaleDown3d" position="0.14 -0.36 0.02"
                     geometry="primitive: plane; width: 0.18; height: 0.13"
                     material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
                     animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
@@ -618,7 +618,7 @@
                         material="shader: flat; color: #94a3b8" position="0 0 0.01"></a-entity>
                 </a-entity>
 
-                <a-entity class="clickable" id="uiScaleUp3d" position="0.56 -0.36 0.02"
+                <a-entity class="clickable" id="uiScaleUp3d" position="0.42 -0.36 0.02"
                     geometry="primitive: plane; width: 0.18; height: 0.13"
                     material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
                     animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
@@ -797,7 +797,7 @@
                         camObj.getWorldPosition(pos);
                         
                         var d = parseFloat(localStorage.getItem('jfvr:ui-distance')) || this.data.distance;
-                        pos.y -= 0.38;
+                        pos.y -= 0.65;
                         pos.x -= Math.sin(euler.y) * d;
                         pos.z -= Math.cos(euler.y) * d;
                         
@@ -862,14 +862,27 @@
                         if (this._inputsReady) return;
                         this._inputsReady = true;
                         var self = this;
-                        var lc = this.el.querySelector('#leftController') || this.el.querySelector('[data-role="left-controller"]');
-                        var rc = this.el.querySelector('#rightController') || this.el.querySelector('[data-role="right-controller"]');
-                        [['left', lc], ['right', rc]].forEach(function (pair) {
-                            var hand = pair[0], ctrl = pair[1];
+                        var parts = [
+                            ['left', '#leftController'], ['right', '#rightController'],
+                            ['left', '#leftHand'], ['right', '#rightHand']
+                        ];
+                        parts.forEach(function (pair) {
+                            var hand = pair[0];
+                            var ctrl = self.el.querySelector(pair[1]);
                             if (!ctrl) return;
-                            self['_ctrl_' + hand] = ctrl;
-                            ctrl.addEventListener('gripdown', function () { self.startGrab(hand); });
-                            ctrl.addEventListener('gripup', function () { self.endGrab(hand); });
+                            
+                            var onStart = function () { 
+                                self['_ctrl_' + hand] = ctrl;
+                                self.startGrab(hand); 
+                            };
+                            var onEnd = function () { 
+                                self.endGrab(hand); 
+                            };
+                            
+                            ctrl.addEventListener('gripdown', onStart);
+                            ctrl.addEventListener('gripup', onEnd);
+                            ctrl.addEventListener('pinchstarted', onStart);
+                            ctrl.addEventListener('pinchended', onEnd);
                             ctrl.addEventListener('thumbstickmoved', function (e) { self.onStick(hand, e.detail); });
                         });
                     },
@@ -2231,7 +2244,8 @@
                 updateSurfaceVisibility();
                 retryStereoLayers(15);
                 setStatus(isAR ? 'Passthrough AR active' : 'Immersive VR active', false);
-                setTimeout(function () { tryMediaLayers(); resetVideoRotation(); }, 500);
+                setTimeout(function () { tryMediaLayers(); }, 500);
+                setTimeout(function () { resetVideoRotation(); }, 1200);
             });
             sceneEl.addEventListener('exit-vr', function () {
                 destroyMediaLayer();
