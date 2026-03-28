@@ -1,139 +1,139 @@
 (function () {
-  const STORAGE_KEYS = {
-    lastMode: 'jfvr:last-mode',
-    uiDistance: 'jfvr:ui-distance',
-    uiScale: 'jfvr:ui-scale'
-  };
+    const STORAGE_KEYS = {
+        lastMode: 'jfvr:last-mode',
+        uiDistance: 'jfvr:ui-distance',
+        uiScale: 'jfvr:ui-scale'
+    };
 
-  const VIEW_MODES = [
-    {
-      id: '360-mono',
-      label: '360 Mono',
-      shortLabel: '360',
-      description: 'Classic monoscopic 360 sphere playback.',
-      projection: '360',
-      stereo: 'mono',
-      variant: 'mono'
-    },
-    {
-      id: '360-sbs-full',
-      label: '360 SBS Full',
-      shortLabel: '360 SBS',
-      description: '360 stereoscopic side-by-side full-resolution layout.',
-      projection: '360',
-      stereo: 'sbs',
-      variant: 'full'
-    },
-    {
-      id: '360-sbs-half',
-      label: '360 SBS Half',
-      shortLabel: '360 SBS',
-      description: '360 stereoscopic half side-by-side layout.',
-      projection: '360',
-      stereo: 'sbs',
-      variant: 'half'
-    },
-    {
-      id: '360-ou-full',
-      label: '360 OU Full',
-      shortLabel: '360 OU',
-      description: '360 stereoscopic over-under full-resolution layout.',
-      projection: '360',
-      stereo: 'ou',
-      variant: 'full'
-    },
-    {
-      id: '360-ou-half',
-      label: '360 OU Half',
-      shortLabel: '360 OU',
-      description: '360 stereoscopic half over-under layout.',
-      projection: '360',
-      stereo: 'ou',
-      variant: 'half'
-    },
-    {
-      id: '180-mono',
-      label: '180 Mono',
-      shortLabel: '180',
-      description: '180 equirectangular monoscopic VR video.',
-      projection: '180',
-      stereo: 'mono',
-      variant: 'mono'
-    },
-    {
-      id: '180-sbs-full',
-      label: '180 SBS Full',
-      shortLabel: '180 SBS',
-      description: '180 equirectangular stereoscopic side-by-side full layout.',
-      projection: '180',
-      stereo: 'sbs',
-      variant: 'full'
-    },
-    {
-      id: '180-sbs-half',
-      label: '180 SBS Half',
-      shortLabel: '180 SBS',
-      description: '180 equirectangular stereoscopic half side-by-side layout.',
-      projection: '180',
-      stereo: 'sbs',
-      variant: 'half'
-    },
-    {
-      id: '180-ou-full',
-      label: '180 OU Full',
-      shortLabel: '180 OU',
-      description: '180 equirectangular stereoscopic over-under full layout.',
-      projection: '180',
-      stereo: 'ou',
-      variant: 'full'
-    },
-    {
-      id: '180-ou-half',
-      label: '180 OU Half',
-      shortLabel: '180 OU',
-      description: '180 equirectangular stereoscopic half over-under layout.',
-      projection: '180',
-      stereo: 'ou',
-      variant: 'half'
-    },
-    {
-      id: '3d-sbs-full',
-      label: '3D Full SBS',
-      shortLabel: '3D SBS',
-      description: 'Stereo theater screen for full side-by-side 3D video.',
-      projection: 'screen',
-      stereo: 'sbs',
-      variant: 'full'
-    },
-    {
-      id: '3d-sbs-half',
-      label: '3D Half SBS',
-      shortLabel: '3D SBS',
-      description: 'Stereo theater screen for half side-by-side 3D video.',
-      projection: 'screen',
-      stereo: 'sbs',
-      variant: 'half'
-    }
-  ];
+    const VIEW_MODES = [
+        {
+            id: '360-mono',
+            label: '360 Mono',
+            shortLabel: '360',
+            description: 'Classic monoscopic 360 sphere playback.',
+            projection: '360',
+            stereo: 'mono',
+            variant: 'mono'
+        },
+        {
+            id: '360-sbs-full',
+            label: '360 SBS Full',
+            shortLabel: '360 SBS',
+            description: '360 stereoscopic side-by-side full-resolution layout.',
+            projection: '360',
+            stereo: 'sbs',
+            variant: 'full'
+        },
+        {
+            id: '360-sbs-half',
+            label: '360 SBS Half',
+            shortLabel: '360 SBS',
+            description: '360 stereoscopic half side-by-side layout.',
+            projection: '360',
+            stereo: 'sbs',
+            variant: 'half'
+        },
+        {
+            id: '360-ou-full',
+            label: '360 OU Full',
+            shortLabel: '360 OU',
+            description: '360 stereoscopic over-under full-resolution layout.',
+            projection: '360',
+            stereo: 'ou',
+            variant: 'full'
+        },
+        {
+            id: '360-ou-half',
+            label: '360 OU Half',
+            shortLabel: '360 OU',
+            description: '360 stereoscopic half over-under layout.',
+            projection: '360',
+            stereo: 'ou',
+            variant: 'half'
+        },
+        {
+            id: '180-mono',
+            label: '180 Mono',
+            shortLabel: '180',
+            description: '180 equirectangular monoscopic VR video.',
+            projection: '180',
+            stereo: 'mono',
+            variant: 'mono'
+        },
+        {
+            id: '180-sbs-full',
+            label: '180 SBS Full',
+            shortLabel: '180 SBS',
+            description: '180 equirectangular stereoscopic side-by-side full layout.',
+            projection: '180',
+            stereo: 'sbs',
+            variant: 'full'
+        },
+        {
+            id: '180-sbs-half',
+            label: '180 SBS Half',
+            shortLabel: '180 SBS',
+            description: '180 equirectangular stereoscopic half side-by-side layout.',
+            projection: '180',
+            stereo: 'sbs',
+            variant: 'half'
+        },
+        {
+            id: '180-ou-full',
+            label: '180 OU Full',
+            shortLabel: '180 OU',
+            description: '180 equirectangular stereoscopic over-under full layout.',
+            projection: '180',
+            stereo: 'ou',
+            variant: 'full'
+        },
+        {
+            id: '180-ou-half',
+            label: '180 OU Half',
+            shortLabel: '180 OU',
+            description: '180 equirectangular stereoscopic half over-under layout.',
+            projection: '180',
+            stereo: 'ou',
+            variant: 'half'
+        },
+        {
+            id: '3d-sbs-full',
+            label: '3D Full SBS',
+            shortLabel: '3D SBS',
+            description: 'Stereo theater screen for full side-by-side 3D video.',
+            projection: 'screen',
+            stereo: 'sbs',
+            variant: 'full'
+        },
+        {
+            id: '3d-sbs-half',
+            label: '3D Half SBS',
+            shortLabel: '3D SBS',
+            description: 'Stereo theater screen for half side-by-side 3D video.',
+            projection: 'screen',
+            stereo: 'sbs',
+            variant: 'half'
+        }
+    ];
 
-  const MODES_BY_ID = VIEW_MODES.reduce((acc, mode) => {
-    acc[mode.id] = mode;
-    return acc;
-  }, {});
+    const MODES_BY_ID = VIEW_MODES.reduce((acc, mode) => {
+        acc[mode.id] = mode;
+        return acc;
+    }, {});
 
-  let activeInlinePlayer = null;
+    let activeInlinePlayer = null;
 
-  const INLINE_PLAYER_STYLE = `
+    const INLINE_PLAYER_STYLE = `
   #jfvr-inline-overlay { position: fixed; inset: 0; z-index: 99999; background: #000; overflow: hidden; }
   #jfvr-inline-overlay canvas { display: block; width: 100vw; height: 100vh; }
   #jfvr-debug-btn { position: absolute; bottom: 20px; right: 20px; z-index: 999999; padding: 12px 24px; background: #3b82f6; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; }
 `;
 
-  const INLINE_PLAYER_HTML = `
+    const INLINE_PLAYER_HTML = `
   <div id="jfvr-canvas-container" style="width:100%; height:100%;"></div>
 `;
 
-  const PLAYER_HTML = String.raw`<!DOCTYPE html>
+    const PLAYER_HTML = String.raw`<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -2285,12 +2285,12 @@
 </body>
 </html>`;
 
-  function injectParentStyles() {
-    if (document.getElementById('jfvr-style')) return;
+    function injectParentStyles() {
+        if (document.getElementById('jfvr-style')) return;
 
-    const style = document.createElement('style');
-    style.id = 'jfvr-style';
-    style.textContent = `
+        const style = document.createElement('style');
+        style.id = 'jfvr-style';
+        style.textContent = `
       #jfvr-mode-backdrop {
         position: fixed;
         inset: 0;
@@ -2482,107 +2482,158 @@
         }
       }
     `;
-    document.head.appendChild(style);
-  }
-
-  function getCurrentJellyfinVideo() {
-    return document.querySelector('video');
-  }
-
-  function getCurrentPlaybackSnapshot() {
-    const video = getCurrentJellyfinVideo();
-    const currentSrc = video ? (video.currentSrc || video.src) : '';
-    if (!video || !currentSrc) return null;
-    return {
-      src: currentSrc,
-      currentTime: Number(video.currentTime) || 0,
-      paused: video.paused,
-      volume: Number(video.volume),
-      muted: Boolean(video.muted)
-    };
-  }
-
-  function getHostSessionStore() {
-    if (!window.__JFVRHostSessions) {
-      window.__JFVRHostSessions = {};
-    }
-    return window.__JFVRHostSessions;
-  }
-
-  function createHostSession(video) {
-    if (!video) return null;
-
-    const capture = typeof video.captureStream === 'function'
-      ? video.captureStream.bind(video)
-      : (typeof video.mozCaptureStream === 'function' ? video.mozCaptureStream.bind(video) : null);
-
-    if (!capture) {
-      return null;
+        document.head.appendChild(style);
     }
 
-    let stream = null;
-    try {
-      stream = capture();
-    } catch (error) {
-      stream = null;
+    function getCurrentJellyfinVideo() {
+        return document.querySelector('video');
     }
 
-    if (!stream) {
-      return null;
+    function getCurrentVideoTitle(video) {
+        const seen = new Set();
+        const candidates = [];
+        const addCandidate = (value, score) => {
+            const text = String(value || '').replace(/\s+/g, ' ').trim();
+            if (!text || seen.has(text)) return;
+            seen.add(text);
+            candidates.push({ text, score });
+        };
+
+        const selectors = [
+            '.videoOsdParent .videoOsdTitle',
+            '.videoOsdParent .mediaInfoPrimary',
+            '.videoPlayerContainer .videoOsdTitle',
+            '.videoPlayerContainer .mediaInfoPrimary',
+            '.nowPlayingPage .itemName',
+            '.mainDetailButtons + .itemName',
+            '.itemName',
+            'h1'
+        ];
+
+        selectors.forEach((selector, index) => {
+            const el = document.querySelector(selector);
+            if (el) addCandidate(el.textContent, 100 - index);
+        });
+
+        if (video) {
+            addCandidate(video.getAttribute('title'), 75);
+            addCandidate(video.getAttribute('aria-label'), 74);
+            addCandidate(video.dataset && video.dataset.title, 73);
+        }
+
+        const docTitle = String(document.title || '').replace(/\s*-\s*Jellyfin\s*$/i, '').trim();
+        addCandidate(docTitle, 40);
+
+        const currentSrc = video ? (video.currentSrc || video.src || '') : '';
+        if (currentSrc) {
+            try {
+                const parsed = new URL(currentSrc, window.location.href);
+                const fileName = decodeURIComponent(parsed.pathname.split('/').pop() || '');
+                addCandidate(fileName.replace(/\.[a-z0-9]{2,5}$/i, ''), 20);
+            } catch (error) {
+                // ignored
+            }
+        }
+
+        if (!candidates.length) return 'Playing Video';
+        candidates.sort((a, b) => b.score - a.score || b.text.length - a.text.length);
+        return candidates[0].text;
     }
 
-    const sessionId = `jfvr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const session = {
-      id: sessionId,
-      video,
-      stream,
-      originalMuted: Boolean(video.muted),
-      originalVolume: Number(video.volume),
-      usingCapture: true
-    };
-
-    video.volume = 0;
-    getHostSessionStore()[sessionId] = session;
-    return session;
-  }
-
-  function cleanupHostSession(sessionId, finalState) {
-    if (!sessionId) return;
-
-    const store = getHostSessionStore();
-    const session = store[sessionId];
-    if (!session) return;
-
-    const video = session.video;
-    if (video) {
-      if (finalState && typeof finalState.volume === 'number') {
-        video.volume = Math.min(1, Math.max(0, finalState.volume));
-      } else if (typeof session.originalVolume === 'number') {
-        video.volume = session.originalVolume;
-      }
-
-      if (finalState && typeof finalState.muted !== 'undefined') {
-        video.muted = Boolean(finalState.muted);
-      } else {
-        video.muted = session.originalMuted;
-      }
+    function getCurrentPlaybackSnapshot() {
+        const video = getCurrentJellyfinVideo();
+        const currentSrc = video ? (video.currentSrc || video.src) : '';
+        if (!video || !currentSrc) return null;
+        return {
+            src: currentSrc,
+            currentTime: Number(video.currentTime) || 0,
+            paused: video.paused,
+            volume: Number(video.volume),
+            muted: Boolean(video.muted)
+        };
     }
 
-    delete store[sessionId];
-  }
+    function getHostSessionStore() {
+        if (!window.__JFVRHostSessions) {
+            window.__JFVRHostSessions = {};
+        }
+        return window.__JFVRHostSessions;
+    }
 
-  function createModeMenuButton(mode) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'jfvr-mode-option';
-    button.dataset.modeId = mode.id;
+    function createHostSession(video) {
+        if (!video) return null;
 
-    const modeTag = mode.projection === 'screen'
-      ? '3D ' + mode.stereo.toUpperCase()
-      : (mode.stereo === 'mono' ? mode.projection + ' Mono' : mode.projection + ' ' + mode.stereo.toUpperCase());
-    const variantLabel = mode.variant === 'mono' ? 'Mono' : mode.variant === 'full' ? 'Full layout' : 'Half layout';
+        const capture = typeof video.captureStream === 'function'
+            ? video.captureStream.bind(video)
+            : (typeof video.mozCaptureStream === 'function' ? video.mozCaptureStream.bind(video) : null);
 
-    button.innerHTML = `
+        if (!capture) {
+            return null;
+        }
+
+        let stream = null;
+        try {
+            stream = capture();
+        } catch (error) {
+            stream = null;
+        }
+
+        if (!stream) {
+            return null;
+        }
+
+        const sessionId = `jfvr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const session = {
+            id: sessionId,
+            video,
+            stream,
+            originalMuted: Boolean(video.muted),
+            originalVolume: Number(video.volume),
+            usingCapture: true
+        };
+
+        video.volume = 0;
+        getHostSessionStore()[sessionId] = session;
+        return session;
+    }
+
+    function cleanupHostSession(sessionId, finalState) {
+        if (!sessionId) return;
+
+        const store = getHostSessionStore();
+        const session = store[sessionId];
+        if (!session) return;
+
+        const video = session.video;
+        if (video) {
+            if (finalState && typeof finalState.volume === 'number') {
+                video.volume = Math.min(1, Math.max(0, finalState.volume));
+            } else if (typeof session.originalVolume === 'number') {
+                video.volume = session.originalVolume;
+            }
+
+            if (finalState && typeof finalState.muted !== 'undefined') {
+                video.muted = Boolean(finalState.muted);
+            } else {
+                video.muted = session.originalMuted;
+            }
+        }
+
+        delete store[sessionId];
+    }
+
+    function createModeMenuButton(mode) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'jfvr-mode-option';
+        button.dataset.modeId = mode.id;
+
+        const modeTag = mode.projection === 'screen'
+            ? '3D ' + mode.stereo.toUpperCase()
+            : (mode.stereo === 'mono' ? mode.projection + ' Mono' : mode.projection + ' ' + mode.stereo.toUpperCase());
+        const variantLabel = mode.variant === 'mono' ? 'Mono' : mode.variant === 'full' ? 'Full layout' : 'Half layout';
+
+        button.innerHTML = `
       <div class="jfvr-mode-topline">
         <div class="jfvr-mode-name">${escapeHtml(mode.label)}</div>
         <div class="jfvr-mode-tag">${escapeHtml(modeTag)}</div>
@@ -2591,68 +2642,68 @@
       <div class="jfvr-mode-meta">${escapeHtml(variantLabel)} • Quest / WebXR ready</div>
     `;
 
-    return button;
-  }
-
-  function escapeHtml(value) {
-    return String(value)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
-
-  function removeModeMenu() {
-    const existing = document.getElementById('jfvr-mode-menu');
-    if (existing) existing.remove();
-    const backdrop = document.getElementById('jfvr-mode-backdrop');
-    if (backdrop) backdrop.remove();
-  }
-
-  function openModeMenu(anchorButton) {
-    injectParentStyles();
-
-    const existing = document.getElementById('jfvr-mode-menu');
-    if (existing) {
-      removeModeMenu();
-      return;
+        return button;
     }
 
-    const backdrop = document.createElement('div');
-    backdrop.id = 'jfvr-mode-backdrop';
+    function escapeHtml(value) {
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
 
-    const menu = document.createElement('div');
-    menu.id = 'jfvr-mode-menu';
-    const lastMode = localStorage.getItem(STORAGE_KEYS.lastMode) || '180-sbs-half';
+    function removeModeMenu() {
+        const existing = document.getElementById('jfvr-mode-menu');
+        if (existing) existing.remove();
+        const backdrop = document.getElementById('jfvr-mode-backdrop');
+        if (backdrop) backdrop.remove();
+    }
 
-    const groupDefinitions = [
-      { projection: '180', title: '180 VR Modes' },
-      { projection: '360', title: '360 VR Modes' },
-      { projection: 'screen', title: '3D Screen Modes' }
-    ];
+    function openModeMenu(anchorButton) {
+        injectParentStyles();
 
-    const groups = groupDefinitions.map(({ projection, title }) => {
-      const options = VIEW_MODES.filter((mode) => mode.projection === projection);
-      const section = document.createElement('div');
-      section.className = 'jfvr-menu-section';
-      section.innerHTML = `<div class="jfvr-menu-label">${title}</div>`;
-      options.forEach((mode) => {
-        const optionButton = createModeMenuButton(mode);
-        if (mode.id === lastMode) {
-          optionButton.querySelector('.jfvr-mode-meta').textContent += ' • Last used';
+        const existing = document.getElementById('jfvr-mode-menu');
+        if (existing) {
+            removeModeMenu();
+            return;
         }
-        optionButton.addEventListener('click', () => {
-          removeModeMenu();
-          openPlayer(mode.id);
-        });
-        section.appendChild(optionButton);
-      });
-      return section;
-    });
 
-    const recommended = MODES_BY_ID[lastMode] || MODES_BY_ID['180-sbs-half'];
-    menu.innerHTML = `
+        const backdrop = document.createElement('div');
+        backdrop.id = 'jfvr-mode-backdrop';
+
+        const menu = document.createElement('div');
+        menu.id = 'jfvr-mode-menu';
+        const lastMode = localStorage.getItem(STORAGE_KEYS.lastMode) || '180-sbs-half';
+
+        const groupDefinitions = [
+            { projection: '180', title: '180 VR Modes' },
+            { projection: '360', title: '360 VR Modes' },
+            { projection: 'screen', title: '3D Screen Modes' }
+        ];
+
+        const groups = groupDefinitions.map(({ projection, title }) => {
+            const options = VIEW_MODES.filter((mode) => mode.projection === projection);
+            const section = document.createElement('div');
+            section.className = 'jfvr-menu-section';
+            section.innerHTML = `<div class="jfvr-menu-label">${title}</div>`;
+            options.forEach((mode) => {
+                const optionButton = createModeMenuButton(mode);
+                if (mode.id === lastMode) {
+                    optionButton.querySelector('.jfvr-mode-meta').textContent += ' • Last used';
+                }
+                optionButton.addEventListener('click', () => {
+                    removeModeMenu();
+                    openPlayer(mode.id);
+                });
+                section.appendChild(optionButton);
+            });
+            return section;
+        });
+
+        const recommended = MODES_BY_ID[lastMode] || MODES_BY_ID['180-sbs-half'];
+        menu.innerHTML = `
       <div class="jfvr-menu-head">
         <div class="jfvr-menu-head-top">
           <div>
@@ -2664,981 +2715,1202 @@
       </div>
       <div class="jfvr-menu-body"></div>
     `;
-    const body = menu.querySelector('.jfvr-menu-body');
-    groups.forEach((section) => body.appendChild(section));
+        const body = menu.querySelector('.jfvr-menu-body');
+        groups.forEach((section) => body.appendChild(section));
 
-    backdrop.addEventListener('click', (event) => {
-      if (event.target === backdrop) {
-        removeModeMenu();
-      }
-    });
+        backdrop.addEventListener('click', (event) => {
+            if (event.target === backdrop) {
+                removeModeMenu();
+            }
+        });
 
-    menu.addEventListener('click', (event) => {
-      event.stopPropagation();
-    });
+        menu.addEventListener('click', (event) => {
+            event.stopPropagation();
+        });
 
-    backdrop.appendChild(menu);
-    document.body.appendChild(backdrop);
-  }
-
-  function ensureAFrameLoaded() {
-    if (window.AFRAME && window.THREE) {
-      return Promise.resolve();
+        backdrop.appendChild(menu);
+        document.body.appendChild(backdrop);
     }
 
-    if (window.__JFVRAFramePromise) {
-      return window.__JFVRAFramePromise;
-    }
-
-    window.__JFVRAFramePromise = new Promise((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = 'https://aframe.io/releases/1.7.0/aframe.min.js';
-      script.onload = () => {
-        const troika = document.createElement('script');
-        troika.src = 'https://unpkg.com/aframe-troika-text/dist/aframe-troika-text.min.js';
-        troika.onload = () => resolve();
-        troika.onerror = () => resolve();
-        document.head.appendChild(troika);
-      };
-      script.onerror = () => reject(new Error('Failed to load A-Frame'));
-      document.head.appendChild(script);
-    });
-
-    return window.__JFVRAFramePromise;
-  }
-
-  function createInlinePlayerRuntime(overlay, styleEl, jellyfinVideo, modeId) {
-    let active = true;
-    let renderer, scene, camera, vrButton, arButton;
-    let uiGroup;
-    let videoTexture, materials = {}, meshes = {};
-    let state = {
-       mode: MODES_BY_ID[modeId] || MODES_BY_ID['360-mono'],
-       isImmersive: false,
-       swapEyes: false,
-       uiVisible: true,
-       lastInteraction: Date.now(),
-       uiDistance: Math.abs(parseFloat(localStorage.getItem('jfvr:ui-distance'))) || 2.3,
-       uiScale: parseFloat(localStorage.getItem('jfvr:ui-scale')) || 1.0,
-       isAR: false,
-       passthroughEnabled: false,
-       passthroughBrightness: 1.0,
-       screenCurvature: 0.0,
-       screenSize: 1.0,
-       screenDistance: -12.0,
-       showingSettings: false
-    };
-    let interactables = [];
-    let timeTextObj, playBtnText, modeTextObj;
-    let seekBg, seekBuf, seekFill;
-    let bgMesh, settingsGroup;
-    let ptBtnText, curveFill, distFill, sizeFill, dimFill;
-
-    function injectImportMap() {
-      if (document.querySelector('script#jfvr-importmap')) return;
-      const im = document.createElement('script');
-      im.id = 'jfvr-importmap';
-      im.type = 'importmap';
-      im.textContent = JSON.stringify({
-        imports: {
-          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
-          "troika-three-text": "https://esm.sh/troika-three-text@0.49.0?external=three"
+    function ensureAFrameLoaded() {
+        if (window.AFRAME && window.THREE) {
+            return Promise.resolve();
         }
-      });
-      document.head.appendChild(im);
+
+        if (window.__JFVRAFramePromise) {
+            return window.__JFVRAFramePromise;
+        }
+
+        window.__JFVRAFramePromise = new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://aframe.io/releases/1.7.0/aframe.min.js';
+            script.onload = () => {
+                const troika = document.createElement('script');
+                troika.src = 'https://unpkg.com/aframe-troika-text/dist/aframe-troika-text.min.js';
+                troika.onload = () => resolve();
+                troika.onerror = () => resolve();
+                document.head.appendChild(troika);
+            };
+            script.onerror = () => reject(new Error('Failed to load A-Frame'));
+            document.head.appendChild(script);
+        });
+
+        return window.__JFVRAFramePromise;
     }
 
-    function formatTime(seconds) {
-      if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
-      const total = Math.floor(seconds);
-      const hrs = Math.floor(total / 3600);
-      const mins = Math.floor((total % 3600) / 60);
-      const secs = total % 60;
-      if (hrs > 0) return `${hrs}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-      return `${mins}:${String(secs).padStart(2, '0')}`;
-    }
+    function createInlinePlayerRuntime(overlay, styleEl, jellyfinVideo, modeId) {
+        let active = true;
+        let renderer, scene, camera, vrButton, arButton;
+        let uiGroup;
+        let videoTexture, materials = {}, meshes = {};
+        let state = {
+            mode: MODES_BY_ID[modeId] || MODES_BY_ID['360-mono'],
+            isImmersive: false,
+            swapEyes: false,
+            uiVisible: true,
+            lastInteraction: Date.now(),
+            uiDistance: Math.abs(parseFloat(localStorage.getItem('jfvr:ui-distance'))) || 2.3,
+            uiScale: parseFloat(localStorage.getItem('jfvr:ui-scale')) || 1.0,
+            isAR: false,
+            passthroughEnabled: false,
+            passthroughBrightness: 1.0,
+            screenCurvature: 0.0,
+            screenSize: 1.0,
+            screenDistance: -12.0,
+            showingSettings: false
+        };
+        let interactables = [];
+        let titleTextObj, currentTimeTextObj, durationTextObj;
+        let seekBg, seekBuf, seekFill;
+        let bgMesh;
+        let playIconParts = null;
+        let volumeSliderPopup = null;
+        let lightSliderPopup = null;
+        let volumeButton = null;
+        let lightButton = null;
+        let titleMeasurePending = false;
+        let lastKnownTitle = '';
+        let lastTitleCheckAt = 0;
+        const titleState = {
+            clipWidth: 1.72,
+            textWidth: 0,
+            scrollOffset: 0,
+            pauseUntil: 0,
+            needsScroll: false
+        };
 
-    async function initThree() {
-      injectImportMap();
-      const THREE = await import('three');
-      const { VRButton } = await import('three/addons/webxr/VRButton.js');
-      const { ARButton } = await import('three/addons/webxr/ARButton.js');
-      const { XRControllerModelFactory } = await import('three/addons/webxr/XRControllerModelFactory.js');
-      const { XRHandModelFactory } = await import('three/addons/webxr/XRHandModelFactory.js');
-      const { Text } = await import('troika-three-text');
+        function injectImportMap() {
+            if (document.querySelector('script#jfvr-importmap')) return;
+            const im = document.createElement('script');
+            im.id = 'jfvr-importmap';
+            im.type = 'importmap';
+            im.textContent = JSON.stringify({
+                imports: {
+                    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+                    "troika-three-text": "https://esm.sh/troika-three-text@0.49.0?external=three"
+                }
+            });
+            document.head.appendChild(im);
+        }
 
-      if (!active) return;
-      
-      const container = overlay.querySelector('#jfvr-canvas-container');
-      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-      renderer.setPixelRatio(window.devicePixelRatio);
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.xr.enabled = true;
-      renderer.xr.setReferenceSpaceType('local');
-      container.appendChild(renderer.domElement);
+        function formatTime(seconds) {
+            if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
+            const total = Math.floor(seconds);
+            const hrs = Math.floor(total / 3600);
+            const mins = Math.floor((total % 3600) / 60);
+            const secs = total % 60;
+            if (hrs > 0) return `${hrs}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+            return `${mins}:${String(secs).padStart(2, '0')}`;
+        }
 
-      container.addEventListener('mousemove', wake);
-      container.addEventListener('touchstart', wake);
-      container.addEventListener('mousedown', wake);
+        async function initThree() {
+            injectImportMap();
+            const THREE = await import('three');
+            const { VRButton } = await import('three/addons/webxr/VRButton.js');
+            const { ARButton } = await import('three/addons/webxr/ARButton.js');
+            const { XRControllerModelFactory } = await import('three/addons/webxr/XRControllerModelFactory.js');
+            const { XRHandModelFactory } = await import('three/addons/webxr/XRHandModelFactory.js');
+            const { Text } = await import('troika-three-text');
 
-      scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x000000);
-      camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
-      scene.add(camera);
+            if (!active) return;
 
-      scene.add(new THREE.AmbientLight(0xffffff, 1.0));
-      const dl = new THREE.DirectionalLight(0xffffff, 2.0);
-      dl.position.set(0, 10, 0);
-      scene.add(dl);
+            const container = overlay.querySelector('#jfvr-canvas-container');
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.xr.enabled = true;
+            renderer.xr.setReferenceSpaceType('local');
+            container.appendChild(renderer.domElement);
 
-      const buttonsContainer = document.createElement('div');
-      buttonsContainer.style.position = 'absolute';
-      buttonsContainer.style.bottom = '20px';
-      buttonsContainer.style.left = '50%';
-      buttonsContainer.style.transform = 'translateX(-50%)';
-      buttonsContainer.style.display = 'flex';
-      buttonsContainer.style.gap = '20px';
-      buttonsContainer.style.zIndex = '999999';
-      overlay.appendChild(buttonsContainer);
+            container.addEventListener('mousemove', wake);
+            container.addEventListener('touchstart', wake);
+            container.addEventListener('mousedown', wake);
 
-      vrButton = VRButton.createButton(renderer, { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking', 'layers'] });
-      vrButton.style.position = 'relative';
-      vrButton.style.bottom = 'auto';
-      vrButton.style.left = 'auto';
-      vrButton.style.transform = 'none';
-      vrButton.addEventListener('click', () => {
-         state.isAR = false;
-         state.passthroughEnabled = false;
-      });
-      buttonsContainer.appendChild(vrButton);
-
-      arButton = ARButton.createButton(renderer, { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking', 'layers'] });
-      arButton.style.position = 'relative';
-      arButton.style.bottom = 'auto';
-      arButton.style.left = 'auto';
-      arButton.style.transform = 'none';
-      arButton.addEventListener('click', () => {
-         state.isAR = true;
-         state.passthroughEnabled = true;
-      });
-      buttonsContainer.appendChild(arButton);
-
-      renderer.xr.addEventListener('sessionstart', () => {
-         state.isImmersive = true;
-         if (typeof updatePassthroughVisuals === 'function') updatePassthroughVisuals();
-         if (ptBtnText) ptBtnText.text = state.passthroughEnabled ? '👁️' : '🕶️';
-         if (uiGroup) uiGroup.position.set(0, -0.4, -state.uiDistance);
-         camera.layers.enable(0);
-         camera.layers.enable(1);
-         camera.layers.enable(2);
-         updateStereoVisibility();
-      });
-      renderer.xr.addEventListener('sessionend', () => {
-         state.isImmersive = false;
-         scene.background = new THREE.Color(0x000000);
-         if (uiGroup) uiGroup.position.set(0, -0.4, -state.uiDistance);
-         updateStereoVisibility();
-      });
-
-      function updateStereoVisibility() {
-         const mode = state.mode;
-         const useStereo = mode.stereo !== 'mono' && state.isImmersive && !state.uiVisible;
-         if (meshes.preview) meshes.preview.visible = !useStereo;
-         if (meshes.left) meshes.left.visible = useStereo;
-         if (meshes.right) meshes.right.visible = useStereo;
-      }
-
-      function positionUIAtController(controller) {
-         if (!controller || !uiGroup) return;
-         const tempMatrix = new THREE.Matrix4();
-         tempMatrix.identity().extractRotation(controller.matrixWorld);
-         const origin = new THREE.Vector3();
-         origin.setFromMatrixPosition(controller.matrixWorld);
-         const dir = new THREE.Vector3(0, 0, -1).applyMatrix4(tempMatrix);
-         
-         const targetPos = origin.clone().add(dir.multiplyScalar(state.uiDistance));
-         uiGroup.position.copy(targetPos);
-         
-         const xrCam = renderer.xr.getCamera();
-         if (xrCam) {
-            const camPos = new THREE.Vector3();
-            xrCam.getWorldPosition(camPos);
-            // Lock Y rotation only
-            uiGroup.lookAt(camPos.x, uiGroup.position.y, camPos.z);
-         }
-      }
-
-      function wake(controller) {
-         state.lastInteraction = Date.now();
-         if (!state.uiVisible) {
-            state.uiVisible = true;
-            if (uiGroup) {
-               uiGroup.visible = true;
-               if (controller && controller.matrixWorld) positionUIAtController(controller);
-            }
-            updateStereoVisibility();
-         }
-      }
-
-      function toggleUI(controller) {
-         state.uiVisible = !state.uiVisible;
-         if (uiGroup) {
-            uiGroup.visible = state.uiVisible;
-            if (state.uiVisible && controller && controller.matrixWorld) {
-               positionUIAtController(controller);
-            } else if (state.uiVisible) {
-               const xrCam = renderer.xr.getCamera();
-               if (xrCam) {
-                  const camPos = new THREE.Vector3();
-                  xrCam.getWorldPosition(camPos);
-                  const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(xrCam.quaternion);
-                  dir.y = 0; dir.normalize(); // Horizon level
-                  uiGroup.position.copy(camPos).add(dir.multiplyScalar(state.uiDistance));
-                  uiGroup.position.y = camPos.y - 0.5;
-                  uiGroup.lookAt(camPos.x, uiGroup.position.y, camPos.z);
-               }
-            }
-         }
-         if (state.uiVisible) {
-            state.lastInteraction = Date.now();
-            settingsGroup.visible = false;
-         }
-         updateStereoVisibility();
-      }
-
-      videoTexture = new THREE.VideoTexture(jellyfinVideo);
-      videoTexture.minFilter = THREE.LinearFilter;
-      videoTexture.magFilter = THREE.LinearFilter;
-      videoTexture.colorSpace = THREE.SRGBColorSpace;
-      
-      materials.preview = new THREE.MeshBasicMaterial({ map: videoTexture, side: THREE.BackSide, toneMapped: false });
-      materials.left = new THREE.MeshBasicMaterial({ map: videoTexture, side: THREE.BackSide, toneMapped: false });
-      materials.right = new THREE.MeshBasicMaterial({ map: videoTexture, side: THREE.BackSide, toneMapped: false });
-
-      const surfaceRoot = new THREE.Group();
-      scene.add(surfaceRoot);
-      
-      const dimSphereGeo = new THREE.SphereGeometry(90, 32, 32);
-      const dimSphereMat = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.BackSide, transparent: true, opacity: 0.0 });
-      const dimSphere = new THREE.Mesh(dimSphereGeo, dimSphereMat);
-      scene.add(dimSphere);
-      
-      meshes.preview = new THREE.Mesh(new THREE.BufferGeometry(), materials.preview);
-      meshes.left = new THREE.Mesh(new THREE.BufferGeometry(), materials.left);
-      meshes.right = new THREE.Mesh(new THREE.BufferGeometry(), materials.right);
-      
-      meshes.preview.layers.set(0);
-      meshes.left.layers.set(1);
-      meshes.right.layers.set(2);
-      
-      surfaceRoot.add(meshes.preview);
-      surfaceRoot.add(meshes.left);
-      surfaceRoot.add(meshes.right);
-
-      function updatePassthroughVisuals() {
-         if (state.passthroughEnabled) {
-            scene.background = null;
-            if (typeof dimSphereMat !== 'undefined') dimSphereMat.opacity = 1.0 - state.passthroughBrightness;
-         } else {
+            scene = new THREE.Scene();
             scene.background = new THREE.Color(0x000000);
-            if (typeof dimSphereMat !== 'undefined') dimSphereMat.opacity = 1.0; 
-         }
-      }
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
+            scene.add(camera);
 
-      function applyModeFromState() {
-         let mode = state.mode;
-         let geometry;
-         surfaceRoot.scale.setScalar(state.screenSize);
+            scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+            const dl = new THREE.DirectionalLight(0xffffff, 2.0);
+            dl.position.set(0, 10, 0);
+            scene.add(dl);
 
-         if (mode.projection === 'screen') {
-            if (state.screenCurvature > 0.05) {
-               // Cylinder curve
-               const radius = 18 / state.screenCurvature;
-               const theta = 18 / radius;
-               geometry = new THREE.CylinderGeometry(radius, radius, 10.125, 64, 1, true, -theta/2 + Math.PI/2, theta);
-               geometry.scale(-1, 1, 1);
-               surfaceRoot.position.set(0, 1.6, state.screenDistance + radius);
-            } else {
-               geometry = new THREE.PlaneGeometry(18, 10.125);
-               surfaceRoot.position.set(0, 1.6, state.screenDistance);
+            const buttonsContainer = document.createElement('div');
+            buttonsContainer.style.position = 'absolute';
+            buttonsContainer.style.bottom = '20px';
+            buttonsContainer.style.left = '50%';
+            buttonsContainer.style.transform = 'translateX(-50%)';
+            buttonsContainer.style.display = 'flex';
+            buttonsContainer.style.gap = '20px';
+            buttonsContainer.style.zIndex = '999999';
+            overlay.appendChild(buttonsContainer);
+
+            vrButton = VRButton.createButton(renderer, { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking', 'layers'] });
+            vrButton.style.position = 'relative';
+            vrButton.style.bottom = 'auto';
+            vrButton.style.left = 'auto';
+            vrButton.style.transform = 'none';
+            vrButton.addEventListener('click', () => {
+                state.isAR = false;
+                state.passthroughEnabled = false;
+            });
+            buttonsContainer.appendChild(vrButton);
+
+            arButton = ARButton.createButton(renderer, { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking', 'layers'] });
+            arButton.style.position = 'relative';
+            arButton.style.bottom = 'auto';
+            arButton.style.left = 'auto';
+            arButton.style.transform = 'none';
+            arButton.addEventListener('click', () => {
+                state.isAR = true;
+                state.passthroughEnabled = true;
+            });
+            buttonsContainer.appendChild(arButton);
+
+            renderer.xr.addEventListener('sessionstart', () => {
+                state.isImmersive = true;
+                if (typeof updatePassthroughVisuals === 'function') updatePassthroughVisuals();
+                if (uiGroup) uiGroup.position.set(0, -0.4, -state.uiDistance);
+                camera.layers.enable(0);
+                camera.layers.enable(1);
+                camera.layers.enable(2);
+                updateStereoVisibility();
+            });
+            renderer.xr.addEventListener('sessionend', () => {
+                state.isImmersive = false;
+                scene.background = new THREE.Color(0x000000);
+                if (uiGroup) uiGroup.position.set(0, -0.4, -state.uiDistance);
+                updateStereoVisibility();
+            });
+
+            function updateStereoVisibility() {
+                const mode = state.mode;
+                const useStereo = mode.stereo !== 'mono' && state.isImmersive && !state.uiVisible;
+                if (meshes.preview) meshes.preview.visible = !useStereo;
+                if (meshes.left) meshes.left.visible = useStereo;
+                if (meshes.right) meshes.right.visible = useStereo;
             }
-            surfaceRoot.rotation.set(0, 0, 0);
-         } else if (mode.projection === '180') {
-            geometry = new THREE.SphereGeometry(32, 96, 64, 0, Math.PI, 0, Math.PI);
-            surfaceRoot.position.set(0, 0, 0);
-            surfaceRoot.rotation.set(0, Math.PI, 0);
-         } else {
-            geometry = new THREE.SphereGeometry(32, 96, 64);
-            surfaceRoot.position.set(0, 0, 0);
-            surfaceRoot.rotation.set(0, Math.PI, 0);
-         }
-         
-         meshes.preview.geometry.dispose();
-         meshes.preview.geometry = geometry.clone();
-         meshes.left.geometry.dispose();
-         meshes.left.geometry = geometry.clone();
-         meshes.right.geometry.dispose();
-         meshes.right.geometry = geometry.clone();
-         
-         const side = mode.projection === 'screen' ? THREE.FrontSide : THREE.BackSide;
-         materials.preview.side = side; materials.left.side = side; materials.right.side = side;
 
-         function getViewport(m, eye) {
-            if (m.projection === 'screen') {
-               if (m.stereo === 'sbs') return eye === 'right' ? {x:0.5, y:0, rx:0.5, ry:1} : {x:0, y:0, rx:0.5, ry:1};
-               if (m.stereo === 'ou') return eye === 'right' ? {x:0, y:0, rx:1, ry:0.5} : {x:0, y:0.5, rx:1, ry:0.5};
-               return {x:0, y:0, rx:1, ry:1};
+            function positionUIAtController(controller) {
+                if (!controller || !uiGroup) return;
+                const tempMatrix = new THREE.Matrix4();
+                tempMatrix.identity().extractRotation(controller.matrixWorld);
+                const origin = new THREE.Vector3();
+                origin.setFromMatrixPosition(controller.matrixWorld);
+                const dir = new THREE.Vector3(0, 0, -1).applyMatrix4(tempMatrix);
+
+                const targetPos = origin.clone().add(dir.multiplyScalar(state.uiDistance));
+                uiGroup.position.copy(targetPos);
+
+                const xrCam = renderer.xr.getCamera();
+                if (xrCam) {
+                    const camPos = new THREE.Vector3();
+                    xrCam.getWorldPosition(camPos);
+                    // Lock Y rotation only
+                    uiGroup.lookAt(camPos.x, uiGroup.position.y, camPos.z);
+                }
             }
-            if (m.stereo === 'mono') return {x:1, y:0, rx:-1, ry:1};
-            if (m.stereo === 'sbs') return eye === 'right' ? {x:1, y:0, rx:-0.5, ry:1} : {x:0.5, y:0, rx:-0.5, ry:1};
-            return eye === 'right' ? {x:1, y:0, rx:-1, ry:0.5} : {x:1, y:0.5, rx:-1, ry:0.5};
-         }
 
-         const leftEye = state.swapEyes ? 'right' : 'left';
-         const rightEye = state.swapEyes ? 'left' : 'right';
-
-         function applyViewportToGeometry(geom, vp) {
-            const uv = geom.attributes.uv;
-            for (let i = 0; i < uv.count; i++) {
-               const u = uv.getX(i);
-               const v = uv.getY(i);
-               uv.setXY(i, (u * vp.rx) + vp.x, (v * vp.ry) + vp.y);
+            function wake(controller) {
+                state.lastInteraction = Date.now();
+                if (!state.uiVisible) {
+                    state.uiVisible = true;
+                    if (uiGroup) {
+                        uiGroup.visible = true;
+                        if (controller && controller.matrixWorld) positionUIAtController(controller);
+                    }
+                    updateStereoVisibility();
+                }
             }
-            uv.needsUpdate = true;
-         }
 
-         applyViewportToGeometry(meshes.preview.geometry, getViewport(mode, leftEye));
-         applyViewportToGeometry(meshes.left.geometry, getViewport(mode, leftEye));
-         applyViewportToGeometry(meshes.right.geometry, getViewport(mode, rightEye));
-         
-         if (videoTexture) {
-            videoTexture.wrapS = THREE.ClampToEdgeWrapping;
-            videoTexture.wrapT = THREE.ClampToEdgeWrapping;
-            videoTexture.offset.set(0, 0);
-            videoTexture.repeat.set(1, 1);
-            videoTexture.needsUpdate = true;
-         }
-         
-         if (modeTextObj) modeTextObj.text = state.mode.label;
-         updateStereoVisibility();
-      }
+            function toggleUI(controller) {
+                state.uiVisible = !state.uiVisible;
+                if (uiGroup) {
+                    uiGroup.visible = state.uiVisible;
+                    if (state.uiVisible && controller && controller.matrixWorld) {
+                        positionUIAtController(controller);
+                    } else if (state.uiVisible) {
+                        const xrCam = renderer.xr.getCamera();
+                        if (xrCam) {
+                            const camPos = new THREE.Vector3();
+                            xrCam.getWorldPosition(camPos);
+                            const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(xrCam.quaternion);
+                            dir.y = 0; dir.normalize(); // Horizon level
+                            uiGroup.position.copy(camPos).add(dir.multiplyScalar(state.uiDistance));
+                            uiGroup.position.y = camPos.y - 0.5;
+                            uiGroup.lookAt(camPos.x, uiGroup.position.y, camPos.z);
+                        }
+                    }
+                }
+                if (state.uiVisible) {
+                    state.lastInteraction = Date.now();
+                    if (volumeSliderPopup) volumeSliderPopup.group.visible = false;
+                    if (lightSliderPopup) lightSliderPopup.group.visible = false;
+                    if (volumeButton) setButtonActive(volumeButton.mesh, false);
+                    if (lightButton) setButtonActive(lightButton.mesh, false);
+                }
+                updateStereoVisibility();
+            }
 
-      function switchMode(newModeId) {
-         if (MODES_BY_ID[newModeId]) {
-            state.mode = MODES_BY_ID[newModeId];
-            jellyfinVideo.dataset.currentMode = newModeId;
+            videoTexture = new THREE.VideoTexture(jellyfinVideo);
+            videoTexture.minFilter = THREE.LinearFilter;
+            videoTexture.magFilter = THREE.LinearFilter;
+            videoTexture.colorSpace = THREE.SRGBColorSpace;
+
+            materials.preview = new THREE.MeshBasicMaterial({ map: videoTexture, side: THREE.BackSide, toneMapped: false });
+            materials.left = new THREE.MeshBasicMaterial({ map: videoTexture, side: THREE.BackSide, toneMapped: false });
+            materials.right = new THREE.MeshBasicMaterial({ map: videoTexture, side: THREE.BackSide, toneMapped: false });
+
+            const surfaceRoot = new THREE.Group();
+            scene.add(surfaceRoot);
+
+            const dimSphereGeo = new THREE.SphereGeometry(90, 32, 32);
+            const dimSphereMat = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.BackSide, transparent: true, opacity: 0.0 });
+            const dimSphere = new THREE.Mesh(dimSphereGeo, dimSphereMat);
+            scene.add(dimSphere);
+
+            meshes.preview = new THREE.Mesh(new THREE.BufferGeometry(), materials.preview);
+            meshes.left = new THREE.Mesh(new THREE.BufferGeometry(), materials.left);
+            meshes.right = new THREE.Mesh(new THREE.BufferGeometry(), materials.right);
+
+            meshes.preview.layers.set(0);
+            meshes.left.layers.set(1);
+            meshes.right.layers.set(2);
+
+            surfaceRoot.add(meshes.preview);
+            surfaceRoot.add(meshes.left);
+            surfaceRoot.add(meshes.right);
+
+            function updatePassthroughVisuals() {
+                if (state.passthroughEnabled) {
+                    scene.background = null;
+                    if (typeof dimSphereMat !== 'undefined') dimSphereMat.opacity = 1.0 - state.passthroughBrightness;
+                } else {
+                    scene.background = new THREE.Color(0x000000);
+                    if (typeof dimSphereMat !== 'undefined') dimSphereMat.opacity = 1.0;
+                }
+            }
+
+            function applyModeFromState() {
+                let mode = state.mode;
+                let geometry;
+                surfaceRoot.scale.setScalar(state.screenSize);
+
+                if (mode.projection === 'screen') {
+                    if (state.screenCurvature > 0.05) {
+                        // Cylinder curve
+                        const radius = 18 / state.screenCurvature;
+                        const theta = 18 / radius;
+                        geometry = new THREE.CylinderGeometry(radius, radius, 10.125, 64, 1, true, -theta / 2 + Math.PI / 2, theta);
+                        geometry.scale(-1, 1, 1);
+                        surfaceRoot.position.set(0, 1.6, state.screenDistance + radius);
+                    } else {
+                        geometry = new THREE.PlaneGeometry(18, 10.125);
+                        surfaceRoot.position.set(0, 1.6, state.screenDistance);
+                    }
+                    surfaceRoot.rotation.set(0, 0, 0);
+                } else if (mode.projection === '180') {
+                    geometry = new THREE.SphereGeometry(32, 96, 64, 0, Math.PI, 0, Math.PI);
+                    surfaceRoot.position.set(0, 0, 0);
+                    surfaceRoot.rotation.set(0, Math.PI, 0);
+                } else {
+                    geometry = new THREE.SphereGeometry(32, 96, 64);
+                    surfaceRoot.position.set(0, 0, 0);
+                    surfaceRoot.rotation.set(0, Math.PI, 0);
+                }
+
+                meshes.preview.geometry.dispose();
+                meshes.preview.geometry = geometry.clone();
+                meshes.left.geometry.dispose();
+                meshes.left.geometry = geometry.clone();
+                meshes.right.geometry.dispose();
+                meshes.right.geometry = geometry.clone();
+
+                const side = mode.projection === 'screen' ? THREE.FrontSide : THREE.BackSide;
+                materials.preview.side = side; materials.left.side = side; materials.right.side = side;
+
+                function getViewport(m, eye) {
+                    if (m.projection === 'screen') {
+                        if (m.stereo === 'sbs') return eye === 'right' ? { x: 0.5, y: 0, rx: 0.5, ry: 1 } : { x: 0, y: 0, rx: 0.5, ry: 1 };
+                        if (m.stereo === 'ou') return eye === 'right' ? { x: 0, y: 0, rx: 1, ry: 0.5 } : { x: 0, y: 0.5, rx: 1, ry: 0.5 };
+                        return { x: 0, y: 0, rx: 1, ry: 1 };
+                    }
+                    if (m.stereo === 'mono') return { x: 1, y: 0, rx: -1, ry: 1 };
+                    if (m.stereo === 'sbs') return eye === 'right' ? { x: 1, y: 0, rx: -0.5, ry: 1 } : { x: 0.5, y: 0, rx: -0.5, ry: 1 };
+                    return eye === 'right' ? { x: 1, y: 0, rx: -1, ry: 0.5 } : { x: 1, y: 0.5, rx: -1, ry: 0.5 };
+                }
+
+                const leftEye = state.swapEyes ? 'right' : 'left';
+                const rightEye = state.swapEyes ? 'left' : 'right';
+
+                function applyViewportToGeometry(geom, vp) {
+                    const uv = geom.attributes.uv;
+                    for (let i = 0; i < uv.count; i++) {
+                        const u = uv.getX(i);
+                        const v = uv.getY(i);
+                        uv.setXY(i, (u * vp.rx) + vp.x, (v * vp.ry) + vp.y);
+                    }
+                    uv.needsUpdate = true;
+                }
+
+                applyViewportToGeometry(meshes.preview.geometry, getViewport(mode, leftEye));
+                applyViewportToGeometry(meshes.left.geometry, getViewport(mode, leftEye));
+                applyViewportToGeometry(meshes.right.geometry, getViewport(mode, rightEye));
+
+                if (videoTexture) {
+                    videoTexture.wrapS = THREE.ClampToEdgeWrapping;
+                    videoTexture.wrapT = THREE.ClampToEdgeWrapping;
+                    videoTexture.offset.set(0, 0);
+                    videoTexture.repeat.set(1, 1);
+                    videoTexture.needsUpdate = true;
+                }
+
+                updateStereoVisibility();
+            }
+
+            function switchMode(newModeId) {
+                if (MODES_BY_ID[newModeId]) {
+                    state.mode = MODES_BY_ID[newModeId];
+                    jellyfinVideo.dataset.currentMode = newModeId;
+                    applyModeFromState();
+                }
+            }
+
+            // Rounded Geometries Utility
+            function createRoundedRectGeometry(width, height, radius, segments) {
+                const shape = new THREE.Shape();
+                const w = width / 2;
+                const h = height / 2;
+                shape.moveTo(-w, -h + radius);
+                shape.lineTo(-w, h - radius);
+                shape.quadraticCurveTo(-w, h, -w + radius, h);
+                shape.lineTo(w - radius, h);
+                shape.quadraticCurveTo(w, h, w, h - radius);
+                shape.lineTo(w, -h + radius);
+                shape.quadraticCurveTo(w, -h, w - radius, -h);
+                shape.lineTo(-w + radius, -h);
+                shape.quadraticCurveTo(-w, -h, -w, -h + radius);
+                return new THREE.ShapeGeometry(shape, segments || 16);
+            }
+
+            // UI Builder
+            uiGroup = new THREE.Group();
+            uiGroup.position.set(0, -0.4, -state.uiDistance);
+            scene.add(uiGroup);
+
+            // Materials
+            const frostedMat = new THREE.MeshBasicMaterial({
+                color: 0x0f172a,
+                transparent: true,
+                opacity: 0.85,
+                side: THREE.DoubleSide
+            });
+
+            const btnMatBase = new THREE.MeshBasicMaterial({ color: 0x1e293b, transparent: true, opacity: 0.9 });
+            const iconMatColor = 0xe2e8f0;
+            const accentColor = 0x38bdf8;
+            const panelLineColor = 0x334155;
+
+            function createTextObj(str, parent, x, y, size, color, align) {
+                const t = new Text();
+                t.text = str;
+                t.fontSize = size;
+                t.color = color;
+                t.position.set(x, y, 0.01);
+                t.anchorX = align || 'center';
+                t.anchorY = 'middle';
+                parent.add(t);
+                return t;
+            }
+
+            function createRoundBtn(id, parent, x, y, radius, onClick, options) {
+                const cfg = options || {};
+                const geo = new THREE.CircleGeometry(radius, 48);
+                const mat = btnMatBase.clone();
+                if (cfg.color) mat.color.setHex(cfg.color);
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.position.set(x, y, 0.005);
+                const bg = cfg.color || 0x1e293b;
+                const hover = cfg.hover || 0x334155;
+                const activeColor = cfg.activeColor || accentColor;
+                mesh.userData = { id, isBtn: true, bg, hover, activeColor, isActive: false, onClick };
+                parent.add(mesh);
+                interactables.push(mesh);
+                return { mesh };
+            }
+
+            function setButtonActive(buttonMesh, isActive) {
+                if (!buttonMesh || !buttonMesh.material || !buttonMesh.material.color) return;
+                buttonMesh.userData.isActive = Boolean(isActive);
+                buttonMesh.material.color.setHex(isActive ? buttonMesh.userData.activeColor : buttonMesh.userData.bg);
+            }
+
+            function addIconRect(parent, width, height, x, y, rotationZ, color) {
+                const mesh = new THREE.Mesh(
+                    new THREE.PlaneGeometry(width, height),
+                    new THREE.MeshBasicMaterial({ color: color || iconMatColor, side: THREE.DoubleSide })
+                );
+                mesh.position.set(x || 0, y || 0, 0.012);
+                mesh.rotation.z = rotationZ || 0;
+                parent.add(mesh);
+                return mesh;
+            }
+
+            function addIconTriangle(parent, width, height, x, y, direction, color) {
+                const shape = new THREE.Shape();
+                const hw = width / 2;
+                const hh = height / 2;
+                if (direction === 'left') {
+                    shape.moveTo(hw, hh);
+                    shape.lineTo(hw, -hh);
+                    shape.lineTo(-hw, 0);
+                } else if (direction === 'right') {
+                    shape.moveTo(-hw, hh);
+                    shape.lineTo(-hw, -hh);
+                    shape.lineTo(hw, 0);
+                } else {
+                    shape.moveTo(-hw, -hh);
+                    shape.lineTo(hw, -hh);
+                    shape.lineTo(0, hh);
+                }
+                shape.closePath();
+                const mesh = new THREE.Mesh(
+                    new THREE.ShapeGeometry(shape),
+                    new THREE.MeshBasicMaterial({ color: color || iconMatColor, side: THREE.DoubleSide })
+                );
+                mesh.position.set(x || 0, y || 0, 0.012);
+                parent.add(mesh);
+                return mesh;
+            }
+
+            function buildButtonIcon(buttonMesh, type) {
+                const iconGroup = new THREE.Group();
+                iconGroup.position.z = 0.01;
+                buttonMesh.add(iconGroup);
+                const parts = { group: iconGroup };
+
+                if (type === 'playpause') {
+                    parts.play = addIconTriangle(iconGroup, 0.052, 0.062, 0.01, 0, 'right');
+                    parts.pauseLeft = addIconRect(iconGroup, 0.016, 0.064, -0.016, 0, 0);
+                    parts.pauseRight = addIconRect(iconGroup, 0.016, 0.064, 0.016, 0, 0);
+                } else if (type === 'back') {
+                    addIconRect(iconGroup, 0.012, 0.072, -0.024, 0, 0);
+                    addIconTriangle(iconGroup, 0.05, 0.06, 0.005, 0, 'left');
+                } else if (type === 'forward') {
+                    addIconTriangle(iconGroup, 0.05, 0.06, -0.005, 0, 'right');
+                    addIconRect(iconGroup, 0.012, 0.072, 0.024, 0, 0);
+                } else if (type === 'close') {
+                    addIconRect(iconGroup, 0.016, 0.07, 0, 0, Math.PI / 4);
+                    addIconRect(iconGroup, 0.016, 0.07, 0, 0, -Math.PI / 4);
+                } else if (type === 'front') {
+                    addIconRect(iconGroup, 0.055, 0.01, 0, 0.024, 0);
+                    addIconRect(iconGroup, 0.055, 0.01, 0, -0.024, 0);
+                    addIconRect(iconGroup, 0.01, 0.055, -0.024, 0, 0);
+                    addIconRect(iconGroup, 0.01, 0.055, 0.024, 0, 0);
+                    addIconRect(iconGroup, 0.01, 0.04, 0, 0, 0);
+                    addIconRect(iconGroup, 0.04, 0.01, 0, 0, 0);
+                } else if (type === 'volume') {
+                    addIconRect(iconGroup, 0.014, 0.04, -0.02, 0, 0);
+                    addIconTriangle(iconGroup, 0.04, 0.05, -0.002, 0, 'right');
+                    addIconRect(iconGroup, 0.01, 0.032, 0.028, 0.016, -0.6);
+                    addIconRect(iconGroup, 0.01, 0.04, 0.036, -0.012, 0.6);
+                } else if (type === 'light') {
+                    const sun = new THREE.Mesh(
+                        new THREE.CircleGeometry(0.022, 24),
+                        new THREE.MeshBasicMaterial({ color: iconMatColor, side: THREE.DoubleSide })
+                    );
+                    sun.position.set(0, 0, 0.012);
+                    iconGroup.add(sun);
+                    for (let i = 0; i < 8; i++) {
+                        const ray = addIconRect(iconGroup, 0.008, 0.022, 0, 0.04, i * (Math.PI / 4), iconMatColor);
+                        ray.position.x = Math.sin(i * (Math.PI / 4)) * 0.028;
+                        ray.position.y = Math.cos(i * (Math.PI / 4)) * 0.028;
+                    }
+                }
+
+                return parts;
+            }
+
+            function setPlayIconState(paused) {
+                if (!playIconParts) return;
+                playIconParts.play.visible = Boolean(paused);
+                playIconParts.pauseLeft.visible = !paused;
+                playIconParts.pauseRight.visible = !paused;
+            }
+
+            function createSlider(id, parent, x, y, w, h, initVal, onChange, orientation) {
+                const group = new THREE.Group();
+                group.position.set(x, y, 0.01);
+                parent.add(group);
+                const isVertical = orientation === 'vertical';
+
+                const bgGeo = createRoundedRectGeometry(w, h, Math.min(w, h) / 2);
+                const bgMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
+                const bg = new THREE.Mesh(bgGeo, bgMat);
+
+                const fillGeo = createRoundedRectGeometry(w, h, Math.min(w, h) / 2);
+                const fillMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+                const fill = new THREE.Mesh(fillGeo, fillMat);
+                fill.position.z = 0.001;
+
+                const knob = new THREE.Mesh(
+                    new THREE.CircleGeometry(isVertical ? w * 0.72 : h * 0.72, 24),
+                    new THREE.MeshBasicMaterial({ color: 0xe2e8f0, side: THREE.DoubleSide })
+                );
+                knob.position.z = 0.003;
+
+                group.add(bg);
+                group.add(fill);
+                group.add(knob);
+
+                const updateFill = (val) => {
+                    const ratio = Math.max(0, Math.min(1, val));
+                    if (ratio === 0) {
+                        fill.visible = false;
+                    } else {
+                        fill.visible = true;
+                        if (isVertical) {
+                            fill.scale.y = ratio;
+                            fill.position.y = (-h / 2) + (h * ratio) / 2;
+                            fill.scale.x = 1;
+                            fill.position.x = 0;
+                        } else {
+                            fill.scale.x = ratio;
+                            fill.position.x = (-w / 2) + (w * ratio) / 2;
+                            fill.scale.y = 1;
+                            fill.position.y = 0;
+                        }
+                    }
+                    if (isVertical) {
+                        knob.position.set(0, (-h / 2) + (h * ratio), 0.003);
+                    } else {
+                        knob.position.set((-w / 2) + (w * ratio), 0, 0.003);
+                    }
+                };
+                updateFill(initVal);
+
+                const dragHandler = (pt) => {
+                    const local = bg.worldToLocal(pt.clone());
+                    const raw = isVertical ? ((local.y + (h / 2)) / h) : ((local.x + (w / 2)) / w);
+                    const ratio = Math.max(0, Math.min(1, raw));
+                    updateFill(ratio);
+                    if (onChange) onChange(ratio);
+                };
+
+                bg.userData = { id, hover: 0x1e293b, bg: 0x0f172a, onClick: dragHandler, onDrag: dragHandler };
+                interactables.push(bg);
+
+                return { group, updateFill, bg, knob };
+            }
+
+            function createPopupSlider(id, parent, x, y, initVal, onChange, labels) {
+                const popup = new THREE.Group();
+                popup.position.set(x, y, 0.03);
+                popup.visible = false;
+                parent.add(popup);
+
+                const panel = new THREE.Mesh(
+                    createRoundedRectGeometry(0.22, 0.72, 0.09),
+                    new THREE.MeshBasicMaterial({ color: 0x08111b, transparent: true, opacity: 0.96, side: THREE.DoubleSide })
+                );
+                popup.add(panel);
+                const border = new THREE.Mesh(
+                    createRoundedRectGeometry(0.2, 0.7, 0.08),
+                    new THREE.MeshBasicMaterial({ color: panelLineColor, transparent: true, opacity: 0.35, side: THREE.DoubleSide, wireframe: true })
+                );
+                border.position.z = 0.001;
+                popup.add(border);
+
+                createTextObj(labels.top, popup, 0, 0.26, 0.036, 0xcbd5e1);
+                createTextObj(labels.bottom, popup, 0, -0.28, 0.03, 0x94a3b8);
+
+                const slider = createSlider(id, popup, 0, -0.005, 0.045, 0.38, initVal, onChange, 'vertical');
+                slider.group.position.z = 0.01;
+
+                return { group: popup, slider };
+            }
+
+            function togglePopup(kind) {
+                const showingVolume = kind === 'volume';
+                const nextVolume = showingVolume ? !volumeSliderPopup.group.visible : false;
+                const nextLight = !showingVolume ? !lightSliderPopup.group.visible : false;
+                volumeSliderPopup.group.visible = nextVolume;
+                lightSliderPopup.group.visible = nextLight;
+                setButtonActive(volumeButton.mesh, nextVolume);
+                setButtonActive(lightButton.mesh, nextLight);
+                if (nextLight && !state.passthroughEnabled) {
+                    state.passthroughEnabled = true;
+                    updatePassthroughVisuals();
+                }
+            }
+
+            function recenterVideoSurface() {
+                const refCam = (renderer && renderer.xr && renderer.xr.isPresenting) ? renderer.xr.getCamera() : camera;
+                if (!refCam) return;
+                const camPos = new THREE.Vector3();
+                refCam.getWorldPosition(camPos);
+                const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(refCam.quaternion).normalize();
+                if (state.mode.projection === 'screen') {
+                    const dist = Math.max(4, Math.abs(state.screenDistance));
+                    const target = camPos.clone().add(forward.clone().multiplyScalar(dist));
+                    surfaceRoot.position.copy(target);
+                    surfaceRoot.lookAt(camPos);
+                } else {
+                    const yaw = Math.atan2(forward.x, forward.z);
+                    surfaceRoot.rotation.set(0, yaw, 0);
+                }
+            }
+
+            function updateTitleMetrics() {
+                if (!titleTextObj) return;
+                const bounds = titleTextObj.textRenderInfo && titleTextObj.textRenderInfo.blockBounds;
+                if (bounds && bounds.length === 4) {
+                    titleState.textWidth = Math.max(0, bounds[2] - bounds[0]);
+                } else {
+                    titleState.textWidth = titleTextObj.text.length * titleTextObj.fontSize * 0.56;
+                }
+                titleState.needsScroll = titleState.textWidth > titleState.clipWidth;
+                if (!titleState.needsScroll) {
+                    titleState.scrollOffset = 0;
+                    titleTextObj.position.x = -titleState.textWidth / 2;
+                } else {
+                    titleState.pauseUntil = performance.now() + 1800;
+                    titleState.scrollOffset = 0;
+                    titleTextObj.position.x = -titleState.clipWidth / 2;
+                }
+                titleMeasurePending = false;
+            }
+
+            function setDisplayedTitle(nextTitle) {
+                const value = String(nextTitle || '').trim() || 'Playing Video';
+                if (!titleTextObj || lastKnownTitle === value) return;
+                lastKnownTitle = value;
+                titleTextObj.text = value;
+                titleMeasurePending = true;
+                titleTextObj.sync(updateTitleMetrics);
+            }
+
+            // --- Main Dock ---
+            const dockGeo = createRoundedRectGeometry(2.32, 0.82, 0.14);
+            bgMesh = new THREE.Mesh(dockGeo, frostedMat);
+            bgMesh.position.set(0, 0, 0);
+            uiGroup.add(bgMesh);
+
+            const titlePlate = new THREE.Mesh(
+                createRoundedRectGeometry(1.9, 0.15, 0.065),
+                new THREE.MeshBasicMaterial({ color: 0x08111b, transparent: true, opacity: 0.8, side: THREE.DoubleSide })
+            );
+            titlePlate.position.set(0, 0.24, 0.01);
+            uiGroup.add(titlePlate);
+
+            titleTextObj = createTextObj('Playing Video', uiGroup, 0, 0.24, 0.05, 0xf8fafc, 'left');
+            titleTextObj.maxWidth = 8;
+            titleTextObj.clipRect = [-titleState.clipWidth / 2, -0.055, titleState.clipWidth / 2, 0.055];
+
+            const currentTimeRowY = -0.23;
+            currentTimeTextObj = createTextObj('0:00', uiGroup, -1.05, currentTimeRowY, 0.038, 0xcbd5e1, 'left');
+            durationTextObj = createTextObj('0:00', uiGroup, 1.05, currentTimeRowY, 0.038, 0xcbd5e1, 'right');
+
+            const seekW = 1.52;
+            const seekH = 0.045;
+            const seekGroup = new THREE.Group();
+            seekGroup.position.set(0, currentTimeRowY, 0.01);
+            uiGroup.add(seekGroup);
+
+            const sBgGeo = createRoundedRectGeometry(seekW, seekH, seekH / 2);
+            seekBg = new THREE.Mesh(sBgGeo, new THREE.MeshBasicMaterial({ color: 0x0f172a }));
+            seekGroup.add(seekBg);
+
+            const sBufGeo = createRoundedRectGeometry(seekW, seekH, seekH / 2);
+            seekBuf = new THREE.Mesh(sBufGeo, new THREE.MeshBasicMaterial({ color: 0x475569 }));
+            seekBuf.position.z = 0.001;
+            seekGroup.add(seekBuf);
+
+            const sFillGeo = createRoundedRectGeometry(seekW, seekH, seekH / 2);
+            seekFill = new THREE.Mesh(sFillGeo, new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+            seekFill.position.z = 0.002;
+            seekGroup.add(seekFill);
+
+            const handleSeekDrag = (pt) => {
+                const local = seekBg.worldToLocal(pt.clone());
+                const raw = (local.x + seekW / 2) / seekW;
+                const ratio = Math.max(0, Math.min(1, raw));
+                if (Number.isFinite(jellyfinVideo.duration)) jellyfinVideo.currentTime = ratio * jellyfinVideo.duration;
+            };
+            seekBg.userData = { hover: 0x1e293b, bg: 0x0f172a, onClick: handleSeekDrag, onDrag: handleSeekDrag };
+            interactables.push(seekBg);
+
+            const btnY = 0.01;
+            const frontBtn = createRoundBtn('btn-front', uiGroup, -0.74, btnY, 0.075, () => recenterVideoSurface(), { hover: 0x40556c });
+            buildButtonIcon(frontBtn.mesh, 'front');
+
+            const backBtn = createRoundBtn('btn-back', uiGroup, -0.28, btnY, 0.08, () => { jellyfinVideo.currentTime = Math.max(0, jellyfinVideo.currentTime - 10); });
+            buildButtonIcon(backBtn.mesh, 'back');
+
+            const playBtn = createRoundBtn('btn-play', uiGroup, 0, btnY, 0.1, () => {
+                if (jellyfinVideo.paused) jellyfinVideo.play().catch(() => { });
+                else jellyfinVideo.pause();
+            }, { color: 0x0c4a6e, hover: 0x075985, activeColor: 0x0ea5e9 });
+            playIconParts = buildButtonIcon(playBtn.mesh, 'playpause');
+
+            const fwdBtn = createRoundBtn('btn-fwd', uiGroup, 0.28, btnY, 0.08, () => {
+                const nextTime = jellyfinVideo.currentTime + 10;
+                jellyfinVideo.currentTime = Number.isFinite(jellyfinVideo.duration) ? Math.min(jellyfinVideo.duration, nextTime) : nextTime;
+            });
+            buildButtonIcon(fwdBtn.mesh, 'forward');
+
+            volumeButton = createRoundBtn('btn-volume', uiGroup, 0.62, btnY, 0.072, () => togglePopup('volume'), { hover: 0x40556c });
+            buildButtonIcon(volumeButton.mesh, 'volume');
+            volumeSliderPopup = createPopupSlider('s-volume', uiGroup, 0.62, 0.43, Math.min(1, Math.max(0, jellyfinVideo.muted ? 0 : jellyfinVideo.volume)), (v) => {
+                jellyfinVideo.volume = Math.min(1, Math.max(0, v));
+                jellyfinVideo.muted = v <= 0.001;
+            }, { top: ')))', bottom: ')' });
+
+            lightButton = createRoundBtn('btn-light', uiGroup, 0.82, btnY, 0.072, () => togglePopup('light'), { hover: 0x40556c });
+            buildButtonIcon(lightButton.mesh, 'light');
+            lightSliderPopup = createPopupSlider('s-light', uiGroup, 0.82, 0.43, state.passthroughBrightness, (v) => {
+                state.passthroughBrightness = v;
+                state.passthroughEnabled = true;
+                updatePassthroughVisuals();
+            }, { top: '*', bottom: '.' });
+
+            const closeBtn = createRoundBtn('btn-close', uiGroup, 1.02, btnY, 0.062, () => close(), { color: 0x3f1017, hover: 0x5f1621, activeColor: 0xfb7185 });
+            buildButtonIcon(closeBtn.mesh, 'close');
+
+            setDisplayedTitle(getCurrentVideoTitle(jellyfinVideo));
+            setPlayIconState(jellyfinVideo.paused);
+
+
+            // Raycaster & Interaction
+            const raycaster = new THREE.Raycaster();
+            const tempMatrix = new THREE.Matrix4();
+            let hoveredObj = null;
+
+            function onSelectStart(event) {
+                const controller = event.target;
+                if (!state.uiVisible) {
+                    toggleUI(controller);
+                    return;
+                }
+                tempMatrix.identity().extractRotation(controller.matrixWorld);
+                raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
+                raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+                const intersects = raycaster.intersectObjects(interactables, false);
+                if (intersects.length > 0) {
+                    const obj = intersects[0].object;
+                    if (obj.userData.onClick) obj.userData.onClick(intersects[0].point);
+                    if (obj.userData.onDrag) controller.userData.dragTarget = obj;
+                } else {
+                    toggleUI(controller);
+                }
+            }
+
+            function onSelectEnd(event) {
+                const controller = event.target;
+                if (controller.userData.dragTarget) {
+                    controller.userData.dragTarget = null;
+                }
+            }
+
+            const controllerModelFactory = new XRControllerModelFactory();
+            const handModelFactory = new XRHandModelFactory();
+
+            for (let i = 0; i < 2; i++) {
+                const controller = renderer.xr.getController(i);
+                scene.add(controller);
+                controller.addEventListener('selectstart', (e) => {
+                    state.lastInteraction = Date.now();
+                    onSelectStart(e);
+                });
+                controller.addEventListener('selectend', (e) => {
+                    onSelectEnd(e);
+                });
+                controller.addEventListener('squeezestart', (e) => toggleUI(e.target));
+
+                const grip = renderer.xr.getControllerGrip(i);
+                grip.add(controllerModelFactory.createControllerModel(grip));
+                scene.add(grip);
+
+                const hand = renderer.xr.getHand(i);
+                hand.add(handModelFactory.createHandModel(hand, 'boxes'));
+                scene.add(hand);
+
+                const geometryLine = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -5)]);
+                const line = new THREE.Line(geometryLine, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 }));
+                controller.add(line);
+            }
+
+            function updateHover(controllers) {
+                const getRestColor = (obj) => (obj && obj.userData && obj.userData.isActive ? obj.userData.activeColor : obj.userData.bg);
+                let hit = false;
+                if (!state.uiVisible) {
+                    for (let i = 0; i < controllers.length; i++) {
+                        const cont = controllers[i];
+                        if (cont && cont.children[0]) cont.children[0].scale.z = 1;
+                    }
+                    if (hoveredObj) {
+                        if (hoveredObj.material.color) hoveredObj.material.color.setHex(getRestColor(hoveredObj));
+                        hoveredObj = null;
+                    }
+                    return;
+                }
+
+                for (let i = 0; i < controllers.length; i++) {
+                    const controller = controllers[i];
+                    if (!controller.visible) continue;
+                    tempMatrix.identity().extractRotation(controller.matrixWorld);
+                    raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
+                    raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+                    const intersects = raycaster.intersectObjects(interactables, false);
+                    if (intersects.length > 0) {
+                        const obj = intersects[0].object;
+                        if (hoveredObj && hoveredObj !== obj) {
+                            if (hoveredObj.material.color) hoveredObj.material.color.setHex(getRestColor(hoveredObj));
+                        }
+                        hoveredObj = obj;
+                        if (hoveredObj.material.color) hoveredObj.material.color.setHex(hoveredObj.userData.hover);
+                        hit = true;
+                        state.lastInteraction = Date.now();
+
+                        const dist = intersects[0].distance;
+                        const line = controller.children[0];
+                        if (line) line.scale.z = dist / 5;
+                    } else {
+                        const line = controller.children[0];
+                        if (line) line.scale.z = 1;
+                    }
+                }
+                if (!hit && hoveredObj) {
+                    if (hoveredObj.material.color) hoveredObj.material.color.setHex(getRestColor(hoveredObj));
+                    hoveredObj = null;
+                }
+            }
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            // Init the scene look
             applyModeFromState();
-         }
-      }
 
-      // Rounded Geometries Utility
-      function createRoundedRectGeometry(width, height, radius, segments) {
-         const shape = new THREE.Shape();
-         const w = width / 2;
-         const h = height / 2;
-         shape.moveTo(-w, -h + radius);
-         shape.lineTo(-w, h - radius);
-         shape.quadraticCurveTo(-w, h, -w + radius, h);
-         shape.lineTo(w - radius, h);
-         shape.quadraticCurveTo(w, h, w, h - radius);
-         shape.lineTo(w, -h + radius);
-         shape.quadraticCurveTo(w, -h, w - radius, -h);
-         shape.lineTo(-w + radius, -h);
-         shape.quadraticCurveTo(-w, -h, -w, -h + radius);
-         return new THREE.ShapeGeometry(shape, segments || 16);
-      }
-
-      // UI Builder
-      uiGroup = new THREE.Group();
-      uiGroup.position.set(0, -0.4, -state.uiDistance);
-      scene.add(uiGroup);
-
-      // Materials
-      const frostedMat = new THREE.MeshBasicMaterial({
-         color: 0x0f172a,
-         transparent: true,
-         opacity: 0.85,
-         side: THREE.DoubleSide
-      });
-
-      const btnMatBase = new THREE.MeshBasicMaterial({ color: 0x1e293b, transparent: true, opacity: 0.9 });
-      const iconMatColor = 0xe2e8f0;
-
-      function createTextObj(str, parent, x, y, size, color, align) {
-         const t = new Text();
-         t.text = str;
-         t.fontSize = size;
-         t.color = color;
-         t.position.set(x, y, 0.01);
-         t.anchorX = align || 'center';
-         t.anchorY = 'middle';
-         parent.add(t);
-         return t;
-      }
-
-      function createRoundBtn(id, parent, x, y, radius, label, onClick) {
-         const geo = new THREE.CircleGeometry(radius, 48);
-         const mat = btnMatBase.clone();
-         const mesh = new THREE.Mesh(geo, mat);
-         mesh.position.set(x, y, 0.005);
-         mesh.userData = { id, isBtn: true, bg: 0x1e293b, hover: 0x334155, onClick };
-         parent.add(mesh);
-         interactables.push(mesh);
-         let textObj = null;
-         if (label) {
-            textObj = createTextObj(label, mesh, 0, 0, radius * 0.9, iconMatColor);
-         }
-         return { mesh, textObj };
-      }
-
-      function createSlider(id, parent, x, y, w, h, initVal, onChange) {
-         const group = new THREE.Group();
-         group.position.set(x, y, 0.01);
-         parent.add(group);
-
-         const bgGeo = createRoundedRectGeometry(w, h, h/2);
-         const bgMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
-         const bg = new THREE.Mesh(bgGeo, bgMat);
-         
-         const fillGeo = createRoundedRectGeometry(w, h, h/2);
-         const fillMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
-         const fill = new THREE.Mesh(fillGeo, fillMat);
-         fill.position.z = 0.001;
-
-         group.add(bg);
-         group.add(fill);
-
-         const updateFill = (val) => {
-            const ratio = Math.max(0, Math.min(1, val));
-            if (ratio === 0) {
-                fill.visible = false;
-            } else {
-                fill.visible = true;
-                fill.scale.x = ratio;
-                fill.position.x = (-w/2) + (w * ratio)/2;
-            }
-         };
-         updateFill(initVal);
-
-         const dragHandler = (pt) => {
-            const local = bg.worldToLocal(pt.clone());
-            const raw = (local.x + (w/2)) / w;
-            const ratio = Math.max(0, Math.min(1, raw));
-            updateFill(ratio);
-            if (onChange) onChange(ratio);
-         };
-
-         bg.userData = { id, hover: 0x1e293b, bg: 0x0f172a, onClick: dragHandler, onDrag: dragHandler };
-         interactables.push(bg);
-
-         return { group, updateFill };
-      }
-
-      // --- Main Dock ---
-      const dockGeo = createRoundedRectGeometry(2.2, 0.35, 0.175);
-      bgMesh = new THREE.Mesh(dockGeo, frostedMat);
-      bgMesh.position.set(0, 0, 0);
-      uiGroup.add(bgMesh);
-
-      // Top of dock: Seekbar Wrapper
-      const seekW = 1.9;
-      const seekH = 0.04;
-      const seekGroup = new THREE.Group();
-      seekGroup.position.set(0, 0.08, 0.01);
-      uiGroup.add(seekGroup);
-
-      const sBgGeo = createRoundedRectGeometry(seekW, seekH, seekH/2);
-      seekBg = new THREE.Mesh(sBgGeo, new THREE.MeshBasicMaterial({ color: 0x0f172a }));
-      seekGroup.add(seekBg);
-
-      const sBufGeo = createRoundedRectGeometry(seekW, seekH, seekH/2);
-      seekBuf = new THREE.Mesh(sBufGeo, new THREE.MeshBasicMaterial({ color: 0x475569 }));
-      seekBuf.position.z = 0.001;
-      seekGroup.add(seekBuf);
-
-      const sFillGeo = createRoundedRectGeometry(seekW, seekH, seekH/2);
-      seekFill = new THREE.Mesh(sFillGeo, new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
-      seekFill.position.z = 0.002;
-      seekGroup.add(seekFill);
-
-      const handleSeekDrag = (pt) => {
-         const local = seekBg.worldToLocal(pt.clone());
-         const raw = (local.x + seekW/2) / seekW;
-         const ratio = Math.max(0, Math.min(1, raw));
-         if (Number.isFinite(jellyfinVideo.duration)) jellyfinVideo.currentTime = ratio * jellyfinVideo.duration;
-      };
-      seekBg.userData = { hover: 0x1e293b, bg: 0x0f172a, onClick: handleSeekDrag, onDrag: handleSeekDrag };
-      interactables.push(seekBg);
-
-      timeTextObj = createTextObj('0:00 / 0:00', uiGroup, -0.9, 0.15, 0.035, 0x94a3b8, 'left');
-      modeTextObj = createTextObj(state.mode.shortLabel, uiGroup, 0.9, 0.15, 0.035, 0x38bdf8, 'right');
-
-      // Bottom of dock: Toolbar Buttons
-      let btnY = -0.07;
-      let spacing = 0.18;
-      
-      createRoundBtn('btn-back', uiGroup, -spacing*3.5, btnY, 0.065, '⏪', () => jellyfinVideo.currentTime -= 10);
-      const pb = createRoundBtn('btn-play', uiGroup, -spacing*2.5, btnY, 0.075, '⏸️', () => jellyfinVideo.paused ? jellyfinVideo.play() : jellyfinVideo.pause());
-      playBtnText = pb.textObj;
-      createRoundBtn('btn-fwd', uiGroup, -spacing*1.5, btnY, 0.065, '⏩', () => jellyfinVideo.currentTime += 10);
-
-      createRoundBtn('btn-mute', uiGroup, 0, btnY, 0.065, '🔇', () => jellyfinVideo.muted = !jellyfinVideo.muted);
-      
-      const ptBtn = createRoundBtn('btn-pt', uiGroup, spacing*1.5, btnY, 0.065, '🕶️', () => {
-         state.passthroughEnabled = !state.passthroughEnabled;
-         updatePassthroughVisuals();
-      });
-      ptBtnText = ptBtn.textObj;
-
-      createRoundBtn('btn-settings', uiGroup, spacing*2.5, btnY, 0.065, '⚙️', () => {
-         state.showingSettings = !state.showingSettings;
-         settingsGroup.visible = state.showingSettings;
-      });
-
-      createRoundBtn('btn-close', uiGroup, spacing*3.5, btnY, 0.065, '✖️', () => close());
-
-
-      // --- Settings Menu ---
-      settingsGroup = new THREE.Group();
-      settingsGroup.position.set(0, 0.45, 0);
-      settingsGroup.visible = false;
-      uiGroup.add(settingsGroup);
-
-      const setGeo = createRoundedRectGeometry(1.6, 0.5, 0.08);
-      const setBg = new THREE.Mesh(setGeo, frostedMat);
-      settingsGroup.add(setBg);
-
-      // Presets row
-      const pY = 0.16;
-      createTextObj('Layout', settingsGroup, -0.65, pY, 0.035, 0xe2e8f0, 'left');
-      
-      createRoundBtn('m-2d', settingsGroup, -0.3, pY, 0.045, '2D', () => switchMode('3d-sbs-half')).textObj.fontSize = 0.025; // using 3d mapping generically and toggle fixes it
-      createRoundBtn('m-3d', settingsGroup, -0.15, pY, 0.045, '3D', () => {
-         const b = state.mode.stereo === 'mono' ? 'sbs' : 'mono';
-         const id = state.mode.projection === 'screen' ? (b==='mono'?'3d-sbs-half':'3d-sbs-full') : state.mode.projection + '-' + b + '-full';
-         switchMode(id);
-      }).textObj.fontSize = 0.025;
-      
-      createRoundBtn('m-180', settingsGroup, 0.1, pY, 0.045, '180', () => switchMode('180-sbs-full')).textObj.fontSize = 0.025;
-      createRoundBtn('m-360', settingsGroup, 0.25, pY, 0.045, '360', () => switchMode('360-sbs-full')).textObj.fontSize = 0.025;
-
-      createRoundBtn('btn-tgl-stereo', settingsGroup, 0.5, pY, 0.05, '🔄', () => {
-          let m = state.mode;
-          let ns = m.stereo === 'mono' ? 'sbs' : (m.stereo === 'sbs' ? 'ou' : 'mono');
-          if (m.projection === 'screen' && ns === 'mono') ns = 'sbs'; 
-          const id = m.projection === 'screen' ? '3d-sbs-full' : `${m.projection}-${ns}-full`;
-          if (MODES_BY_ID[id]) switchMode(id);
-      }).textObj.fontSize = 0.04;
-
-      // Sliders Column 1 (Screen Params)
-      const sY1 = 0.02; const sY2 = -0.06; const sY3 = -0.14;
-      createTextObj('Curve', settingsGroup, -0.65, sY1, 0.03, 0x94a3b8, 'left');
-      const sCrv = createSlider('s-curve', settingsGroup, -0.2, sY1, 0.5, 0.03, state.screenCurvature, (v) => { state.screenCurvature = v; applyModeFromState(); });
-      
-      createTextObj('Dist.', settingsGroup, -0.65, sY2, 0.03, 0x94a3b8, 'left');
-      const initDistRatio = (state.screenDistance - (-20)) / (-4 - (-20));
-      const sDist = createSlider('s-dist', settingsGroup, -0.2, sY2, 0.5, 0.03, initDistRatio, (v) => { state.screenDistance = -20 + (v * 16); applyModeFromState(); });
-
-      createTextObj('Size', settingsGroup, -0.65, sY3, 0.03, 0x94a3b8, 'left');
-      const initSizeRatio = (state.screenSize - 0.5) / (3.0 - 0.5);
-      const sSize = createSlider('s-size', settingsGroup, -0.2, sY3, 0.5, 0.03, initSizeRatio, (v) => { state.screenSize = 0.5 + (v * 2.5); applyModeFromState(); });
-
-      // Sliders Column 2 (Passthrough Params)
-      createTextObj('UI Dist', settingsGroup, 0.15, sY1, 0.03, 0x94a3b8, 'left');
-      const initUIDist = (state.uiDistance - 1) / (4 - 1);
-      const sUIDist = createSlider('s-uidist', settingsGroup, 0.55, sY1, 0.4, 0.03, initUIDist, (v) => { 
-         state.uiDistance = 1 + (v * 3); 
-         localStorage.setItem('jfvr:ui-distance', state.uiDistance.toString());
-      });
-
-      createTextObj('Dimmer', settingsGroup, 0.15, sY2, 0.03, 0x94a3b8, 'left');
-      const sDim = createSlider('s-dimmer', settingsGroup, 0.55, sY2, 0.4, 0.03, state.passthroughBrightness, (v) => { state.passthroughBrightness = v; updatePassthroughVisuals(); });
-
-
-      // Raycaster & Interaction
-      const raycaster = new THREE.Raycaster();
-      const tempMatrix = new THREE.Matrix4();
-      let hoveredObj = null;
-
-      function onSelectStart(event) {
-         const controller = event.target;
-         if (!state.uiVisible) {
-            toggleUI(controller);
-            return;
-         }
-         tempMatrix.identity().extractRotation(controller.matrixWorld);
-         raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
-         raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
-         const intersects = raycaster.intersectObjects(interactables, false);
-         if (intersects.length > 0) {
-            const obj = intersects[0].object;
-            if (obj.userData.onClick) obj.userData.onClick(intersects[0].point);
-            if (obj.userData.onDrag) controller.userData.dragTarget = obj;
-         } else {
-            toggleUI(controller);
-         }
-      }
-
-      function onSelectEnd(event) {
-         const controller = event.target;
-         if (controller.userData.dragTarget) {
-            controller.userData.dragTarget = null;
-         }
-      }
-
-      const controllerModelFactory = new XRControllerModelFactory();
-      const handModelFactory = new XRHandModelFactory();
-
-      for (let i = 0; i < 2; i++) {
-         const controller = renderer.xr.getController(i);
-         scene.add(controller);
-         controller.addEventListener('selectstart', (e) => {
-            state.lastInteraction = Date.now();
-            onSelectStart(e);
-         });
-         controller.addEventListener('selectend', (e) => {
-            onSelectEnd(e);
-         });
-         controller.addEventListener('squeezestart', (e) => toggleUI(e.target));
-         
-         const grip = renderer.xr.getControllerGrip(i);
-         grip.add(controllerModelFactory.createControllerModel(grip));
-         scene.add(grip);
-
-         const hand = renderer.xr.getHand(i);
-         hand.add(handModelFactory.createHandModel(hand, 'boxes'));
-         scene.add(hand);
-
-         const geometryLine = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -5)]);
-         const line = new THREE.Line(geometryLine, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 }));
-         controller.add(line);
-      }
-
-      function updateHover(controllers) {
-         let hit = false;
-         if (!state.uiVisible) {
-            for(let i=0; i<controllers.length; i++) {
-               const cont = controllers[i];
-               if (cont && cont.children[0]) cont.children[0].scale.z = 1;
-            }
-            if (hoveredObj) {
-               if (hoveredObj.material.color) hoveredObj.material.color.setHex(hoveredObj.userData.bg);
-               hoveredObj = null;
-            }
-            return;
-         }
-
-         for(let i=0; i<controllers.length; i++) {
-            const controller = controllers[i];
-            if (!controller.visible) continue;
-            tempMatrix.identity().extractRotation(controller.matrixWorld);
-            raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
-            raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
-            const intersects = raycaster.intersectObjects(interactables, false);
-            if (intersects.length > 0) {
-               const obj = intersects[0].object;
-               if (hoveredObj && hoveredObj !== obj) {
-                  if (hoveredObj.material.color) hoveredObj.material.color.setHex(hoveredObj.userData.bg);
-               }
-               hoveredObj = obj;
-               if (hoveredObj.material.color) hoveredObj.material.color.setHex(hoveredObj.userData.hover);
-               hit = true;
-               state.lastInteraction = Date.now();
-               
-               const dist = intersects[0].distance;
-               const line = controller.children[0];
-               if (line) line.scale.z = dist / 5;
-            } else {
-               const line = controller.children[0];
-               if (line) line.scale.z = 1;
-            }
-         }
-         if (!hit && hoveredObj) {
-            if (hoveredObj.material.color) hoveredObj.material.color.setHex(hoveredObj.userData.bg);
-            hoveredObj = null;
-         }
-      }
-
-      window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-      });
-
-      // Init the scene look
-      applyModeFromState();
-
-      renderer.setAnimationLoop(() => {
-         const dur = jellyfinVideo.duration || 0;
-         const cur = jellyfinVideo.currentTime || 0;
-         if (timeTextObj) timeTextObj.text = `${formatTime(cur)} / ${formatTime(dur)}`;
-         
-         const ratio = dur > 0 ? (cur / dur) : 0;
-         const sW = 1.9;
-         seekFill.scale.x = ratio || 0.001;
-         seekFill.position.x = (-sW/2) + (sW * ratio) / 2;
-
-         if (jellyfinVideo.buffered && jellyfinVideo.buffered.length > 0) {
-             const bufEnd = jellyfinVideo.buffered.end(jellyfinVideo.buffered.length - 1);
-             const bRatio = dur > 0 ? (bufEnd / dur) : 0;
-             seekBuf.scale.x = bRatio || 0.001;
-             seekBuf.position.x = (-sW/2) + (sW * bRatio) / 2;
-         } else {
-             seekBuf.scale.x = 0.001;
-         }
-
-         if (playBtnText) {
-            playBtnText.text = jellyfinVideo.paused ? '▶️' : '⏸️';
-         }
-         if (ptBtnText) {
-            ptBtnText.text = state.passthroughEnabled ? '👁️' : '🕶️';
-         }
-
-         updateHover([renderer.xr.getController(0), renderer.xr.getController(1)]);
-
-         for(let i=0; i<2; i++) {
-            const controller = renderer.xr.getController(i);
-            if (controller && controller.userData && controller.userData.dragTarget) {
-               const obj = controller.userData.dragTarget;
-               tempMatrix.identity().extractRotation(controller.matrixWorld);
-               raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
-               raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
-               
-               // Intersect against local plane of the UI
-               const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(uiGroup.quaternion);
-               let dragPlanePos = obj.getWorldPosition(new THREE.Vector3());
-               if (obj.parent) dragPlanePos = obj.parent.getWorldPosition(new THREE.Vector3());
-               else dragPlanePos = uiGroup.getWorldPosition(new THREE.Vector3());
-
-               const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, dragPlanePos);
-               const intersectPoint = new THREE.Vector3();
-               if (raycaster.ray.intersectPlane(plane, intersectPoint)) {
-                  if (obj.userData.onDrag) obj.userData.onDrag(intersectPoint);
-               }
-               state.lastInteraction = Date.now();
-            }
-         }
-
-         if (state.uiVisible && Date.now() - state.lastInteraction > 5000) {
-            toggleUI();
-         }
-
-         renderer.render(scene, camera);
-      });
-    }
-
-    function close() {
-      active = false;
-      if (renderer) {
-        renderer.setAnimationLoop(null);
-        if (renderer.xr.isPresenting) renderer.xr.getSession().end();
-        renderer.dispose();
-      }
-      overlay.remove();
-      styleEl.remove();
-    }
-
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape') { event.preventDefault(); close(); }
-      if (event.key === ' ') { event.preventDefault(); jellyfinVideo.paused ? jellyfinVideo.play() : jellyfinVideo.pause(); }
-    };
-    overlay.addEventListener('keydown', onKeyDown);
-    
-    initThree().catch(err => {
-      console.error("Three.js initialization failed:", err);
-      overlay.innerHTML = '<div style="color:white;padding:20px;">Failed to load VR Player. Check console.</div>';
-    });
-
-    return { close };
-  }
-
-  async function openInlinePlayer(modeId) {
-    const jellyfinVideo = getCurrentJellyfinVideo();
-    if (!jellyfinVideo || !(jellyfinVideo.currentSrc || jellyfinVideo.src)) {
-      window.alert('No video is currently playing in Jellyfin. Start playback first.');
-      return;
-    }
-
-    if (activeInlinePlayer) {
-      activeInlinePlayer.close();
-    }
-
-    localStorage.setItem(STORAGE_KEYS.lastMode, modeId);
-
-    try {
-      /* three.js loaded dynamically */
-    } catch (error) {
-      window.alert('Failed to load the VR runtime.');
-      return;
-    }
-
-    const styleEl = document.createElement('style');
-    styleEl.id = 'jfvr-inline-style';
-    styleEl.textContent = INLINE_PLAYER_STYLE;
-    document.head.appendChild(styleEl);
-
-    const overlay = document.createElement('div');
-    overlay.id = 'jfvr-inline-overlay';
-    overlay.innerHTML = INLINE_PLAYER_HTML;
-    document.body.appendChild(overlay);
-
-    activeInlinePlayer = createInlinePlayerRuntime(overlay, styleEl, jellyfinVideo, modeId);
-  }
-
-  function requestPlayerState(playerWindow) {
-    return new Promise((resolve) => {
-      if (!playerWindow || playerWindow.closed) {
-        resolve(null);
-        return;
-      }
-
-      let settled = false;
-      const timeout = window.setTimeout(() => {
-        cleanup();
-        resolve(null);
-      }, 500);
-
-      const onMessage = (event) => {
-        if (event.source !== playerWindow) return;
-        const data = event.data || {};
-        if (data.type !== 'PLAYER_STATE') return;
-        cleanup();
-        resolve(data);
-      };
-
-      const cleanup = () => {
-        if (settled) return;
-        settled = true;
-        window.clearTimeout(timeout);
-        window.removeEventListener('message', onMessage);
-      };
-
-      window.addEventListener('message', onMessage);
-      playerWindow.postMessage({ type: 'REQUEST_STATE' }, '*');
-    });
-  }
-
-  function restorePlaybackState(jellyfinVideo, playerState) {
-    if (!jellyfinVideo) return;
-
-    if (playerState) {
-      if (Number.isFinite(playerState.currentTime)) {
-        try {
-          jellyfinVideo.currentTime = playerState.currentTime;
-        } catch (error) {
-          // ignored
+            renderer.setAnimationLoop(() => {
+                const dur = jellyfinVideo.duration || 0;
+                const cur = jellyfinVideo.currentTime || 0;
+                if (currentTimeTextObj) currentTimeTextObj.text = formatTime(cur);
+                if (durationTextObj) durationTextObj.text = formatTime(dur);
+
+                const ratio = dur > 0 ? (cur / dur) : 0;
+                const sW = 1.52;
+                seekFill.scale.x = ratio || 0.001;
+                seekFill.position.x = (-sW / 2) + (sW * ratio) / 2;
+
+                if (jellyfinVideo.buffered && jellyfinVideo.buffered.length > 0) {
+                    const bufEnd = jellyfinVideo.buffered.end(jellyfinVideo.buffered.length - 1);
+                    const bRatio = dur > 0 ? (bufEnd / dur) : 0;
+                    seekBuf.scale.x = bRatio || 0.001;
+                    seekBuf.position.x = (-sW / 2) + (sW * bRatio) / 2;
+                } else {
+                    seekBuf.scale.x = 0.001;
+                }
+
+                setPlayIconState(jellyfinVideo.paused);
+                if (volumeSliderPopup) {
+                    volumeSliderPopup.slider.updateFill(jellyfinVideo.muted ? 0 : (jellyfinVideo.volume || 0));
+                }
+                if (lightSliderPopup) {
+                    lightSliderPopup.slider.updateFill(state.passthroughBrightness);
+                }
+
+                const now = performance.now();
+                if (now - lastTitleCheckAt > 1200) {
+                    lastTitleCheckAt = now;
+                    setDisplayedTitle(getCurrentVideoTitle(jellyfinVideo));
+                }
+                if (titleMeasurePending && titleTextObj && !titleTextObj.textRenderInfo) {
+                    titleTextObj.sync(updateTitleMetrics);
+                }
+                if (titleTextObj && !titleMeasurePending && titleState.needsScroll) {
+                    if (now >= titleState.pauseUntil) {
+                        titleState.scrollOffset += 0.0028;
+                        const scrollLimit = titleState.textWidth - titleState.clipWidth + 0.16;
+                        if (titleState.scrollOffset >= scrollLimit) {
+                            titleState.scrollOffset = 0;
+                            titleState.pauseUntil = now + 2000;
+                            titleTextObj.position.x = -titleState.clipWidth / 2;
+                        } else {
+                            titleTextObj.position.x = (-titleState.clipWidth / 2) - titleState.scrollOffset;
+                        }
+                    }
+                }
+
+                updateHover([renderer.xr.getController(0), renderer.xr.getController(1)]);
+
+                for (let i = 0; i < 2; i++) {
+                    const controller = renderer.xr.getController(i);
+                    if (controller && controller.userData && controller.userData.dragTarget) {
+                        const obj = controller.userData.dragTarget;
+                        tempMatrix.identity().extractRotation(controller.matrixWorld);
+                        raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
+                        raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+
+                        // Intersect against local plane of the UI
+                        const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(uiGroup.quaternion);
+                        let dragPlanePos = obj.getWorldPosition(new THREE.Vector3());
+                        if (obj.parent) dragPlanePos = obj.parent.getWorldPosition(new THREE.Vector3());
+                        else dragPlanePos = uiGroup.getWorldPosition(new THREE.Vector3());
+
+                        const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, dragPlanePos);
+                        const intersectPoint = new THREE.Vector3();
+                        if (raycaster.ray.intersectPlane(plane, intersectPoint)) {
+                            if (obj.userData.onDrag) obj.userData.onDrag(intersectPoint);
+                        }
+                        state.lastInteraction = Date.now();
+                    }
+                }
+
+                if (state.uiVisible && Date.now() - state.lastInteraction > 5000) {
+                    toggleUI();
+                }
+
+                renderer.render(scene, camera);
+            });
         }
-      }
 
-      if (typeof playerState.volume === 'number') {
-        jellyfinVideo.volume = Math.min(1, Math.max(0, playerState.volume));
-      }
+        function close() {
+            active = false;
+            if (renderer) {
+                renderer.setAnimationLoop(null);
+                if (renderer.xr.isPresenting) renderer.xr.getSession().end();
+                renderer.dispose();
+            }
+            overlay.remove();
+            styleEl.remove();
+        }
 
-      jellyfinVideo.muted = Boolean(playerState.muted);
+        const onKeyDown = (event) => {
+            if (event.key === 'Escape') { event.preventDefault(); close(); }
+            if (event.key === ' ') { event.preventDefault(); jellyfinVideo.paused ? jellyfinVideo.play() : jellyfinVideo.pause(); }
+        };
+        overlay.addEventListener('keydown', onKeyDown);
 
-      if (typeof playerState.playbackRate === 'number' && Number.isFinite(playerState.playbackRate)) {
-        jellyfinVideo.playbackRate = playerState.playbackRate;
-      }
+        initThree().catch(err => {
+            console.error("Three.js initialization failed:", err);
+            overlay.innerHTML = '<div style="color:white;padding:20px;">Failed to load VR Player. Check console.</div>';
+        });
 
-      if (playerState.paused) {
-        jellyfinVideo.pause();
-      } else {
-        jellyfinVideo.play().catch(() => {});
-      }
+        return { close };
+    }
+
+    async function openInlinePlayer(modeId) {
+        const jellyfinVideo = getCurrentJellyfinVideo();
+        if (!jellyfinVideo || !(jellyfinVideo.currentSrc || jellyfinVideo.src)) {
+            window.alert('No video is currently playing in Jellyfin. Start playback first.');
+            return;
+        }
+
+        if (activeInlinePlayer) {
+            activeInlinePlayer.close();
+        }
+
+        localStorage.setItem(STORAGE_KEYS.lastMode, modeId);
+
+        try {
+            /* three.js loaded dynamically */
+        } catch (error) {
+            window.alert('Failed to load the VR runtime.');
+            return;
+        }
+
+        const styleEl = document.createElement('style');
+        styleEl.id = 'jfvr-inline-style';
+        styleEl.textContent = INLINE_PLAYER_STYLE;
+        document.head.appendChild(styleEl);
+
+        const overlay = document.createElement('div');
+        overlay.id = 'jfvr-inline-overlay';
+        overlay.innerHTML = INLINE_PLAYER_HTML;
+        document.body.appendChild(overlay);
+
+        activeInlinePlayer = createInlinePlayerRuntime(overlay, styleEl, jellyfinVideo, modeId);
+    }
+
+    function requestPlayerState(playerWindow) {
+        return new Promise((resolve) => {
+            if (!playerWindow || playerWindow.closed) {
+                resolve(null);
+                return;
+            }
+
+            let settled = false;
+            const timeout = window.setTimeout(() => {
+                cleanup();
+                resolve(null);
+            }, 500);
+
+            const onMessage = (event) => {
+                if (event.source !== playerWindow) return;
+                const data = event.data || {};
+                if (data.type !== 'PLAYER_STATE') return;
+                cleanup();
+                resolve(data);
+            };
+
+            const cleanup = () => {
+                if (settled) return;
+                settled = true;
+                window.clearTimeout(timeout);
+                window.removeEventListener('message', onMessage);
+            };
+
+            window.addEventListener('message', onMessage);
+            playerWindow.postMessage({ type: 'REQUEST_STATE' }, '*');
+        });
+    }
+
+    function restorePlaybackState(jellyfinVideo, playerState) {
+        if (!jellyfinVideo) return;
+
+        if (playerState) {
+            if (Number.isFinite(playerState.currentTime)) {
+                try {
+                    jellyfinVideo.currentTime = playerState.currentTime;
+                } catch (error) {
+                    // ignored
+                }
+            }
+
+            if (typeof playerState.volume === 'number') {
+                jellyfinVideo.volume = Math.min(1, Math.max(0, playerState.volume));
+            }
+
+            jellyfinVideo.muted = Boolean(playerState.muted);
+
+            if (typeof playerState.playbackRate === 'number' && Number.isFinite(playerState.playbackRate)) {
+                jellyfinVideo.playbackRate = playerState.playbackRate;
+            }
+
+            if (playerState.paused) {
+                jellyfinVideo.pause();
+            } else {
+                jellyfinVideo.play().catch(() => { });
+            }
+        } else {
+            jellyfinVideo.play().catch(() => { });
+        }
+    }
+
+    async function closePlayerWindow(playerWindow, jellyfinVideo, overlayState) {
+        if (overlayState.closing) return;
+        overlayState.closing = true;
+
+        let playerState = overlayState.lastPlayerState || null;
+        if (!playerState) {
+            try {
+                playerState = await requestPlayerState(playerWindow);
+            } catch (error) {
+                playerState = null;
+            }
+        }
+
+        restorePlaybackState(jellyfinVideo, playerState);
+        cleanupHostSession(overlayState.hostSessionId, playerState);
+
+        window.removeEventListener('message', overlayState.onMessage);
+        if (overlayState.closePoll) {
+            window.clearInterval(overlayState.closePoll);
+        }
+        if (playerWindow && !playerWindow.closed) {
+            try {
+                playerWindow.close();
+            } catch (error) {
+                // ignored
+            }
+        }
+    }
+
+    function openPlayer(modeId) {
+        openInlinePlayer(modeId);
+    }
+
+    function createVRButton() {
+        if (document.getElementById('vr360-toggleplay')) return;
+
+        const fullscreenBtn = document.querySelector('.btnFullscreen');
+        if (!fullscreenBtn || !fullscreenBtn.parentNode) return;
+
+        const button = document.createElement('button');
+        button.id = 'vr360-toggleplay';
+        button.setAttribute('is', 'paper-icon-button-light');
+        button.className = 'autoSize paper-icon-button-light';
+        button.title = 'VR Player';
+        button.setAttribute('aria-label', 'VR Player');
+
+        const label = document.createElement('span');
+        label.className = 'largePaperIconButton';
+        label.setAttribute('aria-hidden', 'true');
+        label.textContent = 'VR';
+        label.style.cssText = 'font-family: "Segoe UI", Arial, sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; display:inline-flex; align-items:center; justify-content:center;';
+
+        button.appendChild(label);
+        button.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            openModeMenu(button);
+        });
+
+        fullscreenBtn.parentNode.insertBefore(button, fullscreenBtn);
+    }
+
+    function removeVRButton() {
+        const button = document.getElementById('vr360-toggleplay');
+        if (button) button.remove();
+        removeModeMenu();
+    }
+
+    function checkForVideo() {
+        const video = getCurrentJellyfinVideo();
+        const hasVideo = video && video.src;
+        if (hasVideo) {
+            createVRButton();
+        } else {
+            removeVRButton();
+        }
+    }
+
+    const observer = new MutationObserver(checkForVideo);
+
+    function init() {
+        checkForVideo();
+        observer.observe(document.body, { childList: true, subtree: true });
+    }
+
+    if (document.readyState === 'complete') {
+        init();
     } else {
-      jellyfinVideo.play().catch(() => {});
+        window.addEventListener('load', init);
     }
-  }
-
-  async function closePlayerWindow(playerWindow, jellyfinVideo, overlayState) {
-    if (overlayState.closing) return;
-    overlayState.closing = true;
-
-    let playerState = overlayState.lastPlayerState || null;
-    if (!playerState) {
-      try {
-        playerState = await requestPlayerState(playerWindow);
-      } catch (error) {
-        playerState = null;
-      }
-    }
-
-    restorePlaybackState(jellyfinVideo, playerState);
-    cleanupHostSession(overlayState.hostSessionId, playerState);
-
-    window.removeEventListener('message', overlayState.onMessage);
-    if (overlayState.closePoll) {
-      window.clearInterval(overlayState.closePoll);
-    }
-    if (playerWindow && !playerWindow.closed) {
-      try {
-        playerWindow.close();
-      } catch (error) {
-        // ignored
-      }
-    }
-  }
-
-  function openPlayer(modeId) {
-    openInlinePlayer(modeId);
-  }
-
-  function createVRButton() {
-    if (document.getElementById('vr360-toggleplay')) return;
-
-    const fullscreenBtn = document.querySelector('.btnFullscreen');
-    if (!fullscreenBtn || !fullscreenBtn.parentNode) return;
-
-    const button = document.createElement('button');
-    button.id = 'vr360-toggleplay';
-    button.setAttribute('is', 'paper-icon-button-light');
-    button.className = 'autoSize paper-icon-button-light';
-    button.title = 'VR Player';
-    button.setAttribute('aria-label', 'VR Player');
-
-    const label = document.createElement('span');
-    label.className = 'largePaperIconButton';
-    label.setAttribute('aria-hidden', 'true');
-    label.textContent = 'VR';
-    label.style.cssText = 'font-family: "Segoe UI", Arial, sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; display:inline-flex; align-items:center; justify-content:center;';
-
-    button.appendChild(label);
-    button.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      openModeMenu(button);
-    });
-
-    fullscreenBtn.parentNode.insertBefore(button, fullscreenBtn);
-  }
-
-  function removeVRButton() {
-    const button = document.getElementById('vr360-toggleplay');
-    if (button) button.remove();
-    removeModeMenu();
-  }
-
-  function checkForVideo() {
-    const video = getCurrentJellyfinVideo();
-    const hasVideo = video && video.src;
-    if (hasVideo) {
-      createVRButton();
-    } else {
-      removeVRButton();
-    }
-  }
-
-  const observer = new MutationObserver(checkForVideo);
-
-  function init() {
-    checkForVideo();
-    observer.observe(document.body, { childList: true, subtree: true });
-  }
-
-  if (document.readyState === 'complete') {
-    init();
-  } else {
-    window.addEventListener('load', init);
-  }
 })();
