@@ -5,6 +5,8 @@
         uiScale: 'jfvr:ui-scale'
     };
 
+    const VERSION = '0.1.1';
+
     const VIEW_MODES = [
         {
             id: '360-mono',
@@ -628,6 +630,16 @@
                     <a-entity geometry="primitive: plane; width: 0.008; height: 0.035"
                         material="shader: flat; color: #94a3b8" position="0 0 0.01"></a-entity>
                 </a-entity>
+
+                <a-entity class="clickable" id="uiVersion3d" position="0.70 -0.36 0.02"
+                    geometry="primitive: plane; width: 0.26; height: 0.13"
+                    material="shader: flat; color: #1e293b; opacity: 0.95; transparent: true"
+                    animation__hover="property: scale; to: 1.12 1.12 1; dur: 100; startEvents: mouseenter"
+                    animation__leave="property: scale; to: 1 1 1; dur: 100; startEvents: mouseleave">
+                    <a-troika-text id="panelVersionText" value="v0.1.1" color="#94a3b8" font-size="0.030"
+                        anchor="center" baseline="center" position="0 0 0.01" max-width="0.24"
+                        outline-width="0.002" outline-color="#000000"></a-troika-text>
+                </a-entity>
             </a-entity>
         </a-entity>
 
@@ -655,6 +667,8 @@
             MODE_LIST.forEach(function (mode) {
                 MODE_MAP[mode.id] = mode;
             });
+
+            var VERSION = '${VERSION}';
 
             var STORAGE_KEYS = {
                 uiDistance: 'jfvr:ui-distance',
@@ -707,6 +721,8 @@
             var uiFar3d = document.getElementById('uiFar3d');
             var uiScaleDown3d = document.getElementById('uiScaleDown3d');
             var uiScaleUp3d = document.getElementById('uiScaleUp3d');
+            var uiVersion3d = document.getElementById('uiVersion3d');
+            var panelVersionText = document.getElementById('panelVersionText');
             var seekTrack3d = document.getElementById('seekTrack3d');
             var seekBuffered3d = document.getElementById('seekBuffered3d');
             var seekPlayed3d = document.getElementById('seekPlayed3d');
@@ -1169,8 +1185,9 @@
             }
 
             function updateComfortUi() {
-                var comfortText = 'UI ' + panelDistance.toFixed(2) + 'm / ' + panelScale.toFixed(2) + 'x';
+                var comfortText = 'UI ' + panelDistance.toFixed(2) + 'm / ' + panelScale.toFixed(2) + 'x v' + VERSION;
                 comfortDisplay.textContent = comfortText;
+                if (panelVersionText) setEntityText(panelVersionText, 'v' + VERSION);
                 uiRoot.object3D.scale.set(panelScale, panelScale, panelScale);
                 localStorage.setItem(STORAGE_KEYS.uiDistance, String(panelDistance));
                 localStorage.setItem(STORAGE_KEYS.uiScale, String(panelScale));
@@ -2104,6 +2121,9 @@
                     panelScale = clamp(panelScale + 0.08, 0.7, 1.55);
                     updateComfortUi();
                 });
+                registerPanelButton(uiVersion3d, '#1e293b', '#2a3a4d', function () {
+                    openVersionModal();
+                });
                 var uiRecenterVideo3d = document.getElementById('uiRecenterVideo3d');
                 if (uiRecenterVideo3d) {
                     registerPanelButton(uiRecenterVideo3d, '#13283a', '#1b3951', function () {
@@ -2296,6 +2316,46 @@
             updateModeUi();
             setStatus('Initializing VR player...', true);
             postToHost({ type: 'PLAYER_READY' });
+
+            function openVersionModal() {
+                injectParentStyles();
+                removeVersionModal();
+
+                var backdrop = document.createElement('div');
+                backdrop.id = 'jfvr-version-backdrop';
+
+                var modal = document.createElement('div');
+                modal.id = 'jfvr-version-menu';
+
+                modal.innerHTML = '<div class="jfvr-version-head"><span class="jfvr-version-title">About</span><button class="jfvr-version-close" id="jfvr-version-close-btn">&#10005;</button></div><div class="jfvr-version-body"><div class="jfvr-version-version">v' + VERSION + '</div><div class="jfvr-version-name">Jellyfin VR Player</div><a class="jfvr-version-link" href="https://github.com/CassisCloud/Jellyfin-360VR-Player" target="_blank" rel="noopener noreferrer">View on GitHub</a></div>';
+
+                backdrop.addEventListener('click', function(event) {
+                    if (event.target === backdrop) {
+                        removeVersionModal();
+                    }
+                });
+
+                modal.addEventListener('click', function(event) {
+                    event.stopPropagation();
+                });
+
+                backdrop.appendChild(modal);
+                document.body.appendChild(backdrop);
+
+                var closeBtn = document.getElementById('jfvr-version-close-btn');
+                if (closeBtn) {
+                    closeBtn.addEventListener('click', function() {
+                        removeVersionModal();
+                    });
+                }
+            }
+
+            function removeVersionModal() {
+                var existing = document.getElementById('jfvr-version-menu');
+                if (existing) existing.remove();
+                var backdrop = document.getElementById('jfvr-version-backdrop');
+                if (backdrop) backdrop.remove();
+            }
         })();
     </script>
 </body>
@@ -2496,6 +2556,111 @@
         .jfvr-menu-section {
           padding: 10px;
         }
+      }
+
+      #jfvr-version-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 100001;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 18px;
+        background: rgba(2, 6, 12, 0.56);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+      }
+
+      #jfvr-version-menu {
+        width: min(96vw, 340px);
+        border-radius: 22px;
+        border: 1px solid rgba(103, 132, 162, 0.28);
+        background:
+          radial-gradient(circle at top, rgba(56, 189, 248, 0.16), transparent 34%),
+          linear-gradient(180deg, rgba(4, 11, 18, 0.98), rgba(2, 8, 14, 0.98));
+        color: #eef7ff;
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.56);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+        overflow: hidden;
+      }
+
+      #jfvr-version-menu * {
+        box-sizing: border-box;
+      }
+
+      .jfvr-version-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 18px;
+        border-bottom: 1px solid rgba(103, 132, 162, 0.16);
+      }
+
+      .jfvr-version-title {
+        font: 700 16px/1.2 "Segoe UI", Arial, sans-serif;
+        color: #eef7ff;
+      }
+
+      .jfvr-version-close {
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(103, 132, 162, 0.22);
+        border-radius: 50%;
+        background: rgba(8, 16, 25, 0.56);
+        color: #94a3b8;
+        font-size: 14px;
+        cursor: pointer;
+        transition: background 0.18s ease, border-color 0.18s ease;
+      }
+
+      .jfvr-version-close:hover,
+      .jfvr-version-close:focus-visible {
+        background: rgba(15, 23, 42, 0.95);
+        border-color: rgba(56, 189, 248, 0.4);
+        outline: none;
+      }
+
+      .jfvr-version-body {
+        display: grid;
+        gap: 12px;
+        padding: 24px 18px 28px;
+        text-align: center;
+      }
+
+      .jfvr-version-version {
+        font: 700 24px/1.2 "Segoe UI", Arial, sans-serif;
+        color: #7dd3fc;
+      }
+
+      .jfvr-version-name {
+        font: 500 15px/1.4 "Segoe UI", Arial, sans-serif;
+        color: #eef7ff;
+        margin-top: 4px;
+      }
+
+      .jfvr-version-link {
+        display: inline-block;
+        margin-top: 8px;
+        padding: 10px 20px;
+        border: 1px solid rgba(56, 189, 248, 0.35);
+        border-radius: 999px;
+        background: rgba(12, 30, 46, 0.78);
+        color: #7dd3fc;
+        font: 600 13px/1.2 "Segoe UI", Arial, sans-serif;
+        text-decoration: none;
+        transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+      }
+
+      .jfvr-version-link:hover,
+      .jfvr-version-link:focus-visible {
+        background: rgba(15, 23, 42, 0.95);
+        border-color: rgba(56, 189, 248, 0.6);
+        transform: translateY(-1px);
+        outline: none;
       }
     `;
         document.head.appendChild(style);
