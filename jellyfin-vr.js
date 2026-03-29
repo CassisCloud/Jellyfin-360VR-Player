@@ -11,7 +11,7 @@
         uiScale: 'jfvr:ui-scale'
     };
 
-    const VERSION = '0.1.1';
+    const VERSION = '0.1.2';
 
     const VIEW_MODES = [
         {
@@ -698,6 +698,7 @@
         let textRendererStatus = 'troika-msdf';
         let projectionLayerStatus = 'unknown';
         let projectionLayerReason = 'not-initialized';
+        let xrSessionMode = 'unknown';
         let toolbarVersionBtn;
         let immersiveDebugScreen;
         let surfaceRoot;
@@ -756,6 +757,7 @@
                 mediaLayerMode,
                 projectionLayerStatus,
                 projectionLayerReason,
+                xrSessionMode,
                 textRendererStatus,
                 grabActive: videoGrabControllers.length > 0
             };
@@ -768,6 +770,10 @@
                     state.showingSettings = false;
                     if (layoutGroup) layoutGroup.visible = state.showingLayout;
                     if (settingsGroup) settingsGroup.visible = false;
+                    volSliderVisible = false;
+                    ptSliderVisible = false;
+                    if (volSliderGroup) volSliderGroup.visible = false;
+                    if (ptSliderGroup) ptSliderGroup.visible = false;
                     updateHarnessState();
                 },
                 toggleSettings: () => {
@@ -776,6 +782,10 @@
                     if (settingsGroup) settingsGroup.visible = state.showingSettings;
                     if (layoutGroup) layoutGroup.visible = false;
                     if (infoGroup && !state.showingSettings) infoGroup.visible = false;
+                    volSliderVisible = false;
+                    ptSliderVisible = false;
+                    if (volSliderGroup) volSliderGroup.visible = false;
+                    if (ptSliderGroup) ptSliderGroup.visible = false;
                     updateInfoPanelStatus();
                     updateHarnessState();
                 }
@@ -788,6 +798,11 @@
                     const THREERef = window.THREE;
                     const toBox = (object) => {
                         if (!object || !THREERef) return null;
+                        let current = object;
+                        while (current) {
+                            if (current.visible === false) return null;
+                            current = current.parent;
+                        }
                         const box = new THREERef.Box3().setFromObject(object);
                         if (!Number.isFinite(box.min.x)) return null;
                         return {
@@ -844,14 +859,21 @@
                         mediaLayerMode,
                         projectionLayerStatus,
                         projectionLayerReason,
+                        xrSessionMode,
                         textRendererStatus,
                         rendererPixelRatio: renderer ? renderer.getPixelRatio() : null,
                         xrFramebufferScale: XR_FRAMEBUFFER_SCALE,
                         xrFoveation: XR_FOVEATION,
                         grabActive: videoGrabControllers.length > 0,
                         settingsBounds: toBox(settingsBackgroundMesh),
+                        infoBounds: toBox(infoBackgroundMesh),
+                        infoButtonBounds: toBox(infoButtonMesh),
+                        settingsUiDistTrackBounds: toBox(settingsUiDistTrack),
+                        settingsDimmerTrackBounds: toBox(settingsDimmerTrack),
                         layoutBounds: toBox(layoutBackgroundMesh),
                         layoutCardBounds: layoutCardMeshes.map((mesh) => ({ id: mesh.userData.id, bounds: toBox(mesh) })),
+                        volumeSliderBounds: toBox(volSliderGroup),
+                        passthroughSliderBounds: toBox(ptSliderGroup),
                         surfaceBounds: toBox(surfaceRoot),
                         surfaceVisible: surfaceRoot ? surfaceRoot.visible !== false : false,
                         surfaceCenter,
@@ -879,6 +901,10 @@
         let playIconGroup, pauseIconGroup, stereoToggleLabel;
         let seekBg, seekBuf, seekFill;
         let bgMesh, settingsGroup, layoutGroup, infoGroup;
+        let infoButtonMesh = null;
+        let infoBackgroundMesh = null;
+        let settingsUiDistTrack = null;
+        let settingsDimmerTrack = null;
         let infoStatusLines = [];
         let updateInfoPanelStatus = () => {};
         let volSliderGroup, ptSliderGroup;
@@ -1333,6 +1359,11 @@
 
             renderer.xr.addEventListener('sessionstart', () => {
                 state.isImmersive = true;
+                const blendMode = renderer.xr && typeof renderer.xr.getEnvironmentBlendMode === 'function'
+                    ? renderer.xr.getEnvironmentBlendMode()
+                    : 'opaque';
+                state.isAR = blendMode === 'alpha-blend' || blendMode === 'additive';
+                xrSessionMode = state.isAR ? 'immersive-ar' : 'immersive-vr';
                 if (typeof updatePassthroughVisuals === 'function') updatePassthroughVisuals();
                 if (ptSliderUpdateFill) ptSliderUpdateFill(state.passthroughBrightness);
                 camera.layers.enable(0);
@@ -1346,6 +1377,8 @@
             });
             renderer.xr.addEventListener('sessionend', () => {
                 state.isImmersive = false;
+                state.isAR = false;
+                xrSessionMode = 'none';
                 scene.background = new THREE.Color(0x000000);
                 clearCompositionVideoLayer();
                 applyUiAnchorFromViewer(THREE, 'center');
@@ -1665,6 +1698,15 @@
                 return t;
             }
 
+            function createInfoLine(parent, x, y, text, color) {
+                const line = createTextObj(text, parent, x, y, 0.024, color, 'left');
+                line.maxWidth = 0.96;
+                line.overflowWrap = 'break-word';
+                line.textAlign = 'left';
+                line.sync();
+                return line;
+            }
+
             function createRoundBtn(id, parent, x, y, radius, label, onClick) {
                 const geo = new THREE.CircleGeometry(radius, 48);
                 const mat = btnMatBase.clone();
@@ -1691,14 +1733,64 @@
                 interactables.push(mesh);
             }
 
+            function createCurveStartIcon(parent, x, y) {
+                const mat = new THREE.MeshBasicMaterial({ color: 0x64748b, side: THREE.DoubleSide });
+                const frame = new THREE.Mesh(new THREE.PlaneGeometry(0.042, 0.024), mat);
+                frame.position.set(x, y, 0.01);
+                parent.add(frame);
+                const inner = new THREE.Mesh(new THREE.PlaneGeometry(0.034, 0.016), new THREE.MeshBasicMaterial({ color: 0x0f172a, side: THREE.DoubleSide }));
+                inner.position.set(x, y, 0.011);
+                parent.add(inner);
+            }
+
+            function createCurveEndIcon(parent, x, y) {
+                const mat = new THREE.MeshBasicMaterial({ color: 0xe2e8f0, side: THREE.DoubleSide });
+                const arc = new THREE.Mesh(new THREE.RingGeometry(0.018, 0.024, 20, 1, Math.PI * 0.15, Math.PI * 0.7), mat);
+                arc.position.set(x, y, 0.01);
+                arc.rotation.z = Math.PI;
+                parent.add(arc);
+                const base = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 0.004), mat);
+                base.position.set(x, y - 0.016, 0.01);
+                parent.add(base);
+            }
+
+            function createNearIcon(parent, x, y) {
+                const mat = new THREE.MeshBasicMaterial({ color: 0x64748b, side: THREE.DoubleSide });
+                const box = new THREE.Mesh(new THREE.PlaneGeometry(0.024, 0.018), mat);
+                box.position.set(x, y, 0.01);
+                parent.add(box);
+            }
+
+            function createFarIcon(parent, x, y) {
+                const mat = new THREE.MeshBasicMaterial({ color: 0xe2e8f0, side: THREE.DoubleSide });
+                const outer = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 0.032), mat);
+                outer.position.set(x, y, 0.01);
+                parent.add(outer);
+                const inner = new THREE.Mesh(new THREE.PlaneGeometry(0.038, 0.02), new THREE.MeshBasicMaterial({ color: 0x0f172a, side: THREE.DoubleSide }));
+                inner.position.set(x, y, 0.011);
+                parent.add(inner);
+            }
+
+            function createMoonIcon(parent, x, y, scale, color) {
+                const mat = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide });
+                const moon = new THREE.Mesh(new THREE.CircleGeometry(0.015 * scale, 24), mat);
+                moon.position.set(x, y, 0.01);
+                parent.add(moon);
+                const cut = new THREE.Mesh(new THREE.CircleGeometry(0.012 * scale, 24), new THREE.MeshBasicMaterial({ color: 0x0f172a, side: THREE.DoubleSide }));
+                cut.position.set(x + 0.006 * scale, y + 0.002 * scale, 0.011);
+                parent.add(cut);
+            }
+
             updateInfoPanelStatus = function () {
                 if (!infoStatusLines.length || !renderer) return;
                 const lines = [
-                    `Projection: ${projectionLayerStatus}`,
-                    `Video: ${mediaLayerMode} / ${mediaLayerStatus}`,
-                    `Reason: ${mediaLayerReason || projectionLayerReason}`,
+                    `Session: ${xrSessionMode}`,
+                    `Projection Layer: ${projectionLayerStatus}`,
+                    `Projection Reason: ${projectionLayerReason}`,
+                    `Video Layer: ${mediaLayerMode} / ${mediaLayerStatus}`,
+                    `Video Reason: ${mediaLayerReason}`,
                     `Text: ${textRendererStatus} sdf256`,
-                    `Pixel/Fov: ${renderer.getPixelRatio().toFixed(2)} / ${XR_FOVEATION.toFixed(2)}`,
+                    `Pixel Ratio / Fov: ${renderer.getPixelRatio().toFixed(2)} / ${XR_FOVEATION.toFixed(2)}`,
                     `XR Scale: ${XR_FRAMEBUFFER_SCALE.toFixed(2)}`,
                     `Video Res: ${jellyfinVideo.videoWidth || 0}x${jellyfinVideo.videoHeight || 0}`
                 ];
@@ -1763,7 +1855,7 @@
                 };
                 interactables.push(bg);
 
-                return { group, updateFill };
+                return { group, updateFill, track: bg };
             }
 
             // --- Helper: get video title from Jellyfin DOM ---
@@ -2054,7 +2146,7 @@
                 group.visible = false;
                 parent.add(group);
 
-                const panelH = h + 0.12;
+                const panelH = h + 0.18;
                 const panelGeo = createRoundedRectGeometry(w + 0.06, panelH, 0.04);
                 const panelBg = new THREE.Mesh(panelGeo, frostedMat.clone());
                 panelBg.position.set(0, 0, -0.005);
@@ -2084,8 +2176,8 @@
                 };
                 updateFill(initVal);
 
-                if (bottomIcon) bottomIcon(group, 0, -h / 2 - 0.045, 0.7, 0x64748b);
-                if (topIcon) topIcon(group, 0, h / 2 + 0.045, 0.7, 0xe2e8f0);
+                if (bottomIcon) bottomIcon(group, 0, -h / 2 - 0.04, 0.6, 0x64748b);
+                if (topIcon) topIcon(group, 0, h / 2 + 0.04, 0.6, 0xe2e8f0);
 
                 const dragHandler = (pt) => {
                     const local = bg.worldToLocal(pt.clone());
@@ -2172,6 +2264,11 @@
                 volSliderVisible = !volSliderVisible;
                 volSliderGroup.visible = volSliderVisible;
                 if (volSliderVisible) { ptSliderVisible = false; ptSliderGroup.visible = false; }
+                state.showingSettings = false;
+                state.showingLayout = false;
+                if (settingsGroup) settingsGroup.visible = false;
+                if (layoutGroup) layoutGroup.visible = false;
+                if (infoGroup) infoGroup.visible = false;
             });
             createSpeakerIcon(volBtn3d.mesh, 0, 0, 1.0, 0xe2e8f0);
 
@@ -2181,6 +2278,11 @@
                 ptSliderVisible = !ptSliderVisible;
                 ptSliderGroup.visible = ptSliderVisible;
                 if (ptSliderVisible) { volSliderVisible = false; volSliderGroup.visible = false; }
+                state.showingSettings = false;
+                state.showingLayout = false;
+                if (settingsGroup) settingsGroup.visible = false;
+                if (layoutGroup) layoutGroup.visible = false;
+                if (infoGroup) infoGroup.visible = false;
                 if (!state.passthroughEnabled) {
                     state.passthroughEnabled = true;
                     updatePassthroughVisuals();
@@ -2199,7 +2301,7 @@
             const vSliderH = 0.35;
 
             // Volume vertical slider
-            const volSld = createVerticalSlider('vs-vol', uiGroup, volBtnX, btnY + 0.32, vSliderW, vSliderH,
+            const volSld = createVerticalSlider('vs-vol', uiGroup, volBtnX, btnY + 0.36, vSliderW, vSliderH,
                 jellyfinVideo.volume || 1,
                 (v) => {
                     jellyfinVideo.volume = v;
@@ -2227,7 +2329,7 @@
             );
             volSliderGroup = volSld.group;
             // Passthrough lighting vertical slider
-            const ptSld = createVerticalSlider('vs-pt', uiGroup, ptBtnX, btnY + 0.32, vSliderW, vSliderH,
+            const ptSld = createVerticalSlider('vs-pt', uiGroup, ptBtnX, btnY + 0.36, vSliderW, vSliderH,
                 state.passthroughBrightness,
                 (v) => { state.passthroughBrightness = v; updatePassthroughVisuals(); },
                 (p, x, y, s, c) => {
@@ -2282,52 +2384,88 @@
             settingsGroup.visible = false;
             uiGroup.add(settingsGroup);
 
-            const setGeo = createRoundedRectGeometry(1.6, 0.34, 0.08);
+            const SETTINGS_LAYOUT = {
+                width: 1.94,
+                height: 0.56,
+                paddingX: 0.10,
+                headerY: 0.20,
+                rowY: [0.08, -0.03, -0.14],
+                leftLabelX: -0.84,
+                leftIconX: -0.54,
+                leftSliderX: -0.25,
+                leftSliderW: 0.46,
+                leftEndIconX: 0.04,
+                rightLabelX: 0.08,
+                rightIconX: 0.30,
+                rightSliderX: 0.55,
+                rightSliderW: 0.28,
+                rightEndIconX: 0.80
+            };
+
+            const setGeo = createRoundedRectGeometry(SETTINGS_LAYOUT.width, SETTINGS_LAYOUT.height, 0.08);
             const setBg = new THREE.Mesh(setGeo, frostedMat);
             settingsBackgroundMesh = setBg;
             settingsGroup.add(setBg);
             makePanelBlocker(setBg, 'settings-bg', 0x0f172a);
 
-            const infoBtn = createRoundBtn('settings-info', settingsGroup, 0.75, 0.125, 0.03, 'i', () => {
+            createTextObj('Settings', settingsGroup, -SETTINGS_LAYOUT.width / 2 + SETTINGS_LAYOUT.paddingX, SETTINGS_LAYOUT.headerY, 0.03, 0x7dd3fc, 'left');
+
+            const infoBtn = createRoundBtn('settings-info', settingsGroup, SETTINGS_LAYOUT.width / 2 - SETTINGS_LAYOUT.paddingX + 0.005, SETTINGS_LAYOUT.headerY, 0.024, 'i', () => {
                 if (infoGroup) infoGroup.visible = !infoGroup.visible;
                 updateInfoPanelStatus();
             });
-            if (infoBtn.textObj) infoBtn.textObj.fontSize = 0.034;
+            infoButtonMesh = infoBtn.mesh;
+            if (infoBtn.textObj) infoBtn.textObj.fontSize = 0.03;
 
             infoGroup = new THREE.Group();
-            infoGroup.position.set(0.08, 0.34, 0.02);
+            infoGroup.position.set(0.0, SETTINGS_LAYOUT.height / 2 + 0.34, 0.02);
             infoGroup.visible = false;
             settingsGroup.add(infoGroup);
 
-            const infoBg = new THREE.Mesh(createRoundedRectGeometry(1.08, 0.42, 0.05), frostedMat.clone());
+            const infoBg = new THREE.Mesh(createRoundedRectGeometry(1.30, 0.54, 0.05), frostedMat.clone());
+            infoBackgroundMesh = infoBg;
             infoGroup.add(infoBg);
             makePanelBlocker(infoBg, 'settings-info-bg', 0x0f172a);
-            createTextObj('Info', infoGroup, -0.48, 0.16, 0.028, 0x7dd3fc, 'left');
-            const infoLineY = [0.10, 0.05, 0.0, -0.05, -0.10, -0.15, -0.20];
-            infoStatusLines = infoLineY.map((y) => createTextObj('', infoGroup, -0.48, y, 0.021, 0xe2e8f0, 'left'));
+            createTextObj('Info', infoGroup, -0.58, 0.22, 0.03, 0x7dd3fc, 'left');
+            const infoLineY = [0.16, 0.10, 0.04, -0.02, -0.08, -0.14, -0.20, -0.26];
+            infoStatusLines = infoLineY.map((y) => createInfoLine(infoGroup, -0.58, y, '', 0xe2e8f0));
 
-            const sY1 = 0.08; const sY2 = 0.0; const sY3 = -0.08;
-            createTextObj('Curve', settingsGroup, -0.65, sY1, 0.03, 0x94a3b8, 'left');
-            createSlider('s-curve', settingsGroup, -0.2, sY1, 0.5, 0.03, state.screenCurvature, (v) => { state.screenCurvature = v; applyModeFromState({ preserveSurfaceTransform: true }); });
+            const sY1 = SETTINGS_LAYOUT.rowY[0];
+            const sY2 = SETTINGS_LAYOUT.rowY[1];
+            const sY3 = SETTINGS_LAYOUT.rowY[2];
+            createTextObj('Curve', settingsGroup, SETTINGS_LAYOUT.leftLabelX, sY1, 0.03, 0x94a3b8, 'left');
+            createCurveStartIcon(settingsGroup, SETTINGS_LAYOUT.leftIconX, sY1);
+            createSlider('s-curve', settingsGroup, SETTINGS_LAYOUT.leftSliderX, sY1, SETTINGS_LAYOUT.leftSliderW, 0.03, state.screenCurvature, (v) => { state.screenCurvature = v; applyModeFromState({ preserveSurfaceTransform: true }); });
+            createCurveEndIcon(settingsGroup, SETTINGS_LAYOUT.leftEndIconX, sY1);
 
-            createTextObj('Dist.', settingsGroup, -0.65, sY2, 0.03, 0x94a3b8, 'left');
+            createTextObj('Dist.', settingsGroup, SETTINGS_LAYOUT.leftLabelX, sY2, 0.03, 0x94a3b8, 'left');
             const initDistRatio = (state.screenDistance - (-20)) / (-4 - (-20));
-            createSlider('s-dist', settingsGroup, -0.2, sY2, 0.5, 0.03, initDistRatio, (v) => { state.screenDistance = -20 + (v * 16); applyModeFromState(); });
+            createNearIcon(settingsGroup, SETTINGS_LAYOUT.leftIconX, sY2);
+            createSlider('s-dist', settingsGroup, SETTINGS_LAYOUT.leftSliderX, sY2, SETTINGS_LAYOUT.leftSliderW, 0.03, initDistRatio, (v) => { state.screenDistance = -20 + (v * 16); applyModeFromState(); });
+            createFarIcon(settingsGroup, SETTINGS_LAYOUT.leftEndIconX, sY2);
 
-            createTextObj('Size', settingsGroup, -0.65, sY3, 0.03, 0x94a3b8, 'left');
+            createTextObj('Size', settingsGroup, SETTINGS_LAYOUT.leftLabelX, sY3, 0.03, 0x94a3b8, 'left');
             const initSizeRatio = (state.screenSize - 0.5) / (3.0 - 0.5);
-            createSlider('s-size', settingsGroup, -0.2, sY3, 0.5, 0.03, initSizeRatio, (v) => { state.screenSize = 0.5 + (v * 2.5); applyModeFromState(); });
+            createNearIcon(settingsGroup, SETTINGS_LAYOUT.leftIconX, sY3);
+            createSlider('s-size', settingsGroup, SETTINGS_LAYOUT.leftSliderX, sY3, SETTINGS_LAYOUT.leftSliderW, 0.03, initSizeRatio, (v) => { state.screenSize = 0.5 + (v * 2.5); applyModeFromState(); });
+            createFarIcon(settingsGroup, SETTINGS_LAYOUT.leftEndIconX, sY3);
 
-            createTextObj('UI Dist', settingsGroup, 0.15, sY1, 0.03, 0x94a3b8, 'left');
+            createTextObj('UI Dist', settingsGroup, SETTINGS_LAYOUT.rightLabelX, sY1, 0.03, 0x94a3b8, 'left');
             const initUIDist = 0.5;
-            createSlider('s-uidist', settingsGroup, 0.55, sY1, 0.4, 0.03, initUIDist, (v) => {
+            createNearIcon(settingsGroup, SETTINGS_LAYOUT.rightIconX, sY1);
+            const uiDistSlider = createSlider('s-uidist', settingsGroup, SETTINGS_LAYOUT.rightSliderX, sY1, SETTINGS_LAYOUT.rightSliderW, 0.03, initUIDist, (v) => {
                 state.uiDistance = UI_DISTANCE_MIN + (v * (UI_DISTANCE_MAX - UI_DISTANCE_MIN));
                 localStorage.setItem('jfvr:ui-distance', state.uiDistance.toString());
                 refreshUiDistance();
             }, { deferCommit: true });
+            settingsUiDistTrack = uiDistSlider.track;
+            createFarIcon(settingsGroup, SETTINGS_LAYOUT.rightEndIconX, sY1);
 
-            createTextObj('Dimmer', settingsGroup, 0.15, sY2, 0.03, 0x94a3b8, 'left');
-            createSlider('s-dimmer', settingsGroup, 0.55, sY2, 0.4, 0.03, state.passthroughBrightness, (v) => { state.passthroughBrightness = v; updatePassthroughVisuals(); });
+            createTextObj('Dimmer', settingsGroup, SETTINGS_LAYOUT.rightLabelX, sY2, 0.03, 0x94a3b8, 'left');
+            createMoonIcon(settingsGroup, SETTINGS_LAYOUT.rightIconX, sY2, 1.0, 0x64748b);
+            const dimmerSlider = createSlider('s-dimmer', settingsGroup, SETTINGS_LAYOUT.rightSliderX, sY2, SETTINGS_LAYOUT.rightSliderW, 0.03, state.passthroughBrightness, (v) => { state.passthroughBrightness = v; updatePassthroughVisuals(); });
+            settingsDimmerTrack = dimmerSlider.track;
+            createSunIcon(settingsGroup, SETTINGS_LAYOUT.rightEndIconX, sY2, 0.5, 0xe2e8f0);
 
             layoutGroup = new THREE.Group();
             layoutGroup.position.set(0, 0.86, 0);
