@@ -166,36 +166,6 @@
     outline: none;
   }
   #jfvr-inline-version { color: #7dd3fc; }
-  #jfvr-inline-recenter { color: #cbd5e1; }
-  #jfvr-preview-panel {
-    position: absolute;
-    left: 18px;
-    bottom: 18px;
-    z-index: 999998;
-    width: min(360px, calc(100vw - 36px));
-    display: grid;
-    gap: 8px;
-    padding: 12px;
-    border-radius: 18px;
-    border: 1px solid rgba(103, 132, 162, 0.22);
-    background: rgba(4, 11, 18, 0.78);
-    color: #eef7ff;
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-  }
-  #jfvr-preview-video {
-    width: 100%;
-    aspect-ratio: 16 / 9;
-    display: block;
-    border-radius: 12px;
-    background: #000;
-    object-fit: contain;
-  }
-  #jfvr-preview-status {
-    color: #94a3b8;
-    font: 600 12px/1.4 "Segoe UI", Arial, sans-serif;
-  }
-  .hidden { display: none !important; }
   @media (max-width: 720px) {
     #jfvr-inline-toolbar {
       top: 12px;
@@ -206,24 +176,13 @@
       padding: 9px 12px;
       font-size: 11px;
     }
-    #jfvr-preview-panel {
-      left: 12px;
-      right: 12px;
-      bottom: 12px;
-      width: auto;
-    }
   }
 `;
 
     const INLINE_PLAYER_HTML = `
   <div id="jfvr-canvas-container"></div>
   <div id="jfvr-inline-toolbar">
-    <button type="button" id="jfvr-inline-recenter" class="jfvr-inline-chip">Recenter</button>
     <button type="button" id="jfvr-inline-version" class="jfvr-inline-chip">v${VERSION}</button>
-  </div>
-  <div id="jfvr-preview-panel" class="hidden">
-    <video id="jfvr-preview-video" muted playsinline></video>
-    <div id="jfvr-preview-status">Preparing preview...</div>
   </div>
 `;
 
@@ -614,7 +573,7 @@
         if (backdrop) backdrop.remove();
     }
 
-    function openModeMenu(anchorButton) {
+    function openModeMenu() {
         injectParentStyles();
 
         const existing = document.getElementById('jfvr-mode-menu');
@@ -690,14 +649,10 @@
         let renderer, scene, camera, vrButton, arButton;
         let uiGroup;
         let videoTexture, materials = {}, meshes = {};
-        let previewVideo;
-        let previewPanel;
-        let previewStatus;
         let toolbarVersionBtn;
-        let toolbarRecenterBtn;
         let immersiveDebugScreen;
-        let previewSyncHandlers;
         let surfaceRoot;
+        let videoGrabControllers = [];
         let state = {
             mode: MODES_BY_ID[modeId] || MODES_BY_ID['360-mono'],
             isImmersive: false,
@@ -715,38 +670,6 @@
             showingSettings: false
         };
 
-        function updatePreviewStatus(message) {
-            if (previewStatus) {
-                previewStatus.textContent = message;
-            }
-        }
-
-        function syncPreviewPlayback() {
-            if (!previewVideo) return;
-            const targetTime = Number.isFinite(jellyfinVideo.currentTime) ? jellyfinVideo.currentTime : 0;
-            if (Math.abs((previewVideo.currentTime || 0) - targetTime) > 0.35) {
-                try {
-                    previewVideo.currentTime = targetTime;
-                } catch (error) {
-                    // ignored
-                }
-            }
-            if (jellyfinVideo.paused) {
-                previewVideo.pause();
-            } else {
-                previewVideo.play().catch(() => {});
-            }
-        }
-
-        function previewStereoFallbackActive() {
-            return window.__JFVR_HARNESS_RUNTIME_MODE__ === 'extension'
-                && state.mode
-                && state.mode.stereo !== 'mono'
-                && renderer
-                && renderer.xr
-                && renderer.xr.isPresenting;
-        }
-
         function immersiveDebugScreenActive() {
             return window.__JFVR_HARNESS_RUNTIME_MODE__ === 'extension'
                 && renderer
@@ -758,63 +681,13 @@
             if (!immersiveDebugScreen) return;
             immersiveDebugScreen.visible = immersiveDebugScreenActive();
         }
-
-        function updatePreviewVisibility() {
-            if (!previewPanel) return;
-            const immersive = renderer && renderer.xr && renderer.xr.isPresenting;
-            const keepVisible = !immersive || previewStereoFallbackActive();
-            previewPanel.classList.toggle('hidden', !keepVisible);
-            if (previewStereoFallbackActive()) {
-                updatePreviewStatus('Extension mode fallback: stereo layer unsupported, showing mono preview while in XR.');
-            }
-            updateImmersiveDebugScreen();
-        }
-
-        function setupPreviewVideo() {
-            previewPanel = overlay.querySelector('#jfvr-preview-panel');
-            previewVideo = overlay.querySelector('#jfvr-preview-video');
-            previewStatus = overlay.querySelector('#jfvr-preview-status');
-            if (!previewVideo) return;
-
-            previewVideo.src = jellyfinVideo.currentSrc || jellyfinVideo.src;
-            previewVideo.muted = true;
-            previewVideo.playsInline = true;
-            previewVideo.crossOrigin = 'anonymous';
-            previewVideo.addEventListener('loadeddata', () => {
-                updatePreviewStatus('Video frame received. You can confirm playback here before entering XR.');
-                syncPreviewPlayback();
-            });
-            previewVideo.addEventListener('error', () => {
-                const mediaError = previewVideo.error;
-                updatePreviewStatus('Preview video failed to load (code ' + (mediaError ? mediaError.code : 'unknown') + ').');
-            });
-
-            previewSyncHandlers = {
-                play: syncPreviewPlayback,
-                pause: syncPreviewPlayback,
-                seeked: syncPreviewPlayback,
-                timeupdate: syncPreviewPlayback
-            };
-
-            jellyfinVideo.addEventListener('play', previewSyncHandlers.play);
-            jellyfinVideo.addEventListener('pause', previewSyncHandlers.pause);
-            jellyfinVideo.addEventListener('seeked', previewSyncHandlers.seeked);
-            jellyfinVideo.addEventListener('timeupdate', previewSyncHandlers.timeupdate);
-
-            try {
-                previewVideo.currentTime = jellyfinVideo.currentTime || 0;
-            } catch (error) {
-                // ignored
-            }
-            syncPreviewPlayback();
-        }
         let interactables = [];
         let timeCurrentObj, timeDurationObj, titleTextObj;
         let playIconGroup, pauseIconGroup;
         let seekBg, seekBuf, seekFill;
         let bgMesh, settingsGroup;
         let volSliderGroup, ptSliderGroup;
-        let volSliderUpdateFill, ptSliderUpdateFill;
+        let ptSliderUpdateFill;
         let volSliderVisible = false, ptSliderVisible = false;
         let marqueeOffset = 0, marqueeDir = 0, marqueePauseTimer = 0;
 
@@ -897,7 +770,6 @@
             }
 
             surfaceRoot.scale.setScalar(state.screenSize);
-            updatePreviewStatus('View recentered.');
         }
 
         async function initThree() {
@@ -971,29 +843,29 @@
                 state.isImmersive = true;
                 if (typeof updatePassthroughVisuals === 'function') updatePassthroughVisuals();
                 if (ptSliderUpdateFill) ptSliderUpdateFill(state.passthroughBrightness);
-                if (uiGroup) uiGroup.position.set(0, -0.4, -state.uiDistance);
+                if (uiGroup) uiGroup.position.set(0, -0.72, -state.uiDistance);
                 camera.layers.enable(0);
                 camera.layers.enable(1);
                 camera.layers.enable(2);
                 recenterActiveMode(THREE);
                 updateStereoVisibility();
-                updatePreviewVisibility();
+                updateImmersiveDebugScreen();
             });
             renderer.xr.addEventListener('sessionend', () => {
                 state.isImmersive = false;
                 scene.background = new THREE.Color(0x000000);
-                if (uiGroup) uiGroup.position.set(0, -0.4, -state.uiDistance);
+                if (uiGroup) uiGroup.position.set(0, -0.72, -state.uiDistance);
                 updateStereoVisibility();
-                updatePreviewVisibility();
+                updateImmersiveDebugScreen();
             });
 
             function updateStereoVisibility() {
                 const mode = state.mode;
-                const useStereo = mode.stereo !== 'mono' && state.isImmersive && !state.uiVisible && !previewStereoFallbackActive();
+                const useStereo = mode.stereo !== 'mono' && state.isImmersive && !state.uiVisible;
                 if (meshes.preview) meshes.preview.visible = !useStereo;
                 if (meshes.left) meshes.left.visible = useStereo;
                 if (meshes.right) meshes.right.visible = useStereo;
-                updatePreviewVisibility();
+                updateImmersiveDebugScreen();
             }
 
             function positionUIAtController(controller) {
@@ -1005,6 +877,7 @@
                 const dir = new THREE.Vector3(0, 0, -1).applyMatrix4(tempMatrix);
 
                 const targetPos = origin.clone().add(dir.multiplyScalar(state.uiDistance));
+                targetPos.y -= 0.72;
                 uiGroup.position.copy(targetPos);
 
                 const xrCam = renderer.xr.getCamera();
@@ -1042,7 +915,7 @@
                             const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(xrCam.quaternion);
                             dir.y = 0; dir.normalize(); // Horizon level
                             uiGroup.position.copy(camPos).add(dir.multiplyScalar(state.uiDistance));
-                            uiGroup.position.y = camPos.y - 0.5;
+                            uiGroup.position.y = camPos.y - 0.72;
                             uiGroup.lookAt(camPos.x, uiGroup.position.y, camPos.z);
                         }
                     }
@@ -1202,7 +1075,7 @@
 
             // UI Builder
             uiGroup = new THREE.Group();
-            uiGroup.position.set(0, -0.4, -state.uiDistance);
+            uiGroup.position.set(0, -0.72, -state.uiDistance);
             scene.add(uiGroup);
 
             // Materials
@@ -1461,6 +1334,20 @@
                 return group;
             }
 
+            function createCenterIcon(parent, x, y, scale, color) {
+                const group = new THREE.Group();
+                group.position.set(x, y, 0.01);
+                const s = scale;
+                const ringMat = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide });
+                const ring = new THREE.Mesh(new THREE.RingGeometry(0.014 * s, 0.028 * s, 32), ringMat);
+                group.add(ring);
+                const dot = new THREE.Mesh(new THREE.CircleGeometry(0.006 * s, 20), ringMat);
+                dot.position.z = 0.001;
+                group.add(dot);
+                parent.add(group);
+                return group;
+            }
+
             // --- Helper: vertical slider with top/bottom icons ---
             function createVerticalSlider(id, parent, x, y, w, h, initVal, onChange, bottomIcon, topIcon) {
                 const group = new THREE.Group();
@@ -1524,7 +1411,6 @@
 
             // === Row 1 (top): Video Title with marquee ===
             const titleY = 0.16;
-            const titleMaxW = 1.9;
             const titleClipGroup = new THREE.Group();
             titleClipGroup.position.set(0, titleY, 0.01);
             uiGroup.add(titleClipGroup);
@@ -1550,6 +1436,9 @@
             // Close button (left end)
             const closeBtn3d = createRoundBtn('btn-close', uiGroup, -0.92, btnY, btnR, null, () => close());
             createCloseIcon(closeBtn3d.mesh, 0, 0, 1.0, 0xfca5a5);
+
+            const centerBtn3d = createRoundBtn('btn-center', uiGroup, -0.76, btnY, btnR, null, () => recenterActiveMode(THREE));
+            createCenterIcon(centerBtn3d.mesh, 0, 0, 1.0, 0x7dd3fc);
 
             // Seek Back
             const seekBackBtn3d = createRoundBtn('btn-back', uiGroup, -ctrlSpacing, btnY, btnR, null, () => jellyfinVideo.currentTime -= 10);
@@ -1626,8 +1515,6 @@
                 }
             );
             volSliderGroup = volSld.group;
-            volSliderUpdateFill = volSld.updateFill;
-
             // Passthrough lighting vertical slider
             const ptSld = createVerticalSlider('vs-pt', uiGroup, ptBtnX, btnY + 0.32, vSliderW, vSliderH,
                 state.passthroughBrightness,
@@ -1684,7 +1571,7 @@
             settingsGroup.visible = false;
             uiGroup.add(settingsGroup);
 
-            const setGeo = createRoundedRectGeometry(1.6, 0.5, 0.08);
+            const setGeo = createRoundedRectGeometry(1.6, 0.38, 0.08);
             const setBg = new THREE.Mesh(setGeo, frostedMat);
             settingsGroup.add(setBg);
 
@@ -1703,58 +1590,145 @@
 
             const sY1 = 0.02; const sY2 = -0.06; const sY3 = -0.14;
             createTextObj('Curve', settingsGroup, -0.65, sY1, 0.03, 0x94a3b8, 'left');
-            const sCrv = createSlider('s-curve', settingsGroup, -0.2, sY1, 0.5, 0.03, state.screenCurvature, (v) => { state.screenCurvature = v; applyModeFromState(); });
+            createSlider('s-curve', settingsGroup, -0.2, sY1, 0.5, 0.03, state.screenCurvature, (v) => { state.screenCurvature = v; applyModeFromState(); });
 
             createTextObj('Dist.', settingsGroup, -0.65, sY2, 0.03, 0x94a3b8, 'left');
             const initDistRatio = (state.screenDistance - (-20)) / (-4 - (-20));
-            const sDist = createSlider('s-dist', settingsGroup, -0.2, sY2, 0.5, 0.03, initDistRatio, (v) => { state.screenDistance = -20 + (v * 16); applyModeFromState(); });
+            createSlider('s-dist', settingsGroup, -0.2, sY2, 0.5, 0.03, initDistRatio, (v) => { state.screenDistance = -20 + (v * 16); applyModeFromState(); });
 
             createTextObj('Size', settingsGroup, -0.65, sY3, 0.03, 0x94a3b8, 'left');
             const initSizeRatio = (state.screenSize - 0.5) / (3.0 - 0.5);
-            const sSize = createSlider('s-size', settingsGroup, -0.2, sY3, 0.5, 0.03, initSizeRatio, (v) => { state.screenSize = 0.5 + (v * 2.5); applyModeFromState(); });
+            createSlider('s-size', settingsGroup, -0.2, sY3, 0.5, 0.03, initSizeRatio, (v) => { state.screenSize = 0.5 + (v * 2.5); applyModeFromState(); });
 
             createTextObj('UI Dist', settingsGroup, 0.15, sY1, 0.03, 0x94a3b8, 'left');
             const initUIDist = (state.uiDistance - 1) / (4 - 1);
-            const sUIDist = createSlider('s-uidist', settingsGroup, 0.55, sY1, 0.4, 0.03, initUIDist, (v) => {
+            createSlider('s-uidist', settingsGroup, 0.55, sY1, 0.4, 0.03, initUIDist, (v) => {
                 state.uiDistance = 1 + (v * 3);
                 localStorage.setItem('jfvr:ui-distance', state.uiDistance.toString());
             });
 
             createTextObj('Dimmer', settingsGroup, 0.15, sY2, 0.03, 0x94a3b8, 'left');
-            const sDim = createSlider('s-dimmer', settingsGroup, 0.55, sY2, 0.4, 0.03, state.passthroughBrightness, (v) => { state.passthroughBrightness = v; updatePassthroughVisuals(); });
-
-            const toolsY = -0.22;
-            createTextObj('Tools', settingsGroup, -0.65, toolsY, 0.03, 0x94a3b8, 'left');
-            createRoundBtn('m-center', settingsGroup, -0.05, toolsY, 0.06, 'CTR', () => recenterActiveMode(THREE)).textObj.fontSize = 0.025;
-            createRoundBtn('m-about', settingsGroup, 0.16, toolsY, 0.06, 'VER', () => openVersionModal()).textObj.fontSize = 0.025;
-
+            createSlider('s-dimmer', settingsGroup, 0.55, sY2, 0.4, 0.03, state.passthroughBrightness, (v) => { state.passthroughBrightness = v; updatePassthroughVisuals(); });
 
             // Raycaster & Interaction
             const raycaster = new THREE.Raycaster();
             const tempMatrix = new THREE.Matrix4();
             let hoveredObj = null;
 
-            function onSelectStart(event) {
-                const controller = event.target;
-                if (!state.uiVisible) {
-                    toggleUI(controller);
-                    return;
-                }
+            function getSurfaceMeshes() {
+                return [meshes.preview, meshes.left, meshes.right].filter(Boolean);
+            }
+
+            function getControllerRay(controller) {
                 tempMatrix.identity().extractRotation(controller.matrixWorld);
                 raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
                 raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+            }
+
+            function getControllerWorldData(controller) {
+                const position = new THREE.Vector3();
+                const quaternion = new THREE.Quaternion();
+                controller.getWorldPosition(position);
+                controller.getWorldQuaternion(quaternion);
+                const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(quaternion).normalize();
+                return { position, quaternion, forward };
+            }
+
+            function getHeadPosition() {
+                const head = renderer && renderer.xr && renderer.xr.isPresenting ? renderer.xr.getCamera() : camera;
+                const position = new THREE.Vector3();
+                head.getWorldPosition(position);
+                return position;
+            }
+
+            function tryStartVideoGrab(controller) {
+                if (!renderer.xr.isPresenting) return false;
+
+                getControllerRay(controller);
+                const intersections = raycaster.intersectObjects(getSurfaceMeshes(), false);
+                if (!intersections.length) return false;
+
+                const worldData = getControllerWorldData(controller);
+                if (state.mode.projection === 'screen') {
+                    controller.userData.videoGrab = {
+                        type: 'screen',
+                        controllerStart: worldData.position.clone(),
+                        surfaceStart: surfaceRoot.position.clone(),
+                        rotationStart: surfaceRoot.rotation.clone()
+                    };
+                } else {
+                    const headPosition = getHeadPosition();
+                    const startVector = worldData.position.clone().sub(headPosition);
+                    controller.userData.videoGrab = {
+                        type: 'immersive',
+                        startDirection: startVector.clone().normalize(),
+                        startDistance: Math.max(startVector.length(), 0.1),
+                        startScale: surfaceRoot.scale.clone(),
+                        startQuaternion: surfaceRoot.quaternion.clone()
+                    };
+                }
+
+                if (!videoGrabControllers.includes(controller)) {
+                    videoGrabControllers.push(controller);
+                }
+                state.lastInteraction = Date.now();
+                return true;
+            }
+
+            function updateVideoGrab(controller) {
+                const grab = controller.userData.videoGrab;
+                if (!grab) return;
+
+                const worldData = getControllerWorldData(controller);
+                if (grab.type === 'screen') {
+                    const delta = worldData.position.clone().sub(grab.controllerStart);
+                    surfaceRoot.position.copy(grab.surfaceStart).add(delta);
+                    surfaceRoot.rotation.copy(grab.rotationStart);
+                } else {
+                    const headPosition = getHeadPosition();
+                    const currentVector = worldData.position.clone().sub(headPosition);
+                    if (currentVector.lengthSq() > 0.0001) {
+                        const dragRotation = new THREE.Quaternion().setFromUnitVectors(grab.startDirection, currentVector.clone().normalize());
+                        surfaceRoot.quaternion.copy(dragRotation.multiply(grab.startQuaternion.clone()));
+                    }
+                    const scaleFactor = THREE.MathUtils.clamp(currentVector.length() / grab.startDistance, 0.65, 2.5);
+                    surfaceRoot.scale.copy(grab.startScale).multiplyScalar(scaleFactor);
+                }
+                state.lastInteraction = Date.now();
+            }
+
+            function stopVideoGrab(controller) {
+                if (!controller.userData.videoGrab) return;
+                delete controller.userData.videoGrab;
+                videoGrabControllers = videoGrabControllers.filter((item) => item !== controller);
+            }
+
+            function onSelectStart(event) {
+                const controller = event.target;
+                if (!state.uiVisible) {
+                    if (tryStartVideoGrab(controller)) {
+                        return;
+                    }
+                    toggleUI(controller);
+                    return;
+                }
+                getControllerRay(controller);
                 const intersects = raycaster.intersectObjects(interactables, false);
                 if (intersects.length > 0) {
                     const obj = intersects[0].object;
                     if (obj.userData.onClick) obj.userData.onClick(intersects[0].point);
                     if (obj.userData.onDrag) controller.userData.dragTarget = obj;
                 } else {
+                    if (tryStartVideoGrab(controller)) {
+                        return;
+                    }
                     toggleUI(controller);
                 }
             }
 
             function onSelectEnd(event) {
                 const controller = event.target;
+                stopVideoGrab(controller);
                 if (controller.userData.dragTarget) {
                     controller.userData.dragTarget = null;
                 }
@@ -1902,6 +1876,10 @@
 
                 updateHover([renderer.xr.getController(0), renderer.xr.getController(1)]);
 
+                for (let i = 0; i < videoGrabControllers.length; i++) {
+                    updateVideoGrab(videoGrabControllers[i]);
+                }
+
                 for (let i = 0; i < 2; i++) {
                     const controller = renderer.xr.getController(i);
                     if (controller && controller.userData && controller.userData.dragTarget) {
@@ -1936,14 +1914,11 @@
         function close() {
             active = false;
             removeVersionModal();
-            if (previewSyncHandlers) {
-                jellyfinVideo.removeEventListener('play', previewSyncHandlers.play);
-                jellyfinVideo.removeEventListener('pause', previewSyncHandlers.pause);
-                jellyfinVideo.removeEventListener('seeked', previewSyncHandlers.seeked);
-                jellyfinVideo.removeEventListener('timeupdate', previewSyncHandlers.timeupdate);
-            }
+            videoGrabControllers.forEach((controller) => {
+                delete controller.userData.videoGrab;
+            });
+            videoGrabControllers = [];
             if (toolbarVersionBtn) toolbarVersionBtn.removeEventListener('click', openVersionModal);
-            if (toolbarRecenterBtn) toolbarRecenterBtn.removeEventListener('click', onToolbarRecenter);
             if (renderer) {
                 renderer.setAnimationLoop(null);
                 if (renderer.xr.isPresenting) renderer.xr.getSession().end();
@@ -1956,31 +1931,15 @@
             }
         }
 
-        function onToolbarRecenter() {
-            if (renderer && scene && camera) {
-                import('three').then((THREE) => {
-                    if (!active) return;
-                    recenterActiveMode(THREE);
-                }).catch(() => {
-                    updatePreviewStatus('Recenter failed.');
-                });
-            }
-        }
-
         const onKeyDown = (event) => {
             if (event.key === 'Escape') { event.preventDefault(); close(); }
             if (event.key === ' ') { event.preventDefault(); jellyfinVideo.paused ? jellyfinVideo.play() : jellyfinVideo.pause(); }
-            if (event.key.toLowerCase() === 'r') { event.preventDefault(); onToolbarRecenter(); }
             if (event.key.toLowerCase() === 'i') { event.preventDefault(); openVersionModal(); }
         };
         overlay.addEventListener('keydown', onKeyDown);
 
         toolbarVersionBtn = overlay.querySelector('#jfvr-inline-version');
-        toolbarRecenterBtn = overlay.querySelector('#jfvr-inline-recenter');
         if (toolbarVersionBtn) toolbarVersionBtn.addEventListener('click', openVersionModal);
-        if (toolbarRecenterBtn) toolbarRecenterBtn.addEventListener('click', onToolbarRecenter);
-
-        setupPreviewVideo();
 
         initThree().catch(err => {
             console.error("Three.js initialization failed:", err);
@@ -2005,7 +1964,7 @@
 
         try {
             /* three.js loaded dynamically */
-        } catch (error) {
+        } catch (_error) {
             window.alert('Failed to load the VR runtime.');
             return;
         }
