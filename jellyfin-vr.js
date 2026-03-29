@@ -682,6 +682,9 @@
         const UI_DISTANCE_MIN = 1.3;
         const UI_DISTANCE_MAX = 3.3;
         const UI_DISTANCE_DEFAULT = (UI_DISTANCE_MIN + UI_DISTANCE_MAX) / 2;
+        const XR_FRAMEBUFFER_SCALE = 1.25;
+        const XR_FOVEATION = 0;
+        const SURFACE_TRIGGER_GRAB_DELAY_MS = 180;
         let active = true;
         let renderer, scene, camera, vrButton, arButton;
         let uiGroup;
@@ -692,6 +695,7 @@
         let mediaLayerReason = 'not-initialized';
         let mediaLayerMode = 'mesh';
         let mediaLayerKey = '';
+        let textRendererStatus = 'troika-msdf';
         let toolbarVersionBtn;
         let immersiveDebugScreen;
         let surfaceRoot;
@@ -748,6 +752,7 @@
                 mediaLayerStatus,
                 mediaLayerReason,
                 mediaLayerMode,
+                textRendererStatus,
                 grabActive: videoGrabControllers.length > 0
             };
         }
@@ -766,6 +771,8 @@
                     state.showingLayout = false;
                     if (settingsGroup) settingsGroup.visible = state.showingSettings;
                     if (layoutGroup) layoutGroup.visible = false;
+                    if (infoGroup && !state.showingSettings) infoGroup.visible = false;
+                    updateInfoPanelStatus();
                     updateHarnessState();
                 }
             };
@@ -823,7 +830,7 @@
                         uiScale: uiGroup ? { x: uiGroup.scale.x, y: uiGroup.scale.y, z: uiGroup.scale.z } : null,
                         showingSettings: state.showingSettings,
                         showingLayout: state.showingLayout,
-                        activePanel: state.showingSettings ? 'settings' : (state.showingLayout ? 'layout' : 'none'),
+                        activePanel: infoGroup && infoGroup.visible ? 'info' : (state.showingSettings ? 'settings' : (state.showingLayout ? 'layout' : 'none')),
                         stereoLock: state.stereoLock,
                         lastModeChangeSource: state.lastModeChangeSource,
                         lastUiOpenSource: state.lastUiOpenSource,
@@ -831,6 +838,10 @@
                         mediaLayerStatus,
                         mediaLayerReason,
                         mediaLayerMode,
+                        textRendererStatus,
+                        rendererPixelRatio: renderer ? renderer.getPixelRatio() : null,
+                        xrFramebufferScale: XR_FRAMEBUFFER_SCALE,
+                        xrFoveation: XR_FOVEATION,
                         grabActive: videoGrabControllers.length > 0,
                         settingsBounds: toBox(settingsBackgroundMesh),
                         layoutBounds: toBox(layoutBackgroundMesh),
@@ -861,7 +872,9 @@
         let timeCurrentObj, timeDurationObj, titleTextObj;
         let playIconGroup, pauseIconGroup, stereoToggleLabel;
         let seekBg, seekBuf, seekFill;
-        let bgMesh, settingsGroup, layoutGroup;
+        let bgMesh, settingsGroup, layoutGroup, infoGroup;
+        let infoStatusLines = [];
+        let updateInfoPanelStatus = () => {};
         let volSliderGroup, ptSliderGroup;
         let ptSliderUpdateFill;
         let volSliderVisible = false, ptSliderVisible = false;
@@ -916,7 +929,7 @@
                 state.effectiveScreenCurve = 0;
                 return { curved: false, radius: 0, theta: 0, depth: 0 };
             }
-            const theta = 0.18 + (normalized * 2.42);
+            const theta = 0.18 + (normalized * 2.94);
             const radius = 18 / theta;
             const depth = radius * (1 - Math.cos(theta / 2));
             state.effectiveScreenCurve = theta;
@@ -969,7 +982,9 @@
             state.uiAnchorType = anchorType;
             uiGroup.position.copy(origin).add(forward.multiplyScalar(state.uiDistance));
             uiGroup.position.y += verticalOffset;
-            uiGroup.lookAt(origin);
+            const lookTarget = new window.THREE.Vector3();
+            targetCamera.getWorldPosition(lookTarget);
+            uiGroup.lookAt(lookTarget);
             updateHarnessState();
         }
 
@@ -980,7 +995,12 @@
             const verticalOffset = state.uiAnchorType === 'video' ? -0.22 : -0.12;
             uiGroup.position.copy(origin).add(forward.multiplyScalar(state.uiDistance));
             uiGroup.position.y += verticalOffset;
-            uiGroup.lookAt(origin);
+            const targetCamera = renderer && renderer.xr && renderer.xr.isPresenting
+                ? renderer.xr.getCamera()
+                : camera;
+            const lookTarget = new window.THREE.Vector3();
+            targetCamera.getWorldPosition(lookTarget);
+            uiGroup.lookAt(lookTarget);
             updateHarnessState();
         }
 
@@ -1081,7 +1101,7 @@
                         layout,
                         transform: new XRRigidTransform(transform.position, transform.orientation)
                     };
-                } else {
+                } else if (typeof bindingProbe.createQuadLayer === 'function') {
                     layerFactory = 'createQuadLayer';
                     layerMode = 'quad-layer';
                     layerOptions = {
@@ -1091,6 +1111,12 @@
                         layout,
                         transform: new XRRigidTransform(transform.position, transform.orientation)
                     };
+                } else {
+                    clearCompositionVideoLayer(session);
+                    mediaLayerStatus = 'unavailable';
+                    mediaLayerReason = 'quad-layer-unsupported';
+                    updateHarnessState();
+                    return;
                 }
             } else if (typeof bindingProbe.createEquirectLayer === 'function') {
                 layerFactory = 'createEquirectLayer';
@@ -1213,7 +1239,10 @@
             renderer.xr.enabled = true;
             renderer.xr.setReferenceSpaceType('local');
             if (renderer.xr && typeof renderer.xr.setFramebufferScaleFactor === 'function') {
-                renderer.xr.setFramebufferScaleFactor(1.25);
+                renderer.xr.setFramebufferScaleFactor(XR_FRAMEBUFFER_SCALE);
+            }
+            if (renderer.xr && typeof renderer.xr.setFoveation === 'function') {
+                renderer.xr.setFoveation(XR_FOVEATION);
             }
             container.appendChild(renderer.domElement);
 
@@ -1324,6 +1353,7 @@
                 state.showingLayout = false;
                 if (settingsGroup) settingsGroup.visible = false;
                 if (layoutGroup) layoutGroup.visible = false;
+                if (infoGroup) infoGroup.visible = false;
                 if (uiGroup) {
                     uiGroup.visible = true;
                     if (controller && controller.matrixWorld) {
@@ -1343,6 +1373,7 @@
                 state.showingLayout = false;
                 if (settingsGroup) settingsGroup.visible = false;
                 if (layoutGroup) layoutGroup.visible = false;
+                if (infoGroup) infoGroup.visible = false;
                 if (uiGroup) {
                     uiGroup.visible = false;
                 }
@@ -1544,7 +1575,7 @@
             // UI Builder
             uiGroup = new THREE.Group();
             uiGroup.position.set(0, 0, -state.uiDistance);
-            uiGroup.scale.setScalar(BASE_UI_SCALE * state.uiScale * (state.uiDistance / UI_DISTANCE_DEFAULT));
+            uiGroup.scale.setScalar(BASE_UI_SCALE * state.uiScale);
             scene.add(uiGroup);
 
             function syncFloatingPanels() {
@@ -1554,7 +1585,7 @@
 
             function refreshUiDistance() {
                 if (!uiGroup) return;
-                uiGroup.scale.setScalar(BASE_UI_SCALE * state.uiScale * (state.uiDistance / UI_DISTANCE_DEFAULT));
+                uiGroup.scale.setScalar(BASE_UI_SCALE * state.uiScale);
                 applyStoredUiAnchor();
                 syncFloatingPanels();
                 updateHarnessState();
@@ -1575,7 +1606,7 @@
                 const t = new Text();
                 t.text = str;
                 t.fontSize = size;
-                t.sdfGlyphSize = 192;
+                t.sdfGlyphSize = 256;
                 t.color = color;
                 t.position.set(x, y, 0.01);
                 t.anchorX = align || 'center';
@@ -1583,6 +1614,8 @@
                 t.depthOffset = -1;
                 t.renderOrder = 20;
                 t.frustumCulled = false;
+                t.outlineWidth = size * 0.035;
+                t.outlineColor = 0x030712;
                 parent.add(t);
                 textObjects.push(t);
                 t.sync(() => {
@@ -1620,6 +1653,22 @@
                 };
                 interactables.push(mesh);
             }
+
+            updateInfoPanelStatus = function () {
+                if (!infoStatusLines.length || !renderer) return;
+                const lines = [
+                    `Video: ${mediaLayerMode} / ${mediaLayerStatus}`,
+                    `Reason: ${mediaLayerReason}`,
+                    `Text: ${textRendererStatus}`,
+                    `PX/Fov: ${renderer.getPixelRatio().toFixed(2)} / ${XR_FOVEATION.toFixed(2)}`,
+                    `XR Scale: ${XR_FRAMEBUFFER_SCALE.toFixed(2)}`,
+                    `Video Res: ${jellyfinVideo.videoWidth || 0}x${jellyfinVideo.videoHeight || 0}`
+                ];
+                for (let i = 0; i < infoStatusLines.length; i++) {
+                    infoStatusLines[i].text = lines[i] || '';
+                    infoStatusLines[i].sync();
+                }
+            };
 
             function createSlider(id, parent, x, y, w, h, initVal, onChange, options) {
                 const config = options || {};
@@ -2033,10 +2082,12 @@
             titleTextObj = new Text();
             titleTextObj.text = videoTitle || 'Loading...';
             titleTextObj.fontSize = 0.038;
-            titleTextObj.sdfGlyphSize = 192;
+            titleTextObj.sdfGlyphSize = 256;
             titleTextObj.color = 0xf0f6ff;
             titleTextObj.anchorX = 'center';
             titleTextObj.anchorY = 'middle';
+            titleTextObj.outlineWidth = 0.0014;
+            titleTextObj.outlineColor = 0x030712;
             titleTextObj.maxWidth = 8;
             titleTextObj.position.set(0, 0, 0.01);
             titleClipGroup.add(titleTextObj);
@@ -2199,6 +2250,24 @@
             settingsGroup.add(setBg);
             makePanelBlocker(setBg, 'settings-bg', 0x0f172a);
 
+            const infoBtn = createRoundBtn('settings-info', settingsGroup, 0.69, 0.11, 0.032, 'i', () => {
+                if (infoGroup) infoGroup.visible = !infoGroup.visible;
+                updateInfoPanelStatus();
+            });
+            if (infoBtn.textObj) infoBtn.textObj.fontSize = 0.034;
+
+            infoGroup = new THREE.Group();
+            infoGroup.position.set(0.17, 0.28, 0.02);
+            infoGroup.visible = false;
+            settingsGroup.add(infoGroup);
+
+            const infoBg = new THREE.Mesh(createRoundedRectGeometry(0.92, 0.30, 0.05), frostedMat.clone());
+            infoGroup.add(infoBg);
+            makePanelBlocker(infoBg, 'settings-info-bg', 0x0f172a);
+            createTextObj('Info', infoGroup, -0.40, 0.11, 0.024, 0x7dd3fc, 'left');
+            const infoLineY = [0.06, 0.02, -0.02, -0.06, -0.10, -0.14];
+            infoStatusLines = infoLineY.map((y) => createTextObj('', infoGroup, -0.40, y, 0.018, 0xe2e8f0, 'left'));
+
             const sY1 = 0.08; const sY2 = 0.0; const sY3 = -0.08;
             createTextObj('Curve', settingsGroup, -0.65, sY1, 0.03, 0x94a3b8, 'left');
             createSlider('s-curve', settingsGroup, -0.2, sY1, 0.5, 0.03, state.screenCurvature, (v) => { state.screenCurvature = v; applyModeFromState({ preserveSurfaceTransform: true }); });
@@ -2262,6 +2331,12 @@
                 window.__JFVR_RUNTIME_ACTIONS__.setStereoLock = (value) => {
                     state.stereoLock = value;
                     updateStereoVisibility();
+                };
+                window.__JFVR_RUNTIME_ACTIONS__.toggleInfoPanel = () => {
+                    if (infoGroup) {
+                        infoGroup.visible = !infoGroup.visible;
+                        updateInfoPanelStatus();
+                    }
                 };
                 window.__JFVR_RUNTIME_ACTIONS__.openUiAtController = (hand, anchorType) => {
                     const index = hand === 'left' ? 0 : 1;
@@ -2392,6 +2467,13 @@
                 videoGrabControllers = videoGrabControllers.filter((item) => item !== controller);
             }
 
+            function clearPendingSurfaceSelect(controller) {
+                if (controller && controller.userData && controller.userData.pendingSurfaceSelectTimer) {
+                    window.clearTimeout(controller.userData.pendingSurfaceSelectTimer);
+                    controller.userData.pendingSurfaceSelectTimer = null;
+                }
+            }
+
             function onSelectStart(event) {
                 const controller = event.target;
                 if (!state.uiVisible) {
@@ -2410,7 +2492,14 @@
                         controller.userData.dragPlanePoint = obj.getWorldPosition(new THREE.Vector3());
                     }
                 } else if (!state.showingLayout && !state.showingSettings && surfaceIntersections.length > 0) {
-                    tryStartVideoGrab(controller);
+                    clearPendingSurfaceSelect(controller);
+                    controller.userData.pendingSurfaceSelectTimer = window.setTimeout(() => {
+                        controller.userData.pendingSurfaceSelectTimer = null;
+                        if (state.uiVisible && !state.showingLayout && !state.showingSettings) {
+                            tryStartVideoGrab(controller);
+                            updateHarnessState();
+                        }
+                    }, SURFACE_TRIGGER_GRAB_DELAY_MS);
                 } else {
                     closeUI('trigger-empty');
                 }
@@ -2438,6 +2527,8 @@
 
             function onSelectEnd(event) {
                 const controller = event.target;
+                const pendingSurfaceClose = Boolean(controller.userData.pendingSurfaceSelectTimer) && !controller.userData.videoGrab;
+                clearPendingSurfaceSelect(controller);
                 stopVideoGrab(controller);
                 if (controller.userData.dragTarget) {
                     if (controller.userData.dragTarget.userData.onDragEnd) {
@@ -2451,6 +2542,9 @@
                 if (controller.userData.lineRef) {
                     controller.userData.lineRef.material.color.setHex(0xffffff);
                     controller.userData.lineColor.copy(controller.userData.lineRef.material.color);
+                }
+                if (pendingSurfaceClose) {
+                    closeUI('trigger-surface-close');
                 }
                 updateHarnessState();
             }
@@ -2682,6 +2776,10 @@
 
                 if (state.uiVisible && Date.now() - state.lastInteraction > 5000) {
                     toggleUI();
+                }
+
+                if (infoGroup && infoGroup.visible) {
+                    updateInfoPanelStatus();
                 }
 
                 renderer.render(scene, camera);
