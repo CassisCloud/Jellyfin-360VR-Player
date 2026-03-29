@@ -684,6 +684,7 @@
         const UI_DISTANCE_DEFAULT = (UI_DISTANCE_MIN + UI_DISTANCE_MAX) / 2;
         const XR_FRAMEBUFFER_SCALE = 1.25;
         const XR_FOVEATION = 0;
+        const DISABLE_COMPOSITION_LAYERS_IN_VR = true;
         const SURFACE_TRIGGER_GRAB_DELAY_MS = 180;
         let active = true;
         let renderer, scene, camera, vrButton, arButton;
@@ -699,6 +700,15 @@
         let projectionLayerStatus = 'unknown';
         let projectionLayerReason = 'not-initialized';
         let xrSessionMode = 'unknown';
+        let xrEnvironmentBlendMode = 'unknown';
+        let xrModeDetection = 'unknown';
+        let xrBindingState = 'unknown';
+        let xrRenderStateLayers = 'unknown';
+        let xrRenderStateBaseLayer = 'unknown';
+        let xrMediaBindingFactory = 'unknown';
+        let xrMediaLayerSupport = 'unknown';
+        let xrSelectedLayerType = 'none';
+        let xrLayerLastError = 'none';
         let toolbarVersionBtn;
         let immersiveDebugScreen;
         let surfaceRoot;
@@ -758,6 +768,15 @@
                 projectionLayerStatus,
                 projectionLayerReason,
                 xrSessionMode,
+                xrEnvironmentBlendMode,
+                xrModeDetection,
+                xrBindingState,
+                xrRenderStateLayers,
+                xrRenderStateBaseLayer,
+                xrMediaBindingFactory,
+                xrMediaLayerSupport,
+                xrSelectedLayerType,
+                xrLayerLastError,
                 textRendererStatus,
                 grabActive: videoGrabControllers.length > 0
             };
@@ -860,6 +879,15 @@
                         projectionLayerStatus,
                         projectionLayerReason,
                         xrSessionMode,
+                        xrEnvironmentBlendMode,
+                        xrModeDetection,
+                        xrBindingState,
+                        xrRenderStateLayers,
+                        xrRenderStateBaseLayer,
+                        xrMediaBindingFactory,
+                        xrMediaLayerSupport,
+                        xrSelectedLayerType,
+                        xrLayerLastError,
                         textRendererStatus,
                         rendererPixelRatio: renderer ? renderer.getPixelRatio() : null,
                         xrFramebufferScale: XR_FRAMEBUFFER_SCALE,
@@ -867,6 +895,9 @@
                         grabActive: videoGrabControllers.length > 0,
                         settingsBounds: toBox(settingsBackgroundMesh),
                         infoBounds: toBox(infoBackgroundMesh),
+                        infoContentBounds: toBox(infoContentGroup),
+                        infoLeftColumnBounds: toBox(infoLeftColumnGroup),
+                        infoRightColumnBounds: toBox(infoRightColumnGroup),
                         infoButtonBounds: toBox(infoButtonMesh),
                         settingsUiDistTrackBounds: toBox(settingsUiDistTrack),
                         settingsDimmerTrackBounds: toBox(settingsDimmerTrack),
@@ -901,11 +932,15 @@
         let playIconGroup, pauseIconGroup, stereoToggleLabel;
         let seekBg, seekBuf, seekFill;
         let bgMesh, settingsGroup, layoutGroup, infoGroup;
+        let infoContentGroup = null;
+        let infoLeftColumnGroup = null;
+        let infoRightColumnGroup = null;
         let infoButtonMesh = null;
         let infoBackgroundMesh = null;
         let settingsUiDistTrack = null;
         let settingsDimmerTrack = null;
-        let infoStatusLines = [];
+        let infoLeftStatusLines = [];
+        let infoRightStatusLines = [];
         let updateInfoPanelStatus = () => {};
         let volSliderGroup, ptSliderGroup;
         let ptSliderUpdateFill;
@@ -1071,8 +1106,14 @@
         function clearCompositionVideoLayer(session) {
             const xrSession = session || (renderer && renderer.xr && typeof renderer.xr.getSession === 'function' ? renderer.xr.getSession() : null);
             try {
-                if (xrSession && typeof xrSession.updateRenderState === 'function' && xrSession.renderState && xrSession.renderState.baseLayer) {
-                    xrSession.updateRenderState({ layers: [xrSession.renderState.baseLayer] });
+                if (xrSession && typeof xrSession.updateRenderState === 'function' && xrSession.renderState) {
+                    const existingLayers = Array.isArray(xrSession.renderState.layers) ? Array.from(xrSession.renderState.layers) : [];
+                    const remaining = existingLayers.filter((l) => l !== mediaVideoLayer);
+                    if (remaining.length > 0 && remaining.length !== existingLayers.length) {
+                        xrSession.updateRenderState({ layers: remaining });
+                    } else if (remaining.length === 0 && xrSession.renderState.baseLayer) {
+                        xrSession.updateRenderState({ baseLayer: xrSession.renderState.baseLayer });
+                    }
                 }
             } catch (_error) {
                 // Best-effort cleanup only.
@@ -1088,12 +1129,18 @@
             if (!session || !state.isImmersive) {
                 projectionLayerStatus = 'inactive';
                 projectionLayerReason = 'no-session';
+                xrBindingState = 'inactive';
+                xrRenderStateLayers = 'inactive';
+                xrRenderStateBaseLayer = 'inactive';
                 return;
             }
 
             const hasLayersArray = Boolean(session.renderState && Array.isArray(session.renderState.layers));
             const hasBaseLayer = Boolean(session.renderState && session.renderState.baseLayer);
             const hasBinding = renderer && renderer.xr && typeof renderer.xr.getBinding === 'function' && Boolean(renderer.xr.getBinding());
+            xrBindingState = hasBinding ? 'present' : 'missing';
+            xrRenderStateLayers = hasLayersArray ? 'present' : 'missing';
+            xrRenderStateBaseLayer = hasBaseLayer ? 'present' : 'missing';
 
             if (hasLayersArray) {
                 projectionLayerStatus = 'layers';
@@ -1109,19 +1156,46 @@
 
         function syncCompositionVideoLayer(THREE) {
             const session = renderer && renderer.xr && typeof renderer.xr.getSession === 'function' ? renderer.xr.getSession() : null;
+            const sessionMode = session && typeof session.mode === 'string' ? session.mode : xrSessionMode;
+            const isSessionAR = sessionMode === 'immersive-ar';
+            const isSessionVR = sessionMode === 'immersive-vr';
+            const treatAsAR = isSessionAR || (!isSessionVR && state.isAR);
+            const forceMeshInVR = DISABLE_COMPOSITION_LAYERS_IN_VR && isSessionVR;
+
             if (!session || !state.isImmersive) {
                 clearCompositionVideoLayer(session);
                 mediaLayerStatus = 'inactive';
                 mediaLayerReason = 'no-session';
+                xrMediaBindingFactory = 'inactive';
+                xrMediaLayerSupport = 'inactive';
+                xrSelectedLayerType = 'none';
+                xrLayerLastError = 'none';
                 updateProjectionLayerStatus();
                 updateHarnessState();
                 return;
             }
 
-            if (state.isAR || typeof window.XRMediaBinding !== 'function' || typeof session.updateRenderState !== 'function' || typeof renderer.xr.getReferenceSpace !== 'function') {
+            if (forceMeshInVR) {
+                clearCompositionVideoLayer(session);
+                mediaLayerStatus = 'inactive';
+                mediaLayerReason = 'vr-kill-switch';
+                xrMediaBindingFactory = typeof window.XRMediaBinding === 'function' ? 'available' : 'missing';
+                xrMediaLayerSupport = 'skipped';
+                xrSelectedLayerType = 'none';
+                xrLayerLastError = 'none';
+                updateProjectionLayerStatus();
+                updateHarnessState();
+                return;
+            }
+
+            if (treatAsAR || typeof window.XRMediaBinding !== 'function' || typeof session.updateRenderState !== 'function' || typeof renderer.xr.getReferenceSpace !== 'function') {
                 clearCompositionVideoLayer(session);
                 mediaLayerStatus = 'unavailable';
-                mediaLayerReason = state.isAR ? 'ar-session' : 'unsupported';
+                mediaLayerReason = treatAsAR ? 'ar-session' : 'unsupported';
+                xrMediaBindingFactory = typeof window.XRMediaBinding === 'function' ? 'available' : 'missing';
+                xrMediaLayerSupport = 'unknown';
+                xrSelectedLayerType = 'none';
+                xrLayerLastError = 'none';
                 updateProjectionLayerStatus();
                 updateHarnessState();
                 return;
@@ -1132,6 +1206,10 @@
                 clearCompositionVideoLayer(session);
                 mediaLayerStatus = 'inactive';
                 mediaLayerReason = 'missing-reference-space';
+                xrMediaBindingFactory = 'available';
+                xrMediaLayerSupport = 'unknown';
+                xrSelectedLayerType = 'none';
+                xrLayerLastError = 'none';
                 updateProjectionLayerStatus();
                 updateHarnessState();
                 return;
@@ -1140,7 +1218,28 @@
             const transform = getSurfaceTransformForLayer(THREE);
             const layout = getCompositionLayerLayout(state.mode);
             const curveParams = getScreenCurveParams();
-            const bindingProbe = new window.XRMediaBinding(session);
+            let bindingProbe = null;
+            try {
+                bindingProbe = new window.XRMediaBinding(session);
+                xrMediaBindingFactory = 'ready';
+                xrLayerLastError = 'none';
+            } catch (error) {
+                clearCompositionVideoLayer(session);
+                mediaLayerStatus = 'fallback';
+                mediaLayerReason = 'media-binding-init-failed';
+                xrMediaBindingFactory = 'constructor-failed';
+                xrMediaLayerSupport = 'unknown';
+                xrSelectedLayerType = 'none';
+                xrLayerLastError = error && error.message ? error.message : 'media-binding-init-failed';
+                updateProjectionLayerStatus();
+                updateHarnessState();
+                return;
+            }
+
+            const hasQuadLayer = typeof bindingProbe.createQuadLayer === 'function';
+            const hasCylinderLayer = typeof bindingProbe.createCylinderLayer === 'function';
+            const hasEquirectLayer = typeof bindingProbe.createEquirectLayer === 'function';
+            xrMediaLayerSupport = `quad:${hasQuadLayer ? 'yes' : 'no'},cylinder:${hasCylinderLayer ? 'yes' : 'no'},equirect:${hasEquirectLayer ? 'yes' : 'no'}`;
             let layerFactory = null;
             let layerKey = '';
             let layerMode = 'mesh';
@@ -1149,7 +1248,7 @@
             if (state.mode.projection === 'screen') {
                 const width = 18 * state.screenSize;
                 const height = 10.125 * state.screenSize;
-                if (curveParams.curved && typeof bindingProbe.createCylinderLayer === 'function') {
+                if (curveParams.curved && hasCylinderLayer) {
                     layerFactory = 'createCylinderLayer';
                     layerMode = 'cylinder-layer';
                     layerOptions = {
@@ -1160,7 +1259,7 @@
                         layout,
                         transform: new XRRigidTransform(transform.position, transform.orientation)
                     };
-                } else if (typeof bindingProbe.createQuadLayer === 'function') {
+                } else if (hasQuadLayer) {
                     layerFactory = 'createQuadLayer';
                     layerMode = 'quad-layer';
                     layerOptions = {
@@ -1174,11 +1273,13 @@
                     clearCompositionVideoLayer(session);
                     mediaLayerStatus = 'unavailable';
                     mediaLayerReason = 'quad-layer-unsupported';
+                    xrSelectedLayerType = 'none';
+                    xrLayerLastError = 'none';
                     updateProjectionLayerStatus();
                     updateHarnessState();
                     return;
                 }
-            } else if (typeof bindingProbe.createEquirectLayer === 'function') {
+            } else if (hasEquirectLayer) {
                 layerFactory = 'createEquirectLayer';
                 layerMode = 'equirect-layer';
                 layerOptions = {
@@ -1194,10 +1295,13 @@
                 clearCompositionVideoLayer(session);
                 mediaLayerStatus = 'unavailable';
                 mediaLayerReason = 'no-supported-layer-type';
+                xrSelectedLayerType = 'none';
+                xrLayerLastError = 'none';
                 updateProjectionLayerStatus();
                 updateHarnessState();
                 return;
             }
+            xrSelectedLayerType = layerMode;
 
             layerKey = JSON.stringify({
                 projection: state.mode.projection,
@@ -1215,6 +1319,7 @@
                 mediaLayerStatus = 'active';
                 mediaLayerReason = 'ok';
                 mediaLayerMode = layerMode;
+                xrLayerLastError = 'none';
                 updateProjectionLayerStatus();
                 updateHarnessState();
                 return;
@@ -1227,16 +1332,25 @@
                     throw new Error(layerFactory + ' not supported');
                 }
                 mediaVideoLayer = mediaBinding[layerFactory](jellyfinVideo, layerOptions);
-                const baseLayer = session.renderState && session.renderState.baseLayer ? session.renderState.baseLayer : null;
-                session.updateRenderState({ layers: [mediaVideoLayer].concat(baseLayer ? [baseLayer] : []) });
+                const existingLayers = Array.isArray(session.renderState.layers) ? Array.from(session.renderState.layers) : [];
+                const projectionLayers = existingLayers.filter((l) => l !== mediaVideoLayer);
+                if (projectionLayers.length > 0) {
+                    session.updateRenderState({ layers: [mediaVideoLayer].concat(projectionLayers) });
+                } else if (session.renderState.baseLayer) {
+                    session.updateRenderState({ layers: [mediaVideoLayer, session.renderState.baseLayer] });
+                } else {
+                    session.updateRenderState({ layers: [mediaVideoLayer] });
+                }
                 mediaLayerStatus = 'active';
                 mediaLayerReason = 'ok';
                 mediaLayerMode = layerMode;
                 mediaLayerKey = layerKey;
+                xrLayerLastError = 'none';
             } catch (error) {
                 clearCompositionVideoLayer(session);
                 mediaLayerStatus = 'fallback';
                 mediaLayerReason = error && error.message ? error.message : 'layer-create-failed';
+                xrLayerLastError = mediaLayerReason;
             }
             updateProjectionLayerStatus();
             updateHarnessState();
@@ -1359,11 +1473,27 @@
 
             renderer.xr.addEventListener('sessionstart', () => {
                 state.isImmersive = true;
+                const session = renderer.xr && typeof renderer.xr.getSession === 'function'
+                    ? renderer.xr.getSession()
+                    : null;
+                const sessionMode = session && typeof session.mode === 'string' ? session.mode : 'unknown';
                 const blendMode = renderer.xr && typeof renderer.xr.getEnvironmentBlendMode === 'function'
                     ? renderer.xr.getEnvironmentBlendMode()
                     : 'opaque';
-                state.isAR = blendMode === 'alpha-blend' || blendMode === 'additive';
-                xrSessionMode = state.isAR ? 'immersive-ar' : 'immersive-vr';
+                xrEnvironmentBlendMode = blendMode || 'unknown';
+                if (sessionMode === 'immersive-ar') {
+                    state.isAR = true;
+                    xrSessionMode = 'immersive-ar';
+                    xrModeDetection = 'session-mode';
+                } else if (sessionMode === 'immersive-vr') {
+                    state.isAR = false;
+                    xrSessionMode = 'immersive-vr';
+                    xrModeDetection = 'session-mode';
+                } else {
+                    state.isAR = blendMode === 'alpha-blend' || blendMode === 'additive';
+                    xrSessionMode = state.isAR ? 'immersive-ar' : 'immersive-vr';
+                    xrModeDetection = 'blend-fallback';
+                }
                 if (typeof updatePassthroughVisuals === 'function') updatePassthroughVisuals();
                 if (ptSliderUpdateFill) ptSliderUpdateFill(state.passthroughBrightness);
                 camera.layers.enable(0);
@@ -1379,6 +1509,15 @@
                 state.isImmersive = false;
                 state.isAR = false;
                 xrSessionMode = 'none';
+                xrEnvironmentBlendMode = 'none';
+                xrModeDetection = 'none';
+                xrBindingState = 'inactive';
+                xrRenderStateLayers = 'inactive';
+                xrRenderStateBaseLayer = 'inactive';
+                xrMediaBindingFactory = 'inactive';
+                xrMediaLayerSupport = 'inactive';
+                xrSelectedLayerType = 'none';
+                xrLayerLastError = 'none';
                 scene.background = new THREE.Color(0x000000);
                 clearCompositionVideoLayer();
                 applyUiAnchorFromViewer(THREE, 'center');
@@ -1782,21 +1921,27 @@
             }
 
             updateInfoPanelStatus = function () {
-                if (!infoStatusLines.length || !renderer) return;
-                const lines = [
+                if ((!infoLeftStatusLines.length && !infoRightStatusLines.length) || !renderer) return;
+                const leftLines = [
                     `Session: ${xrSessionMode}`,
                     `Projection Layer: ${projectionLayerStatus}`,
                     `Projection Reason: ${projectionLayerReason}`,
-                    `Video Layer: ${mediaLayerMode} / ${mediaLayerStatus}`,
+                    `Video Layer: ${mediaLayerMode} / ${mediaLayerStatus}`
+                ];
+                const rightLines = [
                     `Video Reason: ${mediaLayerReason}`,
                     `Text: ${textRendererStatus} sdf256`,
                     `Pixel Ratio / Fov: ${renderer.getPixelRatio().toFixed(2)} / ${XR_FOVEATION.toFixed(2)}`,
                     `XR Scale: ${XR_FRAMEBUFFER_SCALE.toFixed(2)}`,
                     `Video Res: ${jellyfinVideo.videoWidth || 0}x${jellyfinVideo.videoHeight || 0}`
                 ];
-                for (let i = 0; i < infoStatusLines.length; i++) {
-                    infoStatusLines[i].text = lines[i] || '';
-                    infoStatusLines[i].sync();
+                for (let i = 0; i < infoLeftStatusLines.length; i++) {
+                    infoLeftStatusLines[i].text = leftLines[i] || '';
+                    infoLeftStatusLines[i].sync();
+                }
+                for (let i = 0; i < infoRightStatusLines.length; i++) {
+                    infoRightStatusLines[i].text = rightLines[i] || '';
+                    infoRightStatusLines[i].sync();
                 }
             };
 
@@ -2418,17 +2563,63 @@
             if (infoBtn.textObj) infoBtn.textObj.fontSize = 0.03;
 
             infoGroup = new THREE.Group();
-            infoGroup.position.set(0.0, SETTINGS_LAYOUT.height / 2 + 0.34, 0.02);
+            infoGroup.position.set(0.0, 0, 0.02);
             infoGroup.visible = false;
             settingsGroup.add(infoGroup);
 
-            const infoBg = new THREE.Mesh(createRoundedRectGeometry(1.30, 0.54, 0.05), frostedMat.clone());
+            const infoLayout = {
+                width: 1.58,
+                radius: 0.05,
+                paddingX: 0.08,
+                paddingTop: 0.06,
+                paddingBottom: 0.06,
+                titleHeight: 0.05,
+                rowHeight: 0.034,
+                rowGap: 0.022,
+                columnGap: 0.06
+            };
+            const infoLeftTemplateCount = 4;
+            const infoRightTemplateCount = 5;
+            const infoMaxRows = Math.max(infoLeftTemplateCount, infoRightTemplateCount);
+            const infoRowsHeight = (infoMaxRows * infoLayout.rowHeight) + ((infoMaxRows - 1) * infoLayout.rowGap);
+            const infoContentHeight = infoLayout.titleHeight + infoLayout.rowGap + infoRowsHeight;
+            const infoHeight = infoLayout.paddingTop + infoContentHeight + infoLayout.paddingBottom;
+            const infoInnerWidth = infoLayout.width - (infoLayout.paddingX * 2);
+            const infoColumnWidth = (infoInnerWidth - infoLayout.columnGap) / 2;
+
+            const infoBg = new THREE.Mesh(createRoundedRectGeometry(infoLayout.width, infoHeight, infoLayout.radius), frostedMat.clone());
             infoBackgroundMesh = infoBg;
             infoGroup.add(infoBg);
             makePanelBlocker(infoBg, 'settings-info-bg', 0x0f172a);
-            createTextObj('Info', infoGroup, -0.58, 0.22, 0.03, 0x7dd3fc, 'left');
-            const infoLineY = [0.16, 0.10, 0.04, -0.02, -0.08, -0.14, -0.20, -0.26];
-            infoStatusLines = infoLineY.map((y) => createInfoLine(infoGroup, -0.58, y, '', 0xe2e8f0));
+            const infoTopY = (infoHeight / 2) - infoLayout.paddingTop;
+            infoContentGroup = new THREE.Group();
+            infoContentGroup.position.set(0, 0, 0.01);
+            infoGroup.add(infoContentGroup);
+            createTextObj('Info', infoContentGroup, -infoInnerWidth / 2, infoTopY - (infoLayout.titleHeight / 2), 0.03, 0x7dd3fc, 'left');
+
+            const rowsTopY = infoTopY - infoLayout.titleHeight - infoLayout.rowGap;
+            infoLeftColumnGroup = new THREE.Group();
+            infoRightColumnGroup = new THREE.Group();
+            infoContentGroup.add(infoLeftColumnGroup);
+            infoContentGroup.add(infoRightColumnGroup);
+            infoLeftColumnGroup.position.set(-infoInnerWidth / 2, 0, 0);
+            infoRightColumnGroup.position.set((-infoInnerWidth / 2) + infoColumnWidth + infoLayout.columnGap, 0, 0);
+
+            const createInfoColumnLines = (group, count) => {
+                const lines = [];
+                for (let i = 0; i < count; i++) {
+                    const y = rowsTopY - (i * (infoLayout.rowHeight + infoLayout.rowGap)) - (infoLayout.rowHeight / 2);
+                    const line = createInfoLine(group, 0, y, '', 0xe2e8f0);
+                    line.maxWidth = infoColumnWidth;
+                    line.sync();
+                    lines.push(line);
+                }
+                return lines;
+            };
+
+            infoLeftStatusLines = createInfoColumnLines(infoLeftColumnGroup, infoLeftTemplateCount);
+            infoRightStatusLines = createInfoColumnLines(infoRightColumnGroup, infoRightTemplateCount);
+            infoGroup.position.set(0.0, (SETTINGS_LAYOUT.height / 2) + (infoHeight / 2) + 0.08, 0.02);
 
             const sY1 = SETTINGS_LAYOUT.rowY[0];
             const sY2 = SETTINGS_LAYOUT.rowY[1];
