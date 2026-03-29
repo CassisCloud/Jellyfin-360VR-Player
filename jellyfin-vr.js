@@ -105,6 +105,15 @@
             variant: 'half'
         },
         {
+            id: 'screen-2d',
+            label: '2D Screen',
+            shortLabel: '2D',
+            description: 'Flat theater screen with no stereoscopic split.',
+            projection: 'screen',
+            stereo: 'mono',
+            variant: 'mono'
+        },
+        {
             id: '3d-sbs-full',
             label: '3D Full SBS',
             shortLabel: '3D SBS',
@@ -121,6 +130,24 @@
             projection: 'screen',
             stereo: 'sbs',
             variant: 'half'
+        },
+        {
+            id: '3d-ou-full',
+            label: '3D Full OU',
+            shortLabel: '3D OU',
+            description: 'Stereo theater screen for full over-under 3D video.',
+            projection: 'screen',
+            stereo: 'ou',
+            variant: 'full'
+        },
+        {
+            id: '3d-ou-half',
+            label: '3D Half OU',
+            shortLabel: '3D OU',
+            description: 'Stereo theater screen for half over-under 3D video.',
+            projection: 'screen',
+            stereo: 'ou',
+            variant: 'half'
         }
     ];
 
@@ -128,6 +155,18 @@
         acc[mode.id] = mode;
         return acc;
     }, {});
+
+    const MODE_GROUPS = [
+        { projection: '360', title: '360 VR Modes' },
+        { projection: '180', title: '180 VR Modes' },
+        { projection: 'screen', title: 'Screen Modes' }
+    ];
+
+    function getModeShapeLabel(mode) {
+        if (mode.stereo === 'mono') return '2D';
+        if (mode.stereo === 'sbs') return mode.variant === 'full' ? 'SBS Full' : 'SBS Half';
+        return mode.variant === 'full' ? 'OU Full' : 'OU Half';
+    }
 
     let activeInlinePlayer = null;
 
@@ -541,9 +580,9 @@
         button.dataset.modeId = mode.id;
 
         const modeTag = mode.projection === 'screen'
-            ? '3D ' + mode.stereo.toUpperCase()
+            ? (mode.stereo === 'mono' ? '2D Screen' : 'Screen ' + mode.stereo.toUpperCase())
             : (mode.stereo === 'mono' ? mode.projection + ' Mono' : mode.projection + ' ' + mode.stereo.toUpperCase());
-        const variantLabel = mode.variant === 'mono' ? 'Mono' : mode.variant === 'full' ? 'Full layout' : 'Half layout';
+        const variantLabel = mode.variant === 'mono' ? 'Single view' : mode.variant === 'full' ? 'Full layout' : 'Half layout';
 
         button.innerHTML = `
       <div class="jfvr-mode-topline">
@@ -589,13 +628,7 @@
         menu.id = 'jfvr-mode-menu';
         const lastMode = localStorage.getItem(STORAGE_KEYS.lastMode) || '180-sbs-half';
 
-        const groupDefinitions = [
-            { projection: '180', title: '180 VR Modes' },
-            { projection: '360', title: '360 VR Modes' },
-            { projection: 'screen', title: '3D Screen Modes' }
-        ];
-
-        const groups = groupDefinitions.map(({ projection, title }) => {
+        const groups = MODE_GROUPS.map(({ projection, title }) => {
             const options = VIEW_MODES.filter((mode) => mode.projection === projection);
             const section = document.createElement('div');
             section.className = 'jfvr-menu-section';
@@ -620,7 +653,7 @@
         <div class="jfvr-menu-head-top">
           <div>
             <div class="jfvr-menu-title">Choose a VR projection</div>
-            <div class="jfvr-menu-subtitle">Pick the layout that matches the file. 180 and 360 stay immersive, while 3D SBS opens as a stereo theater screen.</div>
+            <div class="jfvr-menu-subtitle">Pick the layout that matches the file. 180 and 360 stay immersive, while screen modes open as a theater view with 2D or stereo splits.</div>
           </div>
           <div class="jfvr-menu-recommend">Recommended: ${escapeHtml(recommended.label)}</div>
         </div>
@@ -645,10 +678,19 @@
     }
 
     function createInlinePlayerRuntime(overlay, styleEl, jellyfinVideo, modeId) {
+        const BASE_UI_SCALE = 0.74;
+        const UI_DISTANCE_MIN = 1.3;
+        const UI_DISTANCE_MAX = 3.3;
+        const UI_DISTANCE_DEFAULT = (UI_DISTANCE_MIN + UI_DISTANCE_MAX) / 2;
         let active = true;
         let renderer, scene, camera, vrButton, arButton;
         let uiGroup;
         let videoTexture, materials = {}, meshes = {};
+        let mediaBinding = null;
+        let mediaVideoLayer = null;
+        let mediaLayerStatus = 'unavailable';
+        let mediaLayerReason = 'not-initialized';
+        let mediaLayerMode = 'mesh';
         let toolbarVersionBtn;
         let immersiveDebugScreen;
         let surfaceRoot;
@@ -658,16 +700,25 @@
             isImmersive: false,
             swapEyes: false,
             uiVisible: true,
+            uiAnchorType: 'center',
+            uiAnchorOrigin: null,
+            uiAnchorForward: null,
             lastInteraction: Date.now(),
-            uiDistance: Math.abs(parseFloat(localStorage.getItem('jfvr:ui-distance'))) || 2.3,
+            uiDistance: Math.min(UI_DISTANCE_MAX, Math.max(UI_DISTANCE_MIN, Math.abs(parseFloat(localStorage.getItem('jfvr:ui-distance'))) || UI_DISTANCE_DEFAULT)),
             uiScale: parseFloat(localStorage.getItem('jfvr:ui-scale')) || 1.0,
             isAR: false,
             passthroughEnabled: false,
             passthroughBrightness: 1.0,
             screenCurvature: 0.0,
+            effectiveScreenCurve: 0.0,
             screenSize: 1.0,
             screenDistance: -12.0,
-            showingSettings: false
+            stereoLock: 'auto',
+            lastModeChangeSource: 'initial',
+            lastUiOpenSource: 'initial',
+            lastUiCloseSource: 'initial',
+            showingSettings: false,
+            showingLayout: false
         };
 
         function immersiveDebugScreenActive() {
@@ -677,15 +728,139 @@
                 && renderer.xr.isPresenting;
         }
 
+        function updateHarnessState() {
+            window.__JFVR_RUNTIME_STATE__ = {
+                modeId: state.mode ? state.mode.id : null,
+                isImmersive: state.isImmersive,
+                showingSettings: state.showingSettings,
+                showingLayout: state.showingLayout,
+                uiAnchorType: state.uiAnchorType,
+                uiDistance: state.uiDistance,
+                stereoLock: state.stereoLock,
+                screenCurvature: state.screenCurvature,
+                effectiveScreenCurve: state.effectiveScreenCurve,
+                screenSize: state.screenSize,
+                screenDistance: state.screenDistance,
+                lastModeChangeSource: state.lastModeChangeSource,
+                lastUiOpenSource: state.lastUiOpenSource,
+                lastUiCloseSource: state.lastUiCloseSource,
+                mediaLayerStatus,
+                mediaLayerReason,
+                mediaLayerMode,
+                grabActive: videoGrabControllers.length > 0
+            };
+        }
+
+        function exposeHarnessActions() {
+            window.__JFVR_RUNTIME_ACTIONS__ = {
+                toggleLayout: () => {
+                    state.showingLayout = !state.showingLayout;
+                    state.showingSettings = false;
+                    if (layoutGroup) layoutGroup.visible = state.showingLayout;
+                    if (settingsGroup) settingsGroup.visible = false;
+                    updateHarnessState();
+                },
+                toggleSettings: () => {
+                    state.showingSettings = !state.showingSettings;
+                    state.showingLayout = false;
+                    if (settingsGroup) settingsGroup.visible = state.showingSettings;
+                    if (layoutGroup) layoutGroup.visible = false;
+                    updateHarnessState();
+                }
+            };
+        }
+
+        function exposeHarnessDebug() {
+            window.__JFVR_RUNTIME_DEBUG__ = {
+                getSnapshot: () => {
+                    const THREERef = window.THREE;
+                    const toBox = (object) => {
+                        if (!object || !THREERef) return null;
+                        const box = new THREERef.Box3().setFromObject(object);
+                        if (!Number.isFinite(box.min.x)) return null;
+                        return {
+                            min: { x: box.min.x, y: box.min.y, z: box.min.z },
+                            max: { x: box.max.x, y: box.max.y, z: box.max.z },
+                            size: {
+                                x: box.max.x - box.min.x,
+                                y: box.max.y - box.min.y,
+                                z: box.max.z - box.min.z
+                            }
+                        };
+                    };
+
+                    const visibleTextCount = textObjects.filter((item) => item.visible !== false).length;
+                    const readyTextCount = textObjects.filter((item) => item.textRenderInfo && item.textRenderInfo.blockBounds).length;
+                    let surfaceCenter = null;
+                    let cameraForwardDot = null;
+                    let rayColor = null;
+                    if (surfaceRoot && uiGroup && THREERef && camera) {
+                        const center = new THREERef.Vector3();
+                        surfaceRoot.getWorldPosition(center);
+                        surfaceCenter = { x: center.x, y: center.y, z: center.z };
+                        const camPos = new THREERef.Vector3();
+                        const camForward = new THREERef.Vector3();
+                        const viewCamera = renderer && renderer.xr && renderer.xr.isPresenting ? renderer.xr.getCamera() : camera;
+                        viewCamera.getWorldPosition(camPos);
+                        viewCamera.getWorldDirection(camForward);
+                        cameraForwardDot = center.clone().sub(camPos).normalize().dot(camForward.normalize());
+                    }
+                    if (renderer && renderer.xr) {
+                        const rightController = renderer.xr.getController(1);
+                        if (rightController && rightController.userData && rightController.userData.lineRef) {
+                            const color = rightController.userData.lineRef.material.color;
+                            rayColor = { r: color.r, g: color.g, b: color.b };
+                        }
+                    }
+                    return {
+                        modeId: state.mode ? state.mode.id : null,
+                        uiVisible: state.uiVisible,
+                        uiAnchorType: state.uiAnchorType,
+                        uiAnchorOrigin: state.uiAnchorOrigin ? { x: state.uiAnchorOrigin.x, y: state.uiAnchorOrigin.y, z: state.uiAnchorOrigin.z } : null,
+                        uiAnchorForward: state.uiAnchorForward ? { x: state.uiAnchorForward.x, y: state.uiAnchorForward.y, z: state.uiAnchorForward.z } : null,
+                        uiPosition: uiGroup ? { x: uiGroup.position.x, y: uiGroup.position.y, z: uiGroup.position.z } : null,
+                        uiScale: uiGroup ? { x: uiGroup.scale.x, y: uiGroup.scale.y, z: uiGroup.scale.z } : null,
+                        showingSettings: state.showingSettings,
+                        showingLayout: state.showingLayout,
+                        activePanel: state.showingSettings ? 'settings' : (state.showingLayout ? 'layout' : 'none'),
+                        stereoLock: state.stereoLock,
+                        lastModeChangeSource: state.lastModeChangeSource,
+                        lastUiOpenSource: state.lastUiOpenSource,
+                        lastUiCloseSource: state.lastUiCloseSource,
+                        mediaLayerStatus,
+                        mediaLayerReason,
+                        mediaLayerMode,
+                        grabActive: videoGrabControllers.length > 0,
+                        settingsBounds: toBox(settingsBackgroundMesh),
+                        layoutBounds: toBox(layoutBackgroundMesh),
+                        layoutCardBounds: layoutCardMeshes.map((mesh) => ({ id: mesh.userData.id, bounds: toBox(mesh) })),
+                        surfaceBounds: toBox(surfaceRoot),
+                        surfaceVisible: surfaceRoot ? surfaceRoot.visible !== false : false,
+                        surfaceCenter,
+                        cameraForwardDot,
+                        curveDepth: state.effectiveScreenCurve,
+                        rayColor,
+                        effectiveStereo: meshes.left ? meshes.left.visible === true : false,
+                        visibleTextCount,
+                        readyTextCount
+                    };
+                }
+            };
+        }
+
         function updateImmersiveDebugScreen() {
             if (!immersiveDebugScreen) return;
             immersiveDebugScreen.visible = immersiveDebugScreenActive();
         }
         let interactables = [];
+        let textObjects = [];
+        let layoutCardMeshes = [];
+        let layoutBackgroundMesh = null;
+        let settingsBackgroundMesh = null;
         let timeCurrentObj, timeDurationObj, titleTextObj;
-        let playIconGroup, pauseIconGroup;
+        let playIconGroup, pauseIconGroup, stereoToggleLabel;
         let seekBg, seekBuf, seekFill;
-        let bgMesh, settingsGroup;
+        let bgMesh, settingsGroup, layoutGroup;
         let volSliderGroup, ptSliderGroup;
         let ptSliderUpdateFill;
         let volSliderVisible = false, ptSliderVisible = false;
@@ -734,6 +909,188 @@
             return new THREE.Euler().setFromQuaternion(quaternion, 'YXZ').y;
         }
 
+        function getScreenCurveParams() {
+            const normalized = Math.max(0, Math.min(1, state.screenCurvature));
+            if (normalized < 0.02) {
+                state.effectiveScreenCurve = 0;
+                return { curved: false, radius: 0, theta: 0, depth: 0 };
+            }
+            const theta = 0.12 + (normalized * 1.18);
+            const radius = 18 / theta;
+            const depth = radius * (1 - Math.cos(theta / 2));
+            state.effectiveScreenCurve = theta;
+            return { curved: true, radius, theta, depth };
+        }
+
+        function getCompositionLayerLayout(mode) {
+            if (!mode || state.stereoLock === 'force-2d' || mode.stereo === 'mono') {
+                return 'mono';
+            }
+            if (mode.stereo === 'sbs') return 'stereo-left-right';
+            if (mode.stereo === 'ou') return 'stereo-top-bottom';
+            return 'mono';
+        }
+
+        function applyUiAnchorFromViewer(THREE, anchorType, controller) {
+            if (!uiGroup) return;
+            const targetCamera = renderer && renderer.xr && renderer.xr.isPresenting
+                ? renderer.xr.getCamera()
+                : camera;
+            if (!targetCamera) return;
+
+            const origin = new THREE.Vector3();
+            const forward = new THREE.Vector3();
+            const quaternion = new THREE.Quaternion();
+
+            if (anchorType === 'video' && controller && controller.matrixWorld) {
+                origin.setFromMatrixPosition(controller.matrixWorld);
+                quaternion.setFromRotationMatrix(new THREE.Matrix4().extractRotation(controller.matrixWorld));
+                forward.set(0, 0, -1).applyQuaternion(quaternion).normalize();
+            } else if (anchorType === 'controller' && controller && controller.matrixWorld) {
+                origin.setFromMatrixPosition(controller.matrixWorld);
+                quaternion.setFromRotationMatrix(new THREE.Matrix4().extractRotation(controller.matrixWorld));
+                forward.set(0, 0, -1).applyQuaternion(quaternion).normalize();
+            } else {
+                targetCamera.getWorldPosition(origin);
+                targetCamera.getWorldQuaternion(quaternion);
+                forward.set(0, 0, -1).applyQuaternion(quaternion);
+                forward.y = 0;
+                if (forward.lengthSq() < 0.0001) {
+                    forward.set(0, 0, -1);
+                } else {
+                    forward.normalize();
+                }
+            }
+
+            const verticalOffset = anchorType === 'video' ? -0.22 : -0.12;
+            state.uiAnchorOrigin = origin.clone();
+            state.uiAnchorForward = forward.clone();
+            state.uiAnchorType = anchorType;
+            uiGroup.position.copy(origin).add(forward.multiplyScalar(state.uiDistance));
+            uiGroup.position.y += verticalOffset;
+            uiGroup.lookAt(origin);
+            updateHarnessState();
+        }
+
+        function applyStoredUiAnchor() {
+            if (!uiGroup || !state.uiAnchorOrigin || !state.uiAnchorForward) return;
+            const origin = state.uiAnchorOrigin.clone();
+            const forward = state.uiAnchorForward.clone();
+            const verticalOffset = state.uiAnchorType === 'video' ? -0.22 : -0.12;
+            uiGroup.position.copy(origin).add(forward.multiplyScalar(state.uiDistance));
+            uiGroup.position.y += verticalOffset;
+            uiGroup.lookAt(origin);
+            updateHarnessState();
+        }
+
+        function createCurvedScreenGeometry(THREE, width, height, curveParams) {
+            if (!curveParams.curved) {
+                return new THREE.PlaneGeometry(width, height);
+            }
+
+            const segmentsX = 72;
+            const segmentsY = 18;
+            const geometry = new THREE.PlaneGeometry(width, height, segmentsX, segmentsY);
+            const positions = geometry.attributes.position;
+            const radius = curveParams.radius;
+            const theta = curveParams.theta;
+            const halfTheta = theta / 2;
+
+            for (let i = 0; i < positions.count; i++) {
+                const x = positions.getX(i);
+                const angle = (x / width) * theta;
+                const curvedX = Math.sin(angle) * radius;
+                const curvedZ = radius * (Math.cos(halfTheta) - Math.cos(angle));
+                positions.setX(i, curvedX);
+                positions.setZ(i, curvedZ);
+            }
+
+            positions.needsUpdate = true;
+            geometry.computeBoundingBox();
+            geometry.computeBoundingSphere();
+            return geometry;
+        }
+
+        function getSurfaceTransformForLayer(THREE) {
+            const position = new THREE.Vector3();
+            const quaternion = new THREE.Quaternion();
+            surfaceRoot.getWorldPosition(position);
+            surfaceRoot.getWorldQuaternion(quaternion);
+            return {
+                position: { x: position.x, y: position.y, z: position.z },
+                orientation: { x: quaternion.x, y: quaternion.y, z: quaternion.z, w: quaternion.w }
+            };
+        }
+
+        function clearCompositionVideoLayer(session) {
+            const xrSession = session || (renderer && renderer.xr && typeof renderer.xr.getSession === 'function' ? renderer.xr.getSession() : null);
+            try {
+                if (xrSession && typeof xrSession.updateRenderState === 'function' && xrSession.renderState && xrSession.renderState.baseLayer) {
+                    xrSession.updateRenderState({ layers: [xrSession.renderState.baseLayer] });
+                }
+            } catch (_error) {
+                // Best-effort cleanup only.
+            }
+            mediaVideoLayer = null;
+            mediaBinding = null;
+            mediaLayerMode = 'mesh';
+        }
+
+        function syncCompositionVideoLayer(THREE) {
+            const session = renderer && renderer.xr && typeof renderer.xr.getSession === 'function' ? renderer.xr.getSession() : null;
+            if (!session || !state.isImmersive) {
+                clearCompositionVideoLayer(session);
+                mediaLayerStatus = 'inactive';
+                mediaLayerReason = 'no-session';
+                updateHarnessState();
+                return;
+            }
+
+            if (state.mode.projection !== 'screen' || state.isAR || typeof window.XRMediaBinding !== 'function' || typeof session.updateRenderState !== 'function' || typeof renderer.xr.getReferenceSpace !== 'function') {
+                clearCompositionVideoLayer(session);
+                mediaLayerStatus = 'unavailable';
+                mediaLayerReason = state.mode.projection !== 'screen' ? 'screen-only' : 'unsupported';
+                updateHarnessState();
+                return;
+            }
+
+            const referenceSpace = renderer.xr.getReferenceSpace();
+            if (!referenceSpace) {
+                clearCompositionVideoLayer(session);
+                mediaLayerStatus = 'inactive';
+                mediaLayerReason = 'missing-reference-space';
+                updateHarnessState();
+                return;
+            }
+
+            const transform = getSurfaceTransformForLayer(THREE);
+            const width = 18 * state.screenSize;
+            const height = 10.125 * state.screenSize;
+            const layout = getCompositionLayerLayout(state.mode);
+
+            try {
+                clearCompositionVideoLayer(session);
+                mediaBinding = new window.XRMediaBinding(session);
+                mediaVideoLayer = mediaBinding.createQuadLayer(jellyfinVideo, {
+                    space: referenceSpace,
+                    width,
+                    height,
+                    layout,
+                    transform: new XRRigidTransform(transform.position, transform.orientation)
+                });
+                const baseLayer = session.renderState && session.renderState.baseLayer ? session.renderState.baseLayer : null;
+                session.updateRenderState({ layers: [mediaVideoLayer].concat(baseLayer ? [baseLayer] : []) });
+                mediaLayerStatus = 'active';
+                mediaLayerReason = 'ok';
+                mediaLayerMode = 'composition-layer';
+            } catch (error) {
+                clearCompositionVideoLayer(session);
+                mediaLayerStatus = 'fallback';
+                mediaLayerReason = error && error.message ? error.message : 'layer-create-failed';
+            }
+            updateHarnessState();
+        }
+
         function recenterActiveMode(THREE) {
             if (!scene || !camera) return;
 
@@ -746,12 +1103,12 @@
 
             if (state.mode.projection === 'screen') {
                 const distance = Math.abs(state.screenDistance);
-                if (state.screenCurvature > 0.05) {
-                    const radius = 18 / state.screenCurvature;
+                const curveParams = getScreenCurveParams();
+                if (curveParams.curved) {
                     surfaceRoot.position.set(
                         cameraPos.x - (Math.sin(yaw) * distance),
                         Math.max(0.5, cameraPos.y),
-                        cameraPos.z - (Math.cos(yaw) * distance) + radius
+                        cameraPos.z - (Math.cos(yaw) * distance)
                     );
                 } else {
                     surfaceRoot.position.set(
@@ -770,6 +1127,7 @@
             }
 
             surfaceRoot.scale.setScalar(state.screenSize);
+            updateHarnessState();
         }
 
         async function initThree() {
@@ -780,12 +1138,13 @@
             const { XRControllerModelFactory } = await import('three/addons/webxr/XRControllerModelFactory.js');
             const { XRHandModelFactory } = await import('three/addons/webxr/XRHandModelFactory.js');
             const { Text } = await import('troika-three-text');
+            window.THREE = THREE;
 
             if (!active) return;
 
             const container = overlay.querySelector('#jfvr-canvas-container');
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setPixelRatio(Math.max(1, Math.min(2.5, window.devicePixelRatio * 1.25)));
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.xr.enabled = true;
             renderer.xr.setReferenceSpaceType('local');
@@ -843,94 +1202,108 @@
                 state.isImmersive = true;
                 if (typeof updatePassthroughVisuals === 'function') updatePassthroughVisuals();
                 if (ptSliderUpdateFill) ptSliderUpdateFill(state.passthroughBrightness);
-                if (uiGroup) uiGroup.position.set(0, -0.72, -state.uiDistance);
                 camera.layers.enable(0);
                 camera.layers.enable(1);
                 camera.layers.enable(2);
                 recenterActiveMode(THREE);
+                applyUiAnchorFromViewer(THREE, 'center');
+                syncCompositionVideoLayer(THREE);
                 updateStereoVisibility();
                 updateImmersiveDebugScreen();
             });
             renderer.xr.addEventListener('sessionend', () => {
                 state.isImmersive = false;
                 scene.background = new THREE.Color(0x000000);
-                if (uiGroup) uiGroup.position.set(0, -0.72, -state.uiDistance);
+                clearCompositionVideoLayer();
+                applyUiAnchorFromViewer(THREE, 'center');
                 updateStereoVisibility();
                 updateImmersiveDebugScreen();
             });
 
             function updateStereoVisibility() {
                 const mode = state.mode;
-                const useStereo = mode.stereo !== 'mono' && state.isImmersive && !state.uiVisible;
-                if (meshes.preview) meshes.preview.visible = !useStereo;
-                if (meshes.left) meshes.left.visible = useStereo;
-                if (meshes.right) meshes.right.visible = useStereo;
+                let useStereo = false;
+                if (mode.stereo !== 'mono' && state.isImmersive) {
+                    if (state.stereoLock === 'force-2d') {
+                        useStereo = false;
+                    } else if (state.stereoLock === 'force-3d') {
+                        useStereo = true;
+                    } else {
+                        useStereo = !state.uiVisible;
+                    }
+                }
+                const hideMeshVideo = mediaLayerStatus === 'active' && state.mode.projection === 'screen';
+                if (meshes.preview) meshes.preview.visible = !hideMeshVideo && !useStereo;
+                if (meshes.left) meshes.left.visible = !hideMeshVideo && useStereo;
+                if (meshes.right) meshes.right.visible = !hideMeshVideo && useStereo;
+                if (stereoToggleLabel) stereoToggleLabel.setState(mode, state.stereoLock);
+                if (state.isImmersive) syncCompositionVideoLayer(THREE);
                 updateImmersiveDebugScreen();
+                updateHarnessState();
             }
 
             function positionUIAtController(controller) {
                 if (!controller || !uiGroup) return;
-                const tempMatrix = new THREE.Matrix4();
-                tempMatrix.identity().extractRotation(controller.matrixWorld);
-                const origin = new THREE.Vector3();
-                origin.setFromMatrixPosition(controller.matrixWorld);
-                const dir = new THREE.Vector3(0, 0, -1).applyMatrix4(tempMatrix);
+                getControllerRay(controller);
+                const hitSurface = getVisibleIntersections(getSurfaceMeshes()).length > 0;
+                applyUiAnchorFromViewer(THREE, hitSurface ? 'video' : 'controller', controller);
+            }
 
-                const targetPos = origin.clone().add(dir.multiplyScalar(state.uiDistance));
-                targetPos.y -= 0.72;
-                uiGroup.position.copy(targetPos);
-
-                const xrCam = renderer.xr.getCamera();
-                if (xrCam) {
-                    const camPos = new THREE.Vector3();
-                    xrCam.getWorldPosition(camPos);
-                    // Lock Y rotation only
-                    uiGroup.lookAt(camPos.x, uiGroup.position.y, camPos.z);
+            function openUI(controller, source) {
+                state.uiVisible = true;
+                state.lastInteraction = Date.now();
+                state.lastUiOpenSource = source || 'open';
+                state.showingSettings = false;
+                state.showingLayout = false;
+                if (settingsGroup) settingsGroup.visible = false;
+                if (layoutGroup) layoutGroup.visible = false;
+                if (uiGroup) {
+                    uiGroup.visible = true;
+                    if (controller && controller.matrixWorld) {
+                        positionUIAtController(controller);
+                    } else {
+                        applyUiAnchorFromViewer(THREE, 'center');
+                    }
                 }
+                updateStereoVisibility();
+                updateHarnessState();
+            }
+
+            function closeUI(source) {
+                state.uiVisible = false;
+                state.lastUiCloseSource = source || 'close';
+                state.showingSettings = false;
+                state.showingLayout = false;
+                if (settingsGroup) settingsGroup.visible = false;
+                if (layoutGroup) layoutGroup.visible = false;
+                if (uiGroup) {
+                    uiGroup.visible = false;
+                }
+                updateStereoVisibility();
+                updateHarnessState();
             }
 
             function wake(controller) {
                 state.lastInteraction = Date.now();
                 if (!state.uiVisible) {
-                    state.uiVisible = true;
-                    if (uiGroup) {
-                        uiGroup.visible = true;
-                        if (controller && controller.matrixWorld) positionUIAtController(controller);
-                    }
-                    updateStereoVisibility();
+                    openUI(controller, 'wake');
                 }
             }
 
-            function toggleUI(controller) {
-                state.uiVisible = !state.uiVisible;
-                if (uiGroup) {
-                    uiGroup.visible = state.uiVisible;
-                    if (state.uiVisible && controller && controller.matrixWorld) {
-                        positionUIAtController(controller);
-                    } else if (state.uiVisible) {
-                        const xrCam = renderer.xr.getCamera();
-                        if (xrCam) {
-                            const camPos = new THREE.Vector3();
-                            xrCam.getWorldPosition(camPos);
-                            const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(xrCam.quaternion);
-                            dir.y = 0; dir.normalize(); // Horizon level
-                            uiGroup.position.copy(camPos).add(dir.multiplyScalar(state.uiDistance));
-                            uiGroup.position.y = camPos.y - 0.72;
-                            uiGroup.lookAt(camPos.x, uiGroup.position.y, camPos.z);
-                        }
-                    }
-                }
+            function toggleUI(controller, source) {
                 if (state.uiVisible) {
-                    state.lastInteraction = Date.now();
-                    settingsGroup.visible = false;
+                    closeUI(source || 'toggle');
+                } else {
+                    openUI(controller, source || 'toggle');
                 }
-                updateStereoVisibility();
             }
 
             videoTexture = new THREE.VideoTexture(jellyfinVideo);
             videoTexture.minFilter = THREE.LinearFilter;
             videoTexture.magFilter = THREE.LinearFilter;
             videoTexture.colorSpace = THREE.SRGBColorSpace;
+            videoTexture.generateMipmaps = false;
+            videoTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
             materials.preview = new THREE.MeshBasicMaterial({ map: videoTexture, side: THREE.BackSide, toneMapped: false });
             materials.left = new THREE.MeshBasicMaterial({ map: videoTexture, side: THREE.BackSide, toneMapped: false });
@@ -974,20 +1347,17 @@
                 }
             }
 
-            function applyModeFromState() {
+            function applyModeFromState(options) {
+                const opts = options || {};
                 let mode = state.mode;
                 let geometry;
+                const previousPosition = surfaceRoot.position.clone();
+                const previousRotation = surfaceRoot.rotation.clone();
+                const previousScale = surfaceRoot.scale.clone();
 
                 if (mode.projection === 'screen') {
-                    if (state.screenCurvature > 0.05) {
-                        // Cylinder curve
-                        const radius = 18 / state.screenCurvature;
-                        const theta = 18 / radius;
-                        geometry = new THREE.CylinderGeometry(radius, radius, 10.125, 64, 1, true, -theta / 2 + Math.PI / 2, theta);
-                        geometry.scale(-1, 1, 1);
-                    } else {
-                        geometry = new THREE.PlaneGeometry(18, 10.125);
-                    }
+                    const curveParams = getScreenCurveParams();
+                    geometry = createCurvedScreenGeometry(THREE, 18, 10.125, curveParams);
                 } else if (mode.projection === '180') {
                     geometry = new THREE.SphereGeometry(32, 96, 64, 0, Math.PI, 0, Math.PI);
                 } else {
@@ -1044,16 +1414,40 @@
                     const t = getVideoTitle();
                     if (t) titleTextObj.text = t;
                 }
-                recenterActiveMode(THREE);
+                if (opts.preserveSurfaceTransform) {
+                    surfaceRoot.position.copy(previousPosition);
+                    surfaceRoot.rotation.copy(previousRotation);
+                    surfaceRoot.scale.copy(previousScale);
+                } else {
+                    recenterActiveMode(THREE);
+                }
+                if (state.isImmersive) syncCompositionVideoLayer(THREE);
                 updateStereoVisibility();
             }
 
             function switchMode(newModeId) {
                 if (MODES_BY_ID[newModeId]) {
                     state.mode = MODES_BY_ID[newModeId];
+                    state.lastModeChangeSource = 'layout-panel';
+                    state.showingLayout = false;
+                    if (layoutGroup) layoutGroup.visible = false;
                     jellyfinVideo.dataset.currentMode = newModeId;
                     applyModeFromState();
+                    updateHarnessState();
                 }
+            }
+
+            function cycleStereoLock() {
+                if (!state.mode || state.mode.stereo === 'mono') {
+                    state.stereoLock = 'force-2d';
+                } else if (state.stereoLock === 'auto') {
+                    state.stereoLock = 'force-2d';
+                } else if (state.stereoLock === 'force-2d') {
+                    state.stereoLock = 'force-3d';
+                } else {
+                    state.stereoLock = 'auto';
+                }
+                updateStereoVisibility();
             }
 
             // Rounded Geometries Utility
@@ -1075,8 +1469,22 @@
 
             // UI Builder
             uiGroup = new THREE.Group();
-            uiGroup.position.set(0, -0.72, -state.uiDistance);
+            uiGroup.position.set(0, 0, -state.uiDistance);
+            uiGroup.scale.setScalar(BASE_UI_SCALE * state.uiScale * (state.uiDistance / UI_DISTANCE_DEFAULT));
             scene.add(uiGroup);
+
+            function syncFloatingPanels() {
+                if (settingsGroup) settingsGroup.visible = state.showingSettings;
+                if (layoutGroup) layoutGroup.visible = state.showingLayout;
+            }
+
+            function refreshUiDistance() {
+                if (!uiGroup) return;
+                uiGroup.scale.setScalar(BASE_UI_SCALE * state.uiScale * (state.uiDistance / UI_DISTANCE_DEFAULT));
+                applyStoredUiAnchor();
+                syncFloatingPanels();
+                updateHarnessState();
+            }
 
             // Materials
             const frostedMat = new THREE.MeshBasicMaterial({
@@ -1097,7 +1505,18 @@
                 t.position.set(x, y, 0.01);
                 t.anchorX = align || 'center';
                 t.anchorY = 'middle';
+                t.depthOffset = -1;
+                t.renderOrder = 20;
+                t.frustumCulled = false;
                 parent.add(t);
+                textObjects.push(t);
+                t.sync(() => {
+                    if (t.material) {
+                        t.material.depthTest = false;
+                        t.material.depthWrite = false;
+                        t.material.transparent = true;
+                    }
+                });
                 return t;
             }
 
@@ -1116,7 +1535,8 @@
                 return { mesh, textObj };
             }
 
-            function createSlider(id, parent, x, y, w, h, initVal, onChange) {
+            function createSlider(id, parent, x, y, w, h, initVal, onChange, options) {
+                const config = options || {};
                 const group = new THREE.Group();
                 group.position.set(x, y, 0.01);
                 parent.add(group);
@@ -1145,15 +1565,29 @@
                 };
                 updateFill(initVal);
 
+                let pendingRatio = initVal;
+
                 const dragHandler = (pt) => {
                     const local = bg.worldToLocal(pt.clone());
                     const raw = (local.x + (w / 2)) / w;
                     const ratio = Math.max(0, Math.min(1, raw));
+                    pendingRatio = ratio;
                     updateFill(ratio);
-                    if (onChange) onChange(ratio);
+                    if (config.deferCommit !== true && onChange) onChange(ratio);
                 };
 
-                bg.userData = { id, hover: 0x1e293b, bg: 0x0f172a, onClick: dragHandler, onDrag: dragHandler };
+                bg.userData = {
+                    id,
+                    hover: 0x1e293b,
+                    bg: 0x0f172a,
+                    onClick: dragHandler,
+                    onDrag: dragHandler,
+                    onDragEnd: config.deferCommit === true
+                        ? () => {
+                            if (onChange) onChange(pendingRatio);
+                        }
+                        : null
+                };
                 interactables.push(bg);
 
                 return { group, updateFill };
@@ -1348,6 +1782,98 @@
                 return group;
             }
 
+            function createLayoutIcon(parent, x, y, scale, color) {
+                const group = new THREE.Group();
+                group.position.set(x, y, 0.01);
+                const s = scale;
+                const mat = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide });
+                const positions = [
+                    [-0.016, 0.012], [0.016, 0.012],
+                    [-0.016, -0.012], [0.016, -0.012]
+                ];
+                for (let i = 0; i < positions.length; i++) {
+                    const tile = new THREE.Mesh(new THREE.PlaneGeometry(0.018 * s, 0.014 * s), mat);
+                    tile.position.set(positions[i][0] * s, positions[i][1] * s, 0.001);
+                    group.add(tile);
+                }
+                parent.add(group);
+                return group;
+            }
+
+            function createStereoToggleLabel(parent, x, y) {
+                const text = createTextObj('Auto', parent, x, y, 0.028, 0xe2e8f0, 'center');
+                return {
+                    text,
+                    setState(mode, stereoLock) {
+                        const stereoCapable = mode && mode.stereo !== 'mono';
+                        if (!stereoCapable) {
+                            text.text = '2D';
+                            text.color = 0x64748b;
+                        } else if (stereoLock === 'force-2d') {
+                            text.text = '2D';
+                            text.color = 0x7dd3fc;
+                        } else if (stereoLock === 'force-3d') {
+                            text.text = '3D';
+                            text.color = 0x7dd3fc;
+                        } else {
+                            text.text = 'Auto';
+                            text.color = 0xe2e8f0;
+                        }
+                        text.sync();
+                    }
+                };
+            }
+
+            function createModeGlyph(parent, mode) {
+                const glyph = new THREE.Group();
+                const frameMat = new THREE.MeshBasicMaterial({ color: 0x7dd3fc, side: THREE.DoubleSide });
+                const fillMat = new THREE.MeshBasicMaterial({ color: 0x0f172a, side: THREE.DoubleSide });
+
+                const makeFrame = (x, y, w, h) => {
+                    const outer = new THREE.Mesh(new THREE.PlaneGeometry(w, h), frameMat);
+                    outer.position.set(x, y, 0.001);
+                    glyph.add(outer);
+                    const inner = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.01, h - 0.01), fillMat);
+                    inner.position.set(x, y, 0.002);
+                    glyph.add(inner);
+                };
+
+                if (mode.stereo === 'mono') {
+                    makeFrame(0, 0, 0.12, 0.07);
+                } else if (mode.stereo === 'sbs') {
+                    makeFrame(-0.035, 0, 0.055, 0.07);
+                    makeFrame(0.035, 0, 0.055, 0.07);
+                } else {
+                    makeFrame(0, 0.02, 0.12, 0.03);
+                    makeFrame(0, -0.02, 0.12, 0.03);
+                }
+
+                const label = createTextObj(mode.projection === 'screen' ? 'SCR' : mode.projection, glyph, 0, -0.065, 0.016, 0x94a3b8, 'center');
+                label.position.z = 0.003;
+                parent.add(glyph);
+                return glyph;
+            }
+
+            function createCardButton(mode, parent, x, y, width, height, onClick) {
+                const group = new THREE.Group();
+                group.position.set(x, y, 0.01);
+                parent.add(group);
+
+                const bg = new THREE.Mesh(
+                    createRoundedRectGeometry(width, height, 0.045),
+                    new THREE.MeshBasicMaterial({ color: 0x152234, transparent: true, opacity: 0.96 })
+                );
+                bg.userData = { id: mode.id, bg: 0x152234, hover: 0x1f3550, onClick };
+                interactables.push(bg);
+                layoutCardMeshes.push(bg);
+                group.add(bg);
+
+                createModeGlyph(group, mode).position.set((-width / 2) + 0.09, 0.005, 0.003);
+                createTextObj(mode.label, group, (-width / 2) + 0.18, 0.022, 0.026, 0xe2e8f0, 'left');
+                createTextObj(getModeShapeLabel(mode), group, (-width / 2) + 0.18, -0.022, 0.018, 0x94a3b8, 'left');
+                return group;
+            }
+
             // --- Helper: vertical slider with top/bottom icons ---
             function createVerticalSlider(id, parent, x, y, w, h, initVal, onChange, bottomIcon, topIcon) {
                 const group = new THREE.Group();
@@ -1440,6 +1966,14 @@
             const centerBtn3d = createRoundBtn('btn-center', uiGroup, -0.76, btnY, btnR, null, () => recenterActiveMode(THREE));
             createCenterIcon(centerBtn3d.mesh, 0, 0, 1.0, 0x7dd3fc);
 
+            const stereoBtn3d = createRoundBtn('btn-stereo-lock', uiGroup, -0.60, btnY, btnR, null, () => cycleStereoLock());
+            stereoToggleLabel = createStereoToggleLabel(stereoBtn3d.mesh, 0, 0);
+
+            const layoutBtn3d = createRoundBtn('btn-layout', uiGroup, 0.76, btnY, btnR, null, () => {
+                window.__JFVR_RUNTIME_ACTIONS__.toggleLayout();
+            });
+            createLayoutIcon(layoutBtn3d.mesh, 0, 0, 1.0, 0xe2e8f0);
+
             // Seek Back
             const seekBackBtn3d = createRoundBtn('btn-back', uiGroup, -ctrlSpacing, btnY, btnR, null, () => jellyfinVideo.currentTime -= 10);
             createSeekBackIcon(seekBackBtn3d.mesh, 0, 0, 1.0, 0xe2e8f0);
@@ -1478,8 +2012,7 @@
 
             // Settings button (right end)
             const settingsBtn3d = createRoundBtn('btn-settings', uiGroup, 0.92, btnY, btnR, null, () => {
-                state.showingSettings = !state.showingSettings;
-                settingsGroup.visible = state.showingSettings;
+                window.__JFVR_RUNTIME_ACTIONS__.toggleSettings();
             });
             createGearIcon(settingsBtn3d.mesh, 0, 0, 1.0, 0x94a3b8);
 
@@ -1571,26 +2104,14 @@
             settingsGroup.visible = false;
             uiGroup.add(settingsGroup);
 
-            const setGeo = createRoundedRectGeometry(1.6, 0.38, 0.08);
+            const setGeo = createRoundedRectGeometry(1.6, 0.34, 0.08);
             const setBg = new THREE.Mesh(setGeo, frostedMat);
+            settingsBackgroundMesh = setBg;
             settingsGroup.add(setBg);
 
-            const pY = 0.16;
-            createTextObj('Layout', settingsGroup, -0.65, pY, 0.035, 0xe2e8f0, 'left');
-
-            createRoundBtn('m-2d', settingsGroup, -0.3, pY, 0.045, '2D', () => switchMode('3d-sbs-half')).textObj.fontSize = 0.025;
-            createRoundBtn('m-3d', settingsGroup, -0.15, pY, 0.045, '3D', () => {
-                const b = state.mode.stereo === 'mono' ? 'sbs' : 'mono';
-                const id = state.mode.projection === 'screen' ? (b === 'mono' ? '3d-sbs-half' : '3d-sbs-full') : state.mode.projection + '-' + b + '-full';
-                switchMode(id);
-            }).textObj.fontSize = 0.025;
-
-            createRoundBtn('m-180', settingsGroup, 0.1, pY, 0.045, '180', () => switchMode('180-sbs-full')).textObj.fontSize = 0.025;
-            createRoundBtn('m-360', settingsGroup, 0.25, pY, 0.045, '360', () => switchMode('360-sbs-full')).textObj.fontSize = 0.025;
-
-            const sY1 = 0.02; const sY2 = -0.06; const sY3 = -0.14;
+            const sY1 = 0.08; const sY2 = 0.0; const sY3 = -0.08;
             createTextObj('Curve', settingsGroup, -0.65, sY1, 0.03, 0x94a3b8, 'left');
-            createSlider('s-curve', settingsGroup, -0.2, sY1, 0.5, 0.03, state.screenCurvature, (v) => { state.screenCurvature = v; applyModeFromState(); });
+            createSlider('s-curve', settingsGroup, -0.2, sY1, 0.5, 0.03, state.screenCurvature, (v) => { state.screenCurvature = v; applyModeFromState({ preserveSurfaceTransform: true }); });
 
             createTextObj('Dist.', settingsGroup, -0.65, sY2, 0.03, 0x94a3b8, 'left');
             const initDistRatio = (state.screenDistance - (-20)) / (-4 - (-20));
@@ -1601,14 +2122,76 @@
             createSlider('s-size', settingsGroup, -0.2, sY3, 0.5, 0.03, initSizeRatio, (v) => { state.screenSize = 0.5 + (v * 2.5); applyModeFromState(); });
 
             createTextObj('UI Dist', settingsGroup, 0.15, sY1, 0.03, 0x94a3b8, 'left');
-            const initUIDist = (state.uiDistance - 1) / (4 - 1);
+            const initUIDist = 0.5;
             createSlider('s-uidist', settingsGroup, 0.55, sY1, 0.4, 0.03, initUIDist, (v) => {
-                state.uiDistance = 1 + (v * 3);
+                state.uiDistance = UI_DISTANCE_MIN + (v * (UI_DISTANCE_MAX - UI_DISTANCE_MIN));
                 localStorage.setItem('jfvr:ui-distance', state.uiDistance.toString());
-            });
+                refreshUiDistance();
+            }, { deferCommit: true });
 
             createTextObj('Dimmer', settingsGroup, 0.15, sY2, 0.03, 0x94a3b8, 'left');
             createSlider('s-dimmer', settingsGroup, 0.55, sY2, 0.4, 0.03, state.passthroughBrightness, (v) => { state.passthroughBrightness = v; updatePassthroughVisuals(); });
+
+            layoutGroup = new THREE.Group();
+            layoutGroup.position.set(0, 0.86, 0);
+            layoutGroup.visible = false;
+            uiGroup.add(layoutGroup);
+
+            const layoutBg = new THREE.Mesh(createRoundedRectGeometry(2.28, 1.12, 0.08), frostedMat.clone());
+            layoutBackgroundMesh = layoutBg;
+            layoutGroup.add(layoutBg);
+            createTextObj('Layout', layoutGroup, -1.02, 0.45, 0.04, 0xe2e8f0, 'left');
+            createTextObj('Pick the exact layout that matches the file.', layoutGroup, -1.02, 0.38, 0.022, 0x94a3b8, 'left');
+
+            MODE_GROUPS.forEach((groupDef, columnIndex) => {
+                const columnX = -0.74 + (columnIndex * 0.74);
+                const modes = VIEW_MODES.filter((mode) => mode.projection === groupDef.projection);
+                createTextObj(groupDef.projection === 'screen' ? 'Screen' : groupDef.projection, layoutGroup, columnX - 0.22, 0.27, 0.028, 0x7dd3fc, 'left');
+                modes.forEach((mode, rowIndex) => {
+                    createCardButton(mode, layoutGroup, columnX, 0.16 - (rowIndex * 0.15), 0.66, 0.13, () => switchMode(mode.id));
+                });
+            });
+
+            if (window.__JFVR_RUNTIME_ACTIONS__) {
+                window.__JFVR_RUNTIME_ACTIONS__.setUiDistance = (value) => {
+                    state.uiDistance = Math.min(UI_DISTANCE_MAX, Math.max(UI_DISTANCE_MIN, value));
+                    localStorage.setItem('jfvr:ui-distance', state.uiDistance.toString());
+                    refreshUiDistance();
+                };
+                window.__JFVR_RUNTIME_ACTIONS__.setCurve = (value) => {
+                    state.screenCurvature = value;
+                    applyModeFromState({ preserveSurfaceTransform: true });
+                };
+                window.__JFVR_RUNTIME_ACTIONS__.toggleUi = () => {
+                    toggleUI(null, 'harness');
+                };
+                window.__JFVR_RUNTIME_ACTIONS__.cycleStereoLock = () => {
+                    cycleStereoLock();
+                };
+                window.__JFVR_RUNTIME_ACTIONS__.setStereoLock = (value) => {
+                    state.stereoLock = value;
+                    updateStereoVisibility();
+                };
+                window.__JFVR_RUNTIME_ACTIONS__.openUiAtController = (hand, anchorType) => {
+                    const index = hand === 'left' ? 0 : 1;
+                    const controller = renderer.xr.getController(index);
+                    if (window.__IWER_DEVICE__ && window.__IWER_DEVICE__.controllers && window.__IWER_DEVICE__.controllers[hand]) {
+                        controller.position.copy(window.__IWER_DEVICE__.controllers[hand].position);
+                        controller.quaternion.copy(window.__IWER_DEVICE__.controllers[hand].quaternion);
+                        controller.updateMatrixWorld(true);
+                    }
+                    state.uiVisible = true;
+                    state.showingSettings = false;
+                    state.showingLayout = false;
+                    if (settingsGroup) settingsGroup.visible = false;
+                    if (layoutGroup) layoutGroup.visible = false;
+                    if (uiGroup) uiGroup.visible = true;
+                    applyUiAnchorFromViewer(THREE, anchorType === 'video' ? 'video' : 'controller', controller);
+                    updateStereoVisibility();
+                };
+            }
+
+            applyUiAnchorFromViewer(THREE, 'center');
 
             // Raycaster & Interaction
             const raycaster = new THREE.Raycaster();
@@ -1623,6 +2206,19 @@
                 tempMatrix.identity().extractRotation(controller.matrixWorld);
                 raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
                 raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+            }
+
+            function isActuallyVisible(object) {
+                let current = object;
+                while (current) {
+                    if (current.visible === false) return false;
+                    current = current.parent;
+                }
+                return true;
+            }
+
+            function getVisibleIntersections(objects) {
+                return raycaster.intersectObjects(objects, false).filter((hit) => isActuallyVisible(hit.object));
             }
 
             function getControllerWorldData(controller) {
@@ -1681,7 +2277,7 @@
 
                 const worldData = getControllerWorldData(controller);
                 if (grab.type === 'screen') {
-                    const delta = worldData.position.clone().sub(grab.controllerStart);
+                    const delta = worldData.position.clone().sub(grab.controllerStart).multiplyScalar(23.4);
                     surfaceRoot.position.copy(grab.surfaceStart).add(delta);
                     surfaceRoot.rotation.copy(grab.rotationStart);
                 } else {
@@ -1691,10 +2287,12 @@
                         const dragRotation = new THREE.Quaternion().setFromUnitVectors(grab.startDirection, currentVector.clone().normalize());
                         surfaceRoot.quaternion.copy(dragRotation.multiply(grab.startQuaternion.clone()));
                     }
-                    const scaleFactor = THREE.MathUtils.clamp(currentVector.length() / grab.startDistance, 0.65, 2.5);
+                    const distanceDelta = (currentVector.length() - grab.startDistance) * 24.7;
+                    const scaleFactor = THREE.MathUtils.clamp((grab.startDistance + distanceDelta) / grab.startDistance, 0.45, 3.25);
                     surfaceRoot.scale.copy(grab.startScale).multiplyScalar(scaleFactor);
                 }
                 state.lastInteraction = Date.now();
+                updateHarnessState();
             }
 
             function stopVideoGrab(controller) {
@@ -1706,32 +2304,73 @@
             function onSelectStart(event) {
                 const controller = event.target;
                 if (!state.uiVisible) {
-                    if (tryStartVideoGrab(controller)) {
-                        return;
-                    }
-                    toggleUI(controller);
+                    openUI(controller, 'trigger');
                     return;
                 }
                 getControllerRay(controller);
-                const intersects = raycaster.intersectObjects(interactables, false);
+                const surfaceIntersections = getVisibleIntersections(getSurfaceMeshes());
+                const intersects = getVisibleIntersections(interactables);
                 if (intersects.length > 0) {
                     const obj = intersects[0].object;
                     if (obj.userData.onClick) obj.userData.onClick(intersects[0].point);
-                    if (obj.userData.onDrag) controller.userData.dragTarget = obj;
-                } else {
-                    if (tryStartVideoGrab(controller)) {
-                        return;
+                    if (obj.userData.onDrag) {
+                        controller.userData.dragTarget = obj;
+                        controller.userData.dragPlaneNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(uiGroup.quaternion);
+                        controller.userData.dragPlanePoint = obj.getWorldPosition(new THREE.Vector3());
                     }
-                    toggleUI(controller);
+                } else if (!state.showingLayout && !state.showingSettings && surfaceIntersections.length > 0) {
+                    tryStartVideoGrab(controller);
+                } else {
+                    closeUI('trigger-empty');
                 }
+                controller.userData.lineActive = true;
+                if (controller.userData.lineRef) {
+                    controller.userData.lineRef.material.color.setHex(0x38bdf8);
+                    controller.userData.lineColor.copy(controller.userData.lineRef.material.color);
+                }
+            }
+
+            function onSqueezeStart(event) {
+                const controller = event.target;
+                state.lastInteraction = Date.now();
+                if (state.showingLayout || state.showingSettings) {
+                    return;
+                }
+                tryStartVideoGrab(controller);
+                controller.userData.lineActive = true;
+                if (controller.userData.lineRef) {
+                    controller.userData.lineRef.material.color.setHex(0x38bdf8);
+                    controller.userData.lineColor.copy(controller.userData.lineRef.material.color);
+                }
+                updateHarnessState();
             }
 
             function onSelectEnd(event) {
                 const controller = event.target;
                 stopVideoGrab(controller);
                 if (controller.userData.dragTarget) {
+                    if (controller.userData.dragTarget.userData.onDragEnd) {
+                        controller.userData.dragTarget.userData.onDragEnd();
+                    }
                     controller.userData.dragTarget = null;
+                    controller.userData.dragPlaneNormal = null;
+                    controller.userData.dragPlanePoint = null;
                 }
+                controller.userData.lineActive = false;
+                if (controller.userData.lineRef) {
+                    controller.userData.lineRef.material.color.setHex(0xffffff);
+                    controller.userData.lineColor.copy(controller.userData.lineRef.material.color);
+                }
+            }
+
+            function onSqueezeEnd(event) {
+                event.target.userData.lineActive = false;
+                if (event.target.userData.lineRef) {
+                    event.target.userData.lineRef.material.color.setHex(0xffffff);
+                    event.target.userData.lineColor.copy(event.target.userData.lineRef.material.color);
+                }
+                stopVideoGrab(event.target);
+                updateHarnessState();
             }
 
             const controllerModelFactory = new XRControllerModelFactory();
@@ -1747,7 +2386,8 @@
                 controller.addEventListener('selectend', (e) => {
                     onSelectEnd(e);
                 });
-                controller.addEventListener('squeezestart', (e) => toggleUI(e.target));
+                controller.addEventListener('squeezestart', onSqueezeStart);
+                controller.addEventListener('squeezeend', onSqueezeEnd);
                 controller.addEventListener('connected', () => {
                     state.lastInteraction = Date.now();
                 });
@@ -1762,7 +2402,51 @@
 
                 const geometryLine = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -5)]);
                 const line = new THREE.Line(geometryLine, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 }));
+                controller.userData.lineRef = line;
+                controller.userData.lineColor = new THREE.Color(0xffffff);
+                controller.userData.lineTargetColor = new THREE.Color(0xffffff);
+                controller.userData.lineActive = false;
                 controller.add(line);
+            }
+
+            if (window.__JFVR_RUNTIME_ACTIONS__) {
+                const syncDebugControllerPose = (hand, controller) => {
+                    const device = window.__IWER_DEVICE__;
+                    if (!device || !device.controllers || !device.controllers[hand] || !controller) return;
+                    const source = device.controllers[hand];
+                    controller.position.copy(source.position);
+                    controller.quaternion.copy(source.quaternion);
+                    controller.updateMatrixWorld(true);
+                };
+                window.__JFVR_RUNTIME_ACTIONS__.selectController = (hand) => {
+                    const index = hand === 'left' ? 0 : 1;
+                    const controller = renderer.xr.getController(index);
+                    syncDebugControllerPose(hand, controller);
+                    onSelectStart({ target: controller });
+                    onSelectEnd({ target: controller });
+                };
+                window.__JFVR_RUNTIME_ACTIONS__.beginSelectController = (hand) => {
+                    const index = hand === 'left' ? 0 : 1;
+                    const controller = renderer.xr.getController(index);
+                    syncDebugControllerPose(hand, controller);
+                    onSelectStart({ target: controller });
+                };
+                window.__JFVR_RUNTIME_ACTIONS__.endSelectController = (hand) => {
+                    const index = hand === 'left' ? 0 : 1;
+                    const controller = renderer.xr.getController(index);
+                    syncDebugControllerPose(hand, controller);
+                    onSelectEnd({ target: controller });
+                };
+                window.__JFVR_RUNTIME_ACTIONS__.squeezeController = (hand, activeSqueeze) => {
+                    const index = hand === 'left' ? 0 : 1;
+                    const controller = renderer.xr.getController(index);
+                    syncDebugControllerPose(hand, controller);
+                    if (activeSqueeze) {
+                        onSqueezeStart({ target: controller });
+                    } else {
+                        onSqueezeEnd({ target: controller });
+                    }
+                };
             }
 
             function updateHover(controllers) {
@@ -1782,10 +2466,15 @@
                 for (let i = 0; i < controllers.length; i++) {
                     const controller = controllers[i];
                     if (!controller.visible) continue;
+                    if (controller.userData.lineRef) {
+                        controller.userData.lineTargetColor.setHex(controller.userData.lineActive ? 0x38bdf8 : 0xffffff);
+                        controller.userData.lineColor.lerp(controller.userData.lineTargetColor, 0.18);
+                        controller.userData.lineRef.material.color.copy(controller.userData.lineColor);
+                    }
                     tempMatrix.identity().extractRotation(controller.matrixWorld);
                     raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
                     raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
-                    const intersects = raycaster.intersectObjects(interactables, false);
+                    const intersects = getVisibleIntersections(interactables);
                     if (intersects.length > 0) {
                         const obj = intersects[0].object;
                         if (hoveredObj && hoveredObj !== obj) {
@@ -1888,12 +2577,8 @@
                         raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
                         raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
 
-                        // Intersect against local plane of the UI
-                        const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(uiGroup.quaternion);
-                        let dragPlanePos = obj.getWorldPosition(new THREE.Vector3());
-                        if (obj.parent) dragPlanePos = obj.parent.getWorldPosition(new THREE.Vector3());
-                        else dragPlanePos = uiGroup.getWorldPosition(new THREE.Vector3());
-
+                        const normal = controller.userData.dragPlaneNormal || new THREE.Vector3(0, 0, 1).applyQuaternion(uiGroup.quaternion);
+                        const dragPlanePos = controller.userData.dragPlanePoint || obj.getWorldPosition(new THREE.Vector3());
                         const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, dragPlanePos);
                         const intersectPoint = new THREE.Vector3();
                         if (raycaster.ray.intersectPlane(plane, intersectPoint)) {
@@ -1920,12 +2605,16 @@
             videoGrabControllers = [];
             if (toolbarVersionBtn) toolbarVersionBtn.removeEventListener('click', openVersionModal);
             if (renderer) {
+                clearCompositionVideoLayer();
                 renderer.setAnimationLoop(null);
                 if (renderer.xr.isPresenting) renderer.xr.getSession().end();
                 renderer.dispose();
             }
             overlay.remove();
             styleEl.remove();
+            window.__JFVR_RUNTIME_STATE__ = null;
+            window.__JFVR_RUNTIME_ACTIONS__ = null;
+            window.__JFVR_RUNTIME_DEBUG__ = null;
             if (activeInlinePlayer && activeInlinePlayer.close === close) {
                 activeInlinePlayer = null;
             }
@@ -1940,6 +2629,10 @@
 
         toolbarVersionBtn = overlay.querySelector('#jfvr-inline-version');
         if (toolbarVersionBtn) toolbarVersionBtn.addEventListener('click', openVersionModal);
+
+        exposeHarnessActions();
+        exposeHarnessDebug();
+        updateHarnessState();
 
         initThree().catch(err => {
             console.error("Three.js initialization failed:", err);
