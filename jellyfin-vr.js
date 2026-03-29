@@ -691,6 +691,7 @@
         let mediaLayerStatus = 'unavailable';
         let mediaLayerReason = 'not-initialized';
         let mediaLayerMode = 'mesh';
+        let mediaLayerKey = '';
         let toolbarVersionBtn;
         let immersiveDebugScreen;
         let surfaceRoot;
@@ -915,7 +916,7 @@
                 state.effectiveScreenCurve = 0;
                 return { curved: false, radius: 0, theta: 0, depth: 0 };
             }
-            const theta = 0.12 + (normalized * 1.18);
+            const theta = 0.18 + (normalized * 2.42);
             const radius = 18 / theta;
             const depth = radius * (1 - Math.cos(theta / 2));
             state.effectiveScreenCurve = theta;
@@ -987,25 +988,18 @@
             if (!curveParams.curved) {
                 return new THREE.PlaneGeometry(width, height);
             }
-
-            const segmentsX = 72;
-            const segmentsY = 18;
-            const geometry = new THREE.PlaneGeometry(width, height, segmentsX, segmentsY);
-            const positions = geometry.attributes.position;
-            const radius = curveParams.radius;
-            const theta = curveParams.theta;
-            const halfTheta = theta / 2;
-
-            for (let i = 0; i < positions.count; i++) {
-                const x = positions.getX(i);
-                const angle = (x / width) * theta;
-                const curvedX = Math.sin(angle) * radius;
-                const curvedZ = radius * (Math.cos(halfTheta) - Math.cos(angle));
-                positions.setX(i, curvedX);
-                positions.setZ(i, curvedZ);
-            }
-
-            positions.needsUpdate = true;
+            const geometry = new THREE.CylinderGeometry(
+                curveParams.radius,
+                curveParams.radius,
+                height,
+                96,
+                1,
+                true,
+                Math.PI - (curveParams.theta / 2),
+                curveParams.theta
+            );
+            geometry.scale(-1, 1, 1);
+            geometry.translate(0, 0, curveParams.radius);
             geometry.computeBoundingBox();
             geometry.computeBoundingSphere();
             return geometry;
@@ -1034,6 +1028,7 @@
             mediaVideoLayer = null;
             mediaBinding = null;
             mediaLayerMode = 'mesh';
+            mediaLayerKey = '';
         }
 
         function syncCompositionVideoLayer(THREE) {
@@ -1046,10 +1041,10 @@
                 return;
             }
 
-            if (state.mode.projection !== 'screen' || state.isAR || typeof window.XRMediaBinding !== 'function' || typeof session.updateRenderState !== 'function' || typeof renderer.xr.getReferenceSpace !== 'function') {
+            if (state.isAR || typeof window.XRMediaBinding !== 'function' || typeof session.updateRenderState !== 'function' || typeof renderer.xr.getReferenceSpace !== 'function') {
                 clearCompositionVideoLayer(session);
                 mediaLayerStatus = 'unavailable';
-                mediaLayerReason = state.mode.projection !== 'screen' ? 'screen-only' : 'unsupported';
+                mediaLayerReason = state.isAR ? 'ar-session' : 'unsupported';
                 updateHarnessState();
                 return;
             }
@@ -1064,25 +1059,92 @@
             }
 
             const transform = getSurfaceTransformForLayer(THREE);
-            const width = 18 * state.screenSize;
-            const height = 10.125 * state.screenSize;
             const layout = getCompositionLayerLayout(state.mode);
+            const curveParams = getScreenCurveParams();
+            const bindingProbe = new window.XRMediaBinding(session);
+            let layerFactory = null;
+            let layerKey = '';
+            let layerMode = 'mesh';
+            let layerOptions = null;
+
+            if (state.mode.projection === 'screen') {
+                const width = 18 * state.screenSize;
+                const height = 10.125 * state.screenSize;
+                if (curveParams.curved && typeof bindingProbe.createCylinderLayer === 'function') {
+                    layerFactory = 'createCylinderLayer';
+                    layerMode = 'cylinder-layer';
+                    layerOptions = {
+                        space: referenceSpace,
+                        radius: curveParams.radius * state.screenSize,
+                        centralAngle: curveParams.theta,
+                        aspectRatio: width / height,
+                        layout,
+                        transform: new XRRigidTransform(transform.position, transform.orientation)
+                    };
+                } else {
+                    layerFactory = 'createQuadLayer';
+                    layerMode = 'quad-layer';
+                    layerOptions = {
+                        space: referenceSpace,
+                        width,
+                        height,
+                        layout,
+                        transform: new XRRigidTransform(transform.position, transform.orientation)
+                    };
+                }
+            } else if (typeof bindingProbe.createEquirectLayer === 'function') {
+                layerFactory = 'createEquirectLayer';
+                layerMode = 'equirect-layer';
+                layerOptions = {
+                    space: referenceSpace,
+                    radius: 32 * state.screenSize,
+                    centralHorizontalAngle: state.mode.projection === '180' ? Math.PI : Math.PI * 2,
+                    upperVerticalAngle: Math.PI / 2,
+                    lowerVerticalAngle: -Math.PI / 2,
+                    layout,
+                    transform: new XRRigidTransform(transform.position, transform.orientation)
+                };
+            } else {
+                clearCompositionVideoLayer(session);
+                mediaLayerStatus = 'unavailable';
+                mediaLayerReason = 'no-supported-layer-type';
+                updateHarnessState();
+                return;
+            }
+
+            layerKey = JSON.stringify({
+                projection: state.mode.projection,
+                stereo: state.mode.stereo,
+                variant: state.mode.variant,
+                stereoLock: state.stereoLock,
+                curved: curveParams.curved,
+                theta: curveParams.theta,
+                scale: state.screenSize,
+                distance: state.screenDistance,
+                transform
+            });
+
+            if (mediaLayerKey === layerKey && mediaVideoLayer) {
+                mediaLayerStatus = 'active';
+                mediaLayerReason = 'ok';
+                mediaLayerMode = layerMode;
+                updateHarnessState();
+                return;
+            }
 
             try {
                 clearCompositionVideoLayer(session);
                 mediaBinding = new window.XRMediaBinding(session);
-                mediaVideoLayer = mediaBinding.createQuadLayer(jellyfinVideo, {
-                    space: referenceSpace,
-                    width,
-                    height,
-                    layout,
-                    transform: new XRRigidTransform(transform.position, transform.orientation)
-                });
+                if (typeof mediaBinding[layerFactory] !== 'function') {
+                    throw new Error(layerFactory + ' not supported');
+                }
+                mediaVideoLayer = mediaBinding[layerFactory](jellyfinVideo, layerOptions);
                 const baseLayer = session.renderState && session.renderState.baseLayer ? session.renderState.baseLayer : null;
                 session.updateRenderState({ layers: [mediaVideoLayer].concat(baseLayer ? [baseLayer] : []) });
                 mediaLayerStatus = 'active';
                 mediaLayerReason = 'ok';
-                mediaLayerMode = 'composition-layer';
+                mediaLayerMode = layerMode;
+                mediaLayerKey = layerKey;
             } catch (error) {
                 clearCompositionVideoLayer(session);
                 mediaLayerStatus = 'fallback';
@@ -1146,8 +1208,13 @@
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setPixelRatio(Math.max(1, Math.min(2.5, window.devicePixelRatio * 1.25)));
             renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.outputColorSpace = THREE.SRGBColorSpace;
+            renderer.toneMapping = THREE.NoToneMapping;
             renderer.xr.enabled = true;
             renderer.xr.setReferenceSpaceType('local');
+            if (renderer.xr && typeof renderer.xr.setFramebufferScaleFactor === 'function') {
+                renderer.xr.setFramebufferScaleFactor(1.25);
+            }
             container.appendChild(renderer.domElement);
 
             container.addEventListener('mousemove', wake);
@@ -1308,6 +1375,7 @@
             materials.preview = new THREE.MeshBasicMaterial({ map: videoTexture, side: THREE.BackSide, toneMapped: false });
             materials.left = new THREE.MeshBasicMaterial({ map: videoTexture, side: THREE.BackSide, toneMapped: false });
             materials.right = new THREE.MeshBasicMaterial({ map: videoTexture, side: THREE.BackSide, toneMapped: false });
+            materials.hitProxy = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false, side: THREE.DoubleSide });
 
             immersiveDebugScreen = new THREE.Mesh(
                 new THREE.PlaneGeometry(2.8, 1.575),
@@ -1328,14 +1396,17 @@
             meshes.preview = new THREE.Mesh(new THREE.BufferGeometry(), materials.preview);
             meshes.left = new THREE.Mesh(new THREE.BufferGeometry(), materials.left);
             meshes.right = new THREE.Mesh(new THREE.BufferGeometry(), materials.right);
+            meshes.hitProxy = new THREE.Mesh(new THREE.BufferGeometry(), materials.hitProxy);
 
             meshes.preview.layers.set(0);
             meshes.left.layers.set(1);
             meshes.right.layers.set(2);
+            meshes.hitProxy.layers.set(0);
 
             surfaceRoot.add(meshes.preview);
             surfaceRoot.add(meshes.left);
             surfaceRoot.add(meshes.right);
+            surfaceRoot.add(meshes.hitProxy);
 
             function updatePassthroughVisuals() {
                 if (state.passthroughEnabled) {
@@ -1370,9 +1441,12 @@
                 meshes.left.geometry = geometry.clone();
                 meshes.right.geometry.dispose();
                 meshes.right.geometry = geometry.clone();
+                meshes.hitProxy.geometry.dispose();
+                meshes.hitProxy.geometry = geometry.clone();
 
                 const side = mode.projection === 'screen' ? THREE.FrontSide : THREE.BackSide;
                 materials.preview.side = side; materials.left.side = side; materials.right.side = side;
+                materials.hitProxy.side = THREE.DoubleSide;
 
                 function getViewport(m, eye) {
                     if (m.projection === 'screen') {
@@ -1501,6 +1575,7 @@
                 const t = new Text();
                 t.text = str;
                 t.fontSize = size;
+                t.sdfGlyphSize = 192;
                 t.color = color;
                 t.position.set(x, y, 0.01);
                 t.anchorX = align || 'center';
@@ -1533,6 +1608,17 @@
                     textObj = createTextObj(label, mesh, 0, 0, radius * 0.9, iconMatColor);
                 }
                 return { mesh, textObj };
+            }
+
+            function makePanelBlocker(mesh, id, color) {
+                mesh.userData = {
+                    id,
+                    bg: color,
+                    hover: color,
+                    onClick: () => {},
+                    onDrag: () => {}
+                };
+                interactables.push(mesh);
             }
 
             function createSlider(id, parent, x, y, w, h, initVal, onChange, options) {
@@ -1886,6 +1972,7 @@
                 const panelBg = new THREE.Mesh(panelGeo, frostedMat.clone());
                 panelBg.position.set(0, 0, -0.005);
                 group.add(panelBg);
+                makePanelBlocker(panelBg, id + '-panel', 0x0f172a);
 
                 const bgGeo = createRoundedRectGeometry(w, h, w / 2);
                 const bgMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
@@ -1934,6 +2021,7 @@
             bgMesh = new THREE.Mesh(dockGeo, frostedMat);
             bgMesh.position.set(0, 0, 0);
             uiGroup.add(bgMesh);
+            makePanelBlocker(bgMesh, 'dock-bg', 0x0f172a);
 
             // === Row 1 (top): Video Title with marquee ===
             const titleY = 0.16;
@@ -1945,6 +2033,7 @@
             titleTextObj = new Text();
             titleTextObj.text = videoTitle || 'Loading...';
             titleTextObj.fontSize = 0.038;
+            titleTextObj.sdfGlyphSize = 192;
             titleTextObj.color = 0xf0f6ff;
             titleTextObj.anchorX = 'center';
             titleTextObj.anchorY = 'middle';
@@ -2108,6 +2197,7 @@
             const setBg = new THREE.Mesh(setGeo, frostedMat);
             settingsBackgroundMesh = setBg;
             settingsGroup.add(setBg);
+            makePanelBlocker(setBg, 'settings-bg', 0x0f172a);
 
             const sY1 = 0.08; const sY2 = 0.0; const sY3 = -0.08;
             createTextObj('Curve', settingsGroup, -0.65, sY1, 0.03, 0x94a3b8, 'left');
@@ -2140,6 +2230,7 @@
             const layoutBg = new THREE.Mesh(createRoundedRectGeometry(2.28, 1.12, 0.08), frostedMat.clone());
             layoutBackgroundMesh = layoutBg;
             layoutGroup.add(layoutBg);
+            makePanelBlocker(layoutBg, 'layout-bg', 0x0f172a);
             createTextObj('Layout', layoutGroup, -1.02, 0.45, 0.04, 0xe2e8f0, 'left');
             createTextObj('Pick the exact layout that matches the file.', layoutGroup, -1.02, 0.38, 0.022, 0x94a3b8, 'left');
 
@@ -2199,7 +2290,7 @@
             let hoveredObj = null;
 
             function getSurfaceMeshes() {
-                return [meshes.preview, meshes.left, meshes.right].filter(Boolean);
+                return [meshes.hitProxy || meshes.preview].filter(Boolean);
             }
 
             function getControllerRay(controller) {
@@ -2361,6 +2452,7 @@
                     controller.userData.lineRef.material.color.setHex(0xffffff);
                     controller.userData.lineColor.copy(controller.userData.lineRef.material.color);
                 }
+                updateHarnessState();
             }
 
             function onSqueezeEnd(event) {
