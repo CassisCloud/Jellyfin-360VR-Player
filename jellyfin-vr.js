@@ -696,6 +696,8 @@
         let mediaLayerMode = 'mesh';
         let mediaLayerKey = '';
         let textRendererStatus = 'troika-msdf';
+        let projectionLayerStatus = 'unknown';
+        let projectionLayerReason = 'not-initialized';
         let toolbarVersionBtn;
         let immersiveDebugScreen;
         let surfaceRoot;
@@ -752,6 +754,8 @@
                 mediaLayerStatus,
                 mediaLayerReason,
                 mediaLayerMode,
+                projectionLayerStatus,
+                projectionLayerReason,
                 textRendererStatus,
                 grabActive: videoGrabControllers.length > 0
             };
@@ -838,6 +842,8 @@
                         mediaLayerStatus,
                         mediaLayerReason,
                         mediaLayerMode,
+                        projectionLayerStatus,
+                        projectionLayerReason,
                         textRendererStatus,
                         rendererPixelRatio: renderer ? renderer.getPixelRatio() : null,
                         xrFramebufferScale: XR_FRAMEBUFFER_SCALE,
@@ -1051,12 +1057,37 @@
             mediaLayerKey = '';
         }
 
+        function updateProjectionLayerStatus() {
+            const session = renderer && renderer.xr && typeof renderer.xr.getSession === 'function' ? renderer.xr.getSession() : null;
+            if (!session || !state.isImmersive) {
+                projectionLayerStatus = 'inactive';
+                projectionLayerReason = 'no-session';
+                return;
+            }
+
+            const hasLayersArray = Boolean(session.renderState && Array.isArray(session.renderState.layers));
+            const hasBaseLayer = Boolean(session.renderState && session.renderState.baseLayer);
+            const hasBinding = renderer && renderer.xr && typeof renderer.xr.getBinding === 'function' && Boolean(renderer.xr.getBinding());
+
+            if (hasLayersArray) {
+                projectionLayerStatus = 'layers';
+                projectionLayerReason = hasBinding ? 'xr-binding-active' : 'layers-array';
+            } else if (hasBaseLayer) {
+                projectionLayerStatus = 'base-layer';
+                projectionLayerReason = 'renderstate-baselayer';
+            } else {
+                projectionLayerStatus = 'unknown';
+                projectionLayerReason = 'no-renderstate-layer';
+            }
+        }
+
         function syncCompositionVideoLayer(THREE) {
             const session = renderer && renderer.xr && typeof renderer.xr.getSession === 'function' ? renderer.xr.getSession() : null;
             if (!session || !state.isImmersive) {
                 clearCompositionVideoLayer(session);
                 mediaLayerStatus = 'inactive';
                 mediaLayerReason = 'no-session';
+                updateProjectionLayerStatus();
                 updateHarnessState();
                 return;
             }
@@ -1065,6 +1096,7 @@
                 clearCompositionVideoLayer(session);
                 mediaLayerStatus = 'unavailable';
                 mediaLayerReason = state.isAR ? 'ar-session' : 'unsupported';
+                updateProjectionLayerStatus();
                 updateHarnessState();
                 return;
             }
@@ -1074,6 +1106,7 @@
                 clearCompositionVideoLayer(session);
                 mediaLayerStatus = 'inactive';
                 mediaLayerReason = 'missing-reference-space';
+                updateProjectionLayerStatus();
                 updateHarnessState();
                 return;
             }
@@ -1115,6 +1148,7 @@
                     clearCompositionVideoLayer(session);
                     mediaLayerStatus = 'unavailable';
                     mediaLayerReason = 'quad-layer-unsupported';
+                    updateProjectionLayerStatus();
                     updateHarnessState();
                     return;
                 }
@@ -1134,6 +1168,7 @@
                 clearCompositionVideoLayer(session);
                 mediaLayerStatus = 'unavailable';
                 mediaLayerReason = 'no-supported-layer-type';
+                updateProjectionLayerStatus();
                 updateHarnessState();
                 return;
             }
@@ -1154,6 +1189,7 @@
                 mediaLayerStatus = 'active';
                 mediaLayerReason = 'ok';
                 mediaLayerMode = layerMode;
+                updateProjectionLayerStatus();
                 updateHarnessState();
                 return;
             }
@@ -1176,6 +1212,7 @@
                 mediaLayerStatus = 'fallback';
                 mediaLayerReason = error && error.message ? error.message : 'layer-create-failed';
             }
+            updateProjectionLayerStatus();
             updateHarnessState();
         }
 
@@ -1657,10 +1694,11 @@
             updateInfoPanelStatus = function () {
                 if (!infoStatusLines.length || !renderer) return;
                 const lines = [
+                    `Projection: ${projectionLayerStatus}`,
                     `Video: ${mediaLayerMode} / ${mediaLayerStatus}`,
-                    `Reason: ${mediaLayerReason}`,
-                    `Text: ${textRendererStatus}`,
-                    `PX/Fov: ${renderer.getPixelRatio().toFixed(2)} / ${XR_FOVEATION.toFixed(2)}`,
+                    `Reason: ${mediaLayerReason || projectionLayerReason}`,
+                    `Text: ${textRendererStatus} sdf256`,
+                    `Pixel/Fov: ${renderer.getPixelRatio().toFixed(2)} / ${XR_FOVEATION.toFixed(2)}`,
                     `XR Scale: ${XR_FRAMEBUFFER_SCALE.toFixed(2)}`,
                     `Video Res: ${jellyfinVideo.videoWidth || 0}x${jellyfinVideo.videoHeight || 0}`
                 ];
@@ -1983,7 +2021,7 @@
                     makeFrame(0, -0.02, 0.12, 0.03);
                 }
 
-                const label = createTextObj(mode.projection === 'screen' ? 'SCR' : mode.projection, glyph, 0, -0.065, 0.016, 0x94a3b8, 'center');
+                const label = createTextObj(mode.projection === 'screen' ? 'SCR' : mode.projection, glyph, 0, -0.065, 0.019, 0x94a3b8, 'center');
                 label.position.z = 0.003;
                 parent.add(glyph);
                 return glyph;
@@ -2004,8 +2042,8 @@
                 group.add(bg);
 
                 createModeGlyph(group, mode).position.set((-width / 2) + 0.09, 0.005, 0.003);
-                createTextObj(mode.label, group, (-width / 2) + 0.18, 0.022, 0.026, 0xe2e8f0, 'left');
-                createTextObj(getModeShapeLabel(mode), group, (-width / 2) + 0.18, -0.022, 0.018, 0x94a3b8, 'left');
+                createTextObj(mode.label, group, (-width / 2) + 0.18, 0.022, 0.03, 0xe2e8f0, 'left');
+                createTextObj(getModeShapeLabel(mode), group, (-width / 2) + 0.18, -0.024, 0.021, 0x94a3b8, 'left');
                 return group;
             }
 
@@ -2250,23 +2288,23 @@
             settingsGroup.add(setBg);
             makePanelBlocker(setBg, 'settings-bg', 0x0f172a);
 
-            const infoBtn = createRoundBtn('settings-info', settingsGroup, 0.69, 0.11, 0.032, 'i', () => {
+            const infoBtn = createRoundBtn('settings-info', settingsGroup, 0.75, 0.125, 0.03, 'i', () => {
                 if (infoGroup) infoGroup.visible = !infoGroup.visible;
                 updateInfoPanelStatus();
             });
             if (infoBtn.textObj) infoBtn.textObj.fontSize = 0.034;
 
             infoGroup = new THREE.Group();
-            infoGroup.position.set(0.17, 0.28, 0.02);
+            infoGroup.position.set(0.08, 0.34, 0.02);
             infoGroup.visible = false;
             settingsGroup.add(infoGroup);
 
-            const infoBg = new THREE.Mesh(createRoundedRectGeometry(0.92, 0.30, 0.05), frostedMat.clone());
+            const infoBg = new THREE.Mesh(createRoundedRectGeometry(1.08, 0.42, 0.05), frostedMat.clone());
             infoGroup.add(infoBg);
             makePanelBlocker(infoBg, 'settings-info-bg', 0x0f172a);
-            createTextObj('Info', infoGroup, -0.40, 0.11, 0.024, 0x7dd3fc, 'left');
-            const infoLineY = [0.06, 0.02, -0.02, -0.06, -0.10, -0.14];
-            infoStatusLines = infoLineY.map((y) => createTextObj('', infoGroup, -0.40, y, 0.018, 0xe2e8f0, 'left'));
+            createTextObj('Info', infoGroup, -0.48, 0.16, 0.028, 0x7dd3fc, 'left');
+            const infoLineY = [0.10, 0.05, 0.0, -0.05, -0.10, -0.15, -0.20];
+            infoStatusLines = infoLineY.map((y) => createTextObj('', infoGroup, -0.48, y, 0.021, 0xe2e8f0, 'left'));
 
             const sY1 = 0.08; const sY2 = 0.0; const sY3 = -0.08;
             createTextObj('Curve', settingsGroup, -0.65, sY1, 0.03, 0x94a3b8, 'left');
@@ -2300,13 +2338,13 @@
             layoutBackgroundMesh = layoutBg;
             layoutGroup.add(layoutBg);
             makePanelBlocker(layoutBg, 'layout-bg', 0x0f172a);
-            createTextObj('Layout', layoutGroup, -1.02, 0.45, 0.04, 0xe2e8f0, 'left');
-            createTextObj('Pick the exact layout that matches the file.', layoutGroup, -1.02, 0.38, 0.022, 0x94a3b8, 'left');
+            createTextObj('Layout', layoutGroup, -1.02, 0.45, 0.045, 0xe2e8f0, 'left');
+            createTextObj('Pick the exact layout that matches the file.', layoutGroup, -1.02, 0.38, 0.026, 0x94a3b8, 'left');
 
             MODE_GROUPS.forEach((groupDef, columnIndex) => {
                 const columnX = -0.74 + (columnIndex * 0.74);
                 const modes = VIEW_MODES.filter((mode) => mode.projection === groupDef.projection);
-                createTextObj(groupDef.projection === 'screen' ? 'Screen' : groupDef.projection, layoutGroup, columnX - 0.22, 0.27, 0.028, 0x7dd3fc, 'left');
+                createTextObj(groupDef.projection === 'screen' ? 'Screen' : groupDef.projection, layoutGroup, columnX - 0.22, 0.27, 0.032, 0x7dd3fc, 'left');
                 modes.forEach((mode, rowIndex) => {
                     createCardButton(mode, layoutGroup, columnX, 0.16 - (rowIndex * 0.15), 0.66, 0.13, () => switchMode(mode.id));
                 });
@@ -2467,39 +2505,63 @@
                 videoGrabControllers = videoGrabControllers.filter((item) => item !== controller);
             }
 
-            function clearPendingSurfaceSelect(controller) {
-                if (controller && controller.userData && controller.userData.pendingSurfaceSelectTimer) {
-                    window.clearTimeout(controller.userData.pendingSurfaceSelectTimer);
-                    controller.userData.pendingSurfaceSelectTimer = null;
-                }
+        function clearPendingSurfaceSelect(controller) {
+            if (controller && controller.userData && controller.userData.pendingSurfaceSelectTimer) {
+                window.clearTimeout(controller.userData.pendingSurfaceSelectTimer);
+                controller.userData.pendingSurfaceSelectTimer = null;
             }
+            if (controller && controller.userData) {
+                controller.userData.pendingSurfaceSelectAction = null;
+            }
+        }
 
-            function onSelectStart(event) {
-                const controller = event.target;
-                if (!state.uiVisible) {
-                    openUI(controller, 'trigger');
-                    return;
-                }
-                getControllerRay(controller);
-                const surfaceIntersections = getVisibleIntersections(getSurfaceMeshes());
-                const intersects = getVisibleIntersections(interactables);
-                if (intersects.length > 0) {
-                    const obj = intersects[0].object;
-                    if (obj.userData.onClick) obj.userData.onClick(intersects[0].point);
-                    if (obj.userData.onDrag) {
-                        controller.userData.dragTarget = obj;
-                        controller.userData.dragPlaneNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(uiGroup.quaternion);
-                        controller.userData.dragPlanePoint = obj.getWorldPosition(new THREE.Vector3());
-                    }
-                } else if (!state.showingLayout && !state.showingSettings && surfaceIntersections.length > 0) {
+        function onSelectStart(event) {
+            const controller = event.target;
+            getControllerRay(controller);
+            const surfaceIntersections = getVisibleIntersections(getSurfaceMeshes());
+            if (!state.uiVisible) {
+                if (surfaceIntersections.length > 0) {
                     clearPendingSurfaceSelect(controller);
+                    controller.userData.pendingSurfaceSelectAction = 'open-ui';
                     controller.userData.pendingSurfaceSelectTimer = window.setTimeout(() => {
                         controller.userData.pendingSurfaceSelectTimer = null;
-                        if (state.uiVisible && !state.showingLayout && !state.showingSettings) {
+                        controller.userData.pendingSurfaceSelectAction = null;
+                        if (!state.uiVisible) {
                             tryStartVideoGrab(controller);
                             updateHarnessState();
                         }
                     }, SURFACE_TRIGGER_GRAB_DELAY_MS);
+                } else {
+                    openUI(controller, 'trigger');
+                    return;
+                }
+                controller.userData.lineActive = true;
+                if (controller.userData.lineRef) {
+                    controller.userData.lineRef.material.color.setHex(0x38bdf8);
+                    controller.userData.lineColor.copy(controller.userData.lineRef.material.color);
+                }
+                return;
+            }
+            const intersects = getVisibleIntersections(interactables);
+            if (intersects.length > 0) {
+                const obj = intersects[0].object;
+                if (obj.userData.onClick) obj.userData.onClick(intersects[0].point);
+                if (obj.userData.onDrag) {
+                        controller.userData.dragTarget = obj;
+                        controller.userData.dragPlaneNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(uiGroup.quaternion);
+                        controller.userData.dragPlanePoint = obj.getWorldPosition(new THREE.Vector3());
+                }
+            } else if (!state.showingLayout && !state.showingSettings && surfaceIntersections.length > 0) {
+                clearPendingSurfaceSelect(controller);
+                controller.userData.pendingSurfaceSelectAction = 'close-ui';
+                controller.userData.pendingSurfaceSelectTimer = window.setTimeout(() => {
+                    controller.userData.pendingSurfaceSelectTimer = null;
+                    controller.userData.pendingSurfaceSelectAction = null;
+                    if (state.uiVisible && !state.showingLayout && !state.showingSettings) {
+                        tryStartVideoGrab(controller);
+                        updateHarnessState();
+                    }
+                }, SURFACE_TRIGGER_GRAB_DELAY_MS);
                 } else {
                     closeUI('trigger-empty');
                 }
@@ -2525,11 +2587,12 @@
                 updateHarnessState();
             }
 
-            function onSelectEnd(event) {
-                const controller = event.target;
-                const pendingSurfaceClose = Boolean(controller.userData.pendingSurfaceSelectTimer) && !controller.userData.videoGrab;
-                clearPendingSurfaceSelect(controller);
-                stopVideoGrab(controller);
+        function onSelectEnd(event) {
+            const controller = event.target;
+            const pendingSurfaceAction = controller.userData.pendingSurfaceSelectAction;
+            const pendingSurfaceTap = Boolean(controller.userData.pendingSurfaceSelectTimer) && !controller.userData.videoGrab;
+            clearPendingSurfaceSelect(controller);
+            stopVideoGrab(controller);
                 if (controller.userData.dragTarget) {
                     if (controller.userData.dragTarget.userData.onDragEnd) {
                         controller.userData.dragTarget.userData.onDragEnd();
@@ -2543,8 +2606,10 @@
                     controller.userData.lineRef.material.color.setHex(0xffffff);
                     controller.userData.lineColor.copy(controller.userData.lineRef.material.color);
                 }
-                if (pendingSurfaceClose) {
+                if (pendingSurfaceTap && pendingSurfaceAction === 'close-ui') {
                     closeUI('trigger-surface-close');
+                } else if (pendingSurfaceTap && pendingSurfaceAction === 'open-ui') {
+                    openUI(controller, 'trigger-surface-open');
                 }
                 updateHarnessState();
             }
