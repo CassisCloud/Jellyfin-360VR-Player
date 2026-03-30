@@ -684,7 +684,7 @@
         const UI_DISTANCE_DEFAULT = (UI_DISTANCE_MIN + UI_DISTANCE_MAX) / 2;
         const XR_FRAMEBUFFER_SCALE = 1.25;
         const XR_FOVEATION = 0;
-        const DISABLE_COMPOSITION_LAYERS_IN_VR = true;
+        const DISABLE_COMPOSITION_LAYERS_IN_VR = false;
         const SURFACE_TRIGGER_GRAB_DELAY_MS = 180;
         let active = true;
         let renderer, scene, camera, vrButton, arButton;
@@ -736,7 +736,8 @@
             lastUiOpenSource: 'initial',
             lastUiCloseSource: 'initial',
             showingSettings: false,
-            showingLayout: false
+            showingLayout: false,
+            forceFallback: false
         };
 
         function immersiveDebugScreenActive() {
@@ -1118,6 +1119,13 @@
             } catch (_error) {
                 // Best-effort cleanup only.
             }
+            if (mediaVideoLayer && typeof mediaVideoLayer.destroy === 'function') {
+                try {
+                    mediaVideoLayer.destroy();
+                } catch (_destroyError) {
+                    // Best-effort resource release.
+                }
+            }
             mediaVideoLayer = null;
             mediaBinding = null;
             mediaLayerMode = 'mesh';
@@ -1188,10 +1196,35 @@
                 return;
             }
 
-            if (treatAsAR || typeof window.XRMediaBinding !== 'function' || typeof session.updateRenderState !== 'function' || typeof renderer.xr.getReferenceSpace !== 'function') {
+            let _useStereoForLayer = false;
+            if (state.mode.stereo !== 'mono' && state.isImmersive) {
+                if (state.stereoLock === 'force-2d') {
+                    _useStereoForLayer = false;
+                } else if (state.stereoLock === 'force-3d') {
+                    _useStereoForLayer = true;
+                } else {
+                    _useStereoForLayer = !state.uiVisible;
+                }
+            }
+            const needsCropFor2D = (state.mode.stereo !== 'mono' && !_useStereoForLayer);
+
+            if (state.forceFallback || needsCropFor2D) {
+                clearCompositionVideoLayer(session);
+                mediaLayerStatus = 'fallback';
+                mediaLayerReason = state.forceFallback ? 'user-toggled' : '2d-crop-required';
+                xrMediaBindingFactory = typeof window.XRMediaBinding === 'function' ? 'available' : 'missing';
+                xrMediaLayerSupport = 'skipped';
+                xrSelectedLayerType = 'none';
+                xrLayerLastError = 'none';
+                updateProjectionLayerStatus();
+                updateHarnessState();
+                return;
+            }
+
+            if (typeof window.XRMediaBinding !== 'function' || typeof session.updateRenderState !== 'function' || typeof renderer.xr.getReferenceSpace !== 'function') {
                 clearCompositionVideoLayer(session);
                 mediaLayerStatus = 'unavailable';
-                mediaLayerReason = treatAsAR ? 'ar-session' : 'unsupported';
+                mediaLayerReason = 'unsupported';
                 xrMediaBindingFactory = typeof window.XRMediaBinding === 'function' ? 'available' : 'missing';
                 xrMediaLayerSupport = 'unknown';
                 xrSelectedLayerType = 'none';
@@ -1251,13 +1284,20 @@
                 if (curveParams.curved && hasCylinderLayer) {
                     layerFactory = 'createCylinderLayer';
                     layerMode = 'cylinder-layer';
+                    const _cylPos = new THREE.Vector3(transform.position.x, transform.position.y, transform.position.z);
+                    const _cylQuat = new THREE.Quaternion(transform.orientation.x, transform.orientation.y, transform.orientation.z, transform.orientation.w);
+                    const _cylFwd = new THREE.Vector3(0, 0, 1).applyQuaternion(_cylQuat);
+                    _cylPos.add(_cylFwd.multiplyScalar(curveParams.radius * state.screenSize));
                     layerOptions = {
                         space: referenceSpace,
                         radius: curveParams.radius * state.screenSize,
                         centralAngle: curveParams.theta,
                         aspectRatio: width / height,
                         layout,
-                        transform: new XRRigidTransform(transform.position, transform.orientation)
+                        transform: new XRRigidTransform(
+                            { x: _cylPos.x, y: _cylPos.y, z: _cylPos.z },
+                            { x: _cylQuat.x, y: _cylQuat.y, z: _cylQuat.z, w: _cylQuat.w }
+                        )
                     };
                 } else if (hasQuadLayer) {
                     layerFactory = 'createQuadLayer';
@@ -1311,11 +1351,11 @@
                 curved: curveParams.curved,
                 theta: curveParams.theta,
                 scale: state.screenSize,
-                distance: state.screenDistance,
-                transform
+                distance: state.screenDistance
             });
 
             if (mediaLayerKey === layerKey && mediaVideoLayer) {
+                mediaVideoLayer.transform = new XRRigidTransform(transform.position, transform.orientation);
                 mediaLayerStatus = 'active';
                 mediaLayerReason = 'ok';
                 mediaLayerMode = layerMode;
@@ -1332,15 +1372,11 @@
                     throw new Error(layerFactory + ' not supported');
                 }
                 mediaVideoLayer = mediaBinding[layerFactory](jellyfinVideo, layerOptions);
-                const existingLayers = Array.isArray(session.renderState.layers) ? Array.from(session.renderState.layers) : [];
-                const projectionLayers = existingLayers.filter((l) => l !== mediaVideoLayer);
-                if (projectionLayers.length > 0) {
-                    session.updateRenderState({ layers: [mediaVideoLayer].concat(projectionLayers) });
-                } else if (session.renderState.baseLayer) {
-                    session.updateRenderState({ layers: [mediaVideoLayer, session.renderState.baseLayer] });
-                } else {
-                    session.updateRenderState({ layers: [mediaVideoLayer] });
-                }
+                const projLayer = renderer.xr && typeof renderer.xr.getBaseLayer === 'function' ? renderer.xr.getBaseLayer() : null;
+                const compositionLayers = projLayer
+                    ? [mediaVideoLayer, projLayer]
+                    : [mediaVideoLayer];
+                session.updateRenderState({ layers: compositionLayers });
                 mediaLayerStatus = 'active';
                 mediaLayerReason = 'ok';
                 mediaLayerMode = layerMode;
@@ -1409,6 +1445,7 @@
 
             const container = overlay.querySelector('#jfvr-canvas-container');
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setClearColor(0x000000, 0);
             renderer.setPixelRatio(Math.max(1, Math.min(2.5, window.devicePixelRatio * 1.25)));
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -1537,12 +1574,12 @@
                         useStereo = !state.uiVisible;
                     }
                 }
-                const hideMeshVideo = mediaLayerStatus === 'active' && state.mode.projection === 'screen';
+                if (state.isImmersive) syncCompositionVideoLayer(THREE);
+                const hideMeshVideo = mediaLayerStatus === 'active';
                 if (meshes.preview) meshes.preview.visible = !hideMeshVideo && !useStereo;
                 if (meshes.left) meshes.left.visible = !hideMeshVideo && useStereo;
                 if (meshes.right) meshes.right.visible = !hideMeshVideo && useStereo;
                 if (stereoToggleLabel) stereoToggleLabel.setState(mode, state.stereoLock);
-                if (state.isImmersive) syncCompositionVideoLayer(THREE);
                 updateImmersiveDebugScreen();
                 updateHarnessState();
             }
@@ -1649,11 +1686,12 @@
             surfaceRoot.add(meshes.hitProxy);
 
             function updatePassthroughVisuals() {
+                scene.background = null;
                 if (state.passthroughEnabled) {
-                    scene.background = null;
+                    dimSphere.visible = true;
                     if (typeof dimSphereMat !== 'undefined') dimSphereMat.opacity = 1.0 - state.passthroughBrightness;
                 } else {
-                    scene.background = new THREE.Color(0x000000);
+                    dimSphere.visible = false;
                     if (typeof dimSphereMat !== 'undefined') dimSphereMat.opacity = 1.0;
                 }
             }
@@ -2626,19 +2664,19 @@
             const sY3 = SETTINGS_LAYOUT.rowY[2];
             createTextObj('Curve', settingsGroup, SETTINGS_LAYOUT.leftLabelX, sY1, 0.03, 0x94a3b8, 'left');
             createCurveStartIcon(settingsGroup, SETTINGS_LAYOUT.leftIconX, sY1);
-            createSlider('s-curve', settingsGroup, SETTINGS_LAYOUT.leftSliderX, sY1, SETTINGS_LAYOUT.leftSliderW, 0.03, state.screenCurvature, (v) => { state.screenCurvature = v; applyModeFromState({ preserveSurfaceTransform: true }); });
+            createSlider('s-curve', settingsGroup, SETTINGS_LAYOUT.leftSliderX, sY1, SETTINGS_LAYOUT.leftSliderW, 0.03, state.screenCurvature, (v) => { state.screenCurvature = v; applyModeFromState({ preserveSurfaceTransform: true }); }, { deferCommit: true });
             createCurveEndIcon(settingsGroup, SETTINGS_LAYOUT.leftEndIconX, sY1);
 
             createTextObj('Dist.', settingsGroup, SETTINGS_LAYOUT.leftLabelX, sY2, 0.03, 0x94a3b8, 'left');
             const initDistRatio = (state.screenDistance - (-20)) / (-4 - (-20));
             createNearIcon(settingsGroup, SETTINGS_LAYOUT.leftIconX, sY2);
-            createSlider('s-dist', settingsGroup, SETTINGS_LAYOUT.leftSliderX, sY2, SETTINGS_LAYOUT.leftSliderW, 0.03, initDistRatio, (v) => { state.screenDistance = -20 + (v * 16); applyModeFromState(); });
+            createSlider('s-dist', settingsGroup, SETTINGS_LAYOUT.leftSliderX, sY2, SETTINGS_LAYOUT.leftSliderW, 0.03, initDistRatio, (v) => { state.screenDistance = -20 + (v * 16); applyModeFromState(); }, { deferCommit: true });
             createFarIcon(settingsGroup, SETTINGS_LAYOUT.leftEndIconX, sY2);
 
             createTextObj('Size', settingsGroup, SETTINGS_LAYOUT.leftLabelX, sY3, 0.03, 0x94a3b8, 'left');
             const initSizeRatio = (state.screenSize - 0.5) / (3.0 - 0.5);
             createNearIcon(settingsGroup, SETTINGS_LAYOUT.leftIconX, sY3);
-            createSlider('s-size', settingsGroup, SETTINGS_LAYOUT.leftSliderX, sY3, SETTINGS_LAYOUT.leftSliderW, 0.03, initSizeRatio, (v) => { state.screenSize = 0.5 + (v * 2.5); applyModeFromState(); });
+            createSlider('s-size', settingsGroup, SETTINGS_LAYOUT.leftSliderX, sY3, SETTINGS_LAYOUT.leftSliderW, 0.03, initSizeRatio, (v) => { state.screenSize = 0.5 + (v * 2.5); applyModeFromState(); }, { deferCommit: true });
             createFarIcon(settingsGroup, SETTINGS_LAYOUT.leftEndIconX, sY3);
 
             createTextObj('UI Dist', settingsGroup, SETTINGS_LAYOUT.rightLabelX, sY1, 0.03, 0x94a3b8, 'left');
@@ -2657,6 +2695,28 @@
             const dimmerSlider = createSlider('s-dimmer', settingsGroup, SETTINGS_LAYOUT.rightSliderX, sY2, SETTINGS_LAYOUT.rightSliderW, 0.03, state.passthroughBrightness, (v) => { state.passthroughBrightness = v; updatePassthroughVisuals(); });
             settingsDimmerTrack = dimmerSlider.track;
             createSunIcon(settingsGroup, SETTINGS_LAYOUT.rightEndIconX, sY2, 0.5, 0xe2e8f0);
+
+            createTextObj('Layer', settingsGroup, SETTINGS_LAYOUT.rightLabelX, sY3, 0.03, 0x94a3b8, 'left');
+            const layerToggleBgGeo = createRoundedRectGeometry(SETTINGS_LAYOUT.rightSliderW, 0.03, 0.015);
+            const layerToggleBgMat = new THREE.MeshBasicMaterial({ color: 0x1e293b });
+            const layerToggleBg = new THREE.Mesh(layerToggleBgGeo, layerToggleBgMat);
+            layerToggleBg.position.set(SETTINGS_LAYOUT.rightSliderX, sY3, 0.01);
+            settingsGroup.add(layerToggleBg);
+            const layerToggleText = createTextObj(state.forceFallback ? 'Mesh' : 'Hardware', settingsGroup, SETTINGS_LAYOUT.rightSliderX, sY3, 0.022, 0xe2e8f0, 'center');
+            layerToggleText.position.z = 0.015;
+            layerToggleBg.userData = {
+                id: 'btn-layer-toggle',
+                hover: 0x334155,
+                bg: 0x1e293b,
+                onClick: () => {
+                    state.forceFallback = !state.forceFallback;
+                    layerToggleText.text = state.forceFallback ? 'Mesh' : 'Hardware';
+                    layerToggleText.sync();
+                    syncCompositionVideoLayer(window.THREE);
+                    updateStereoVisibility();
+                }
+            };
+            interactables.push(layerToggleBg);
 
             layoutGroup = new THREE.Group();
             layoutGroup.position.set(0, 0.86, 0);
@@ -3091,6 +3151,36 @@
             applyModeFromState();
 
             renderer.setAnimationLoop(() => {
+                if (mediaVideoLayer && surfaceRoot) {
+                    const _syncPos = new THREE.Vector3();
+                    const _syncQuat = new THREE.Quaternion();
+                    const _syncScale = new THREE.Vector3();
+                    surfaceRoot.matrixWorld.decompose(_syncPos, _syncQuat, _syncScale);
+                    if (mediaLayerMode === 'cylinder-layer') {
+                        const _curveOff = getScreenCurveParams();
+                        const _fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(_syncQuat);
+                        _syncPos.add(_fwd.multiplyScalar(_curveOff.radius * _syncScale.x));
+                    }
+                    try {
+                        mediaVideoLayer.transform = new window.XRRigidTransform(
+                            { x: _syncPos.x, y: _syncPos.y, z: _syncPos.z },
+                            { x: _syncQuat.x, y: _syncQuat.y, z: _syncQuat.z, w: _syncQuat.w }
+                        );
+                        if (mediaLayerMode === 'quad-layer' && 'width' in mediaVideoLayer) {
+                            mediaVideoLayer.width = 18 * _syncScale.x;
+                            mediaVideoLayer.height = 10.125 * _syncScale.x;
+                        } else if (mediaLayerMode === 'cylinder-layer' && 'radius' in mediaVideoLayer) {
+                            const _curveSync = getScreenCurveParams();
+                            mediaVideoLayer.radius = _curveSync.radius * _syncScale.x;
+                            mediaVideoLayer.centralAngle = _curveSync.theta;
+                        } else if (mediaLayerMode === 'equirect-layer' && 'radius' in mediaVideoLayer) {
+                            mediaVideoLayer.radius = 32 * _syncScale.x;
+                        }
+                    } catch (_syncErr) {
+                        // Best-effort per-frame sync.
+                    }
+                }
+
                 const dur = jellyfinVideo.duration || 0;
                 const cur = jellyfinVideo.currentTime || 0;
                 if (timeCurrentObj) timeCurrentObj.text = formatTime(cur);
@@ -3191,8 +3281,26 @@
             if (renderer) {
                 clearCompositionVideoLayer();
                 renderer.setAnimationLoop(null);
-                if (renderer.xr.isPresenting) renderer.xr.getSession().end();
-                renderer.dispose();
+                if (videoTexture) videoTexture.dispose();
+                if (scene) {
+                    scene.traverse((child) => {
+                        if (child.geometry) child.geometry.dispose();
+                        if (child.material) {
+                            if (Array.isArray(child.material)) child.material.forEach((m) => m.dispose());
+                            else child.material.dispose();
+                        }
+                    });
+                }
+                if (renderer.xr.isPresenting) {
+                    renderer.xr.getSession().end();
+                }
+                const _rendererRef = renderer;
+                setTimeout(() => {
+                    _rendererRef.dispose();
+                    if (typeof _rendererRef.forceContextLoss === 'function') {
+                        _rendererRef.forceContextLoss();
+                    }
+                }, 100);
             }
             overlay.remove();
             styleEl.remove();
