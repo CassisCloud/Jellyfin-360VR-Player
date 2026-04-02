@@ -33,7 +33,7 @@
     return '';
   }
 
-  const VERSION = '0.1.2';
+  const VERSION = '0.1.3';
 
   const STORAGE_KEYS = {
     lastMode: 'jfvr:last-mode',
@@ -852,6 +852,8 @@
       xrSessionMode: 'unknown',
       xrEnvironmentBlendMode: 'unknown',
       xrModeDetection: 'unknown',
+      xrPolyfillState: 'not-checked',
+      xrLayersPolyfillState: 'not-checked',
       xrBindingState: 'unknown',
       xrRenderStateLayers: 'unknown',
       xrRenderStateBaseLayer: 'unknown',
@@ -1101,6 +1103,8 @@
       xrSessionMode: ctx.xrSessionMode,
       xrEnvironmentBlendMode: ctx.xrEnvironmentBlendMode,
       xrModeDetection: ctx.xrModeDetection,
+      xrPolyfillState: ctx.xrPolyfillState,
+      xrLayersPolyfillState: ctx.xrLayersPolyfillState,
       xrBindingState: ctx.xrBindingState,
       xrRenderStateLayers: ctx.xrRenderStateLayers,
       xrRenderStateBaseLayer: ctx.xrRenderStateBaseLayer,
@@ -1212,6 +1216,18 @@
           }
         }
 
+        const stereoCapable = Boolean(ctx.state.isImmersive && ctx.state.mode && ctx.state.mode.stereo !== 'mono');
+        let effectiveStereo = false;
+        if (stereoCapable && ctx.state.stereoLock !== 'force-2d') {
+          if (ctx.mediaLayerStatus === 'active') {
+            effectiveStereo = !ctx.mediaLayerDebugSpec || ctx.mediaLayerDebugSpec.forceMonoPresentation !== true;
+          } else if (ctx.meshes.left && ctx.meshes.left.visible === true) {
+            effectiveStereo = true;
+          } else if (ctx.state.stereoLock === 'force-3d') {
+            effectiveStereo = true;
+          }
+        }
+
         return {
           modeId: ctx.state.mode ? ctx.state.mode.id : null,
           uiVisible: ctx.state.uiVisible,
@@ -1235,6 +1251,8 @@
           xrSessionMode: ctx.xrSessionMode,
           xrEnvironmentBlendMode: ctx.xrEnvironmentBlendMode,
           xrModeDetection: ctx.xrModeDetection,
+          xrPolyfillState: ctx.xrPolyfillState,
+          xrLayersPolyfillState: ctx.xrLayersPolyfillState,
           xrBindingState: ctx.xrBindingState,
           xrRenderStateLayers: ctx.xrRenderStateLayers,
           xrRenderStateBaseLayer: ctx.xrRenderStateBaseLayer,
@@ -1291,7 +1309,7 @@
           xrLayerRecreateCount: ctx.xrLayerRecreateCount,
           xrLayerSyncCount: ctx.xrLayerSyncCount,
           rayColor,
-          effectiveStereo: ctx.meshes.left ? ctx.meshes.left.visible === true : false,
+          effectiveStereo,
           visibleTextCount,
           readyTextCount
         };
@@ -1829,12 +1847,100 @@
     updateHarnessState(ctx);
   }
 
+  const WEBXR_POLYFILL_URL = 'https://unpkg.com/webxr-polyfill@2.0.3/build/webxr-polyfill.js';
+  const WEBXR_LAYERS_POLYFILL_URL = 'https://unpkg.com/webxr-layers-polyfill@1.1.0/build/webxr-layers-polyfill.js';
+
+  let polyfillInitPromise = null;
+
   function getPreferredWebXROptionalFeatures() {
     if (window.__JFVR_HARNESS_RUNTIME_MODE__ === 'extension') {
       return ['local-floor', 'hand-tracking'];
     }
 
     return ['local-floor', 'bounded-floor', 'hand-tracking', 'layers'];
+  }
+
+  function loadExternalScript(id, src) {
+    return new Promise((resolve, reject) => {
+      const existing = document.querySelector(`script#${id}`);
+      if (existing) {
+        if (existing.dataset.loaded === 'true') {
+          resolve();
+          return;
+        }
+        existing.addEventListener('load', () => resolve(), { once: true });
+        existing.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)), { once: true });
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.id = id;
+      script.src = src;
+      script.async = true;
+      script.onload = () => {
+        script.dataset.loaded = 'true';
+        resolve();
+      };
+      script.onerror = () => reject(new Error(`Failed to load ${src}`));
+      document.head.appendChild(script);
+    });
+  }
+
+  function hasNativeNavigatorXR() {
+    return Boolean(navigator.xr && typeof navigator.xr.requestSession === 'function');
+  }
+
+  function hasLayerSupport() {
+    return typeof window.XRMediaBinding === 'function';
+  }
+
+  async function ensureWebXRPolyfills() {
+    if (polyfillInitPromise) {
+      return polyfillInitPromise;
+    }
+
+    polyfillInitPromise = (async () => {
+      const result = {
+        xr: hasNativeNavigatorXR() ? 'native' : 'missing',
+        layers: hasLayerSupport() ? 'native' : 'missing',
+        error: null
+      };
+
+      try {
+        if (!hasNativeNavigatorXR()) {
+          await loadExternalScript('jfvr-webxr-polyfill', WEBXR_POLYFILL_URL);
+          if (typeof window.WebXRPolyfill === 'function') {
+            if (!window.__JFVR_WEBXR_POLYFILL__) {
+              window.__JFVR_WEBXR_POLYFILL__ = new window.WebXRPolyfill();
+            }
+            result.xr = hasNativeNavigatorXR() ? 'polyfilled' : 'missing';
+          }
+        }
+
+        if (!hasLayerSupport()) {
+          await loadExternalScript('jfvr-webxr-layers-polyfill', WEBXR_LAYERS_POLYFILL_URL);
+          if (typeof window.WebXRLayersPolyfill === 'function') {
+            if (!window.__JFVR_WEBXR_LAYERS_POLYFILL__) {
+              window.__JFVR_WEBXR_LAYERS_POLYFILL__ = new window.WebXRLayersPolyfill();
+            }
+            result.layers = hasLayerSupport() ? 'polyfilled' : 'missing';
+          }
+        }
+      } catch (error) {
+        result.error = error;
+      }
+
+      if (result.xr === 'missing' && hasNativeNavigatorXR()) {
+        result.xr = 'native';
+      }
+      if (result.layers === 'missing' && hasLayerSupport()) {
+        result.layers = 'native';
+      }
+
+      return result;
+    })();
+
+    return polyfillInitPromise;
   }
 
   function injectImportMap() {
@@ -3675,20 +3781,20 @@
     ctx.infoRightStatusLines = createInfoColumnLines(ctx.infoRightColumnGroup, infoRightTemplateCount);
     ctx.infoGroup.position.set(0.0, (SETTINGS_LAYOUT.height / 2) + (infoHeight / 2) + 0.08, 0.02);
 
-    ctx.updateInfoPanelStatus = function () {
-      if ((!ctx.infoLeftStatusLines.length && !ctx.infoRightStatusLines.length) || !ctx.renderer) return;
-      const leftLines = [
-        `Session: ${ctx.xrSessionMode}`,
-        `Projection Layer: ${ctx.projectionLayerStatus}`,
-        `Projection Reason: ${ctx.projectionLayerReason}`,
-        `Video Layer: ${ctx.mediaLayerMode} / ${ctx.mediaLayerStatus}`
-      ];
-      const rightLines = [
-        `Video Reason: ${ctx.mediaLayerReason}`,
-        `Text: ${ctx.textRendererStatus} sdf256`,
-        `Pixel Ratio / Fov: ${ctx.renderer.getPixelRatio().toFixed(2)} / ${RC.XR_FOVEATION.toFixed(2)}`,
-        `XR Scale: ${RC.XR_FRAMEBUFFER_SCALE.toFixed(2)}`,
-        `Video Res: ${ctx.jellyfinVideo.videoWidth || 0}x${ctx.jellyfinVideo.videoHeight || 0}`
+      ctx.updateInfoPanelStatus = function () {
+        if ((!ctx.infoLeftStatusLines.length && !ctx.infoRightStatusLines.length) || !ctx.renderer) return;
+        const leftLines = [
+          `Session: ${ctx.xrSessionMode} / XR ${ctx.xrPolyfillState}`,
+          `Projection Layer: ${ctx.projectionLayerStatus}`,
+          `Projection Reason: ${ctx.projectionLayerReason}`,
+          `Video Layer: ${ctx.mediaLayerMode} / ${ctx.mediaLayerStatus}`
+        ];
+        const rightLines = [
+          `Video Reason: ${ctx.mediaLayerReason}`,
+          `Layers: ${ctx.xrLayersPolyfillState} / Text ${ctx.textRendererStatus}`,
+          `Pixel Ratio / Fov: ${ctx.renderer.getPixelRatio().toFixed(2)} / ${RC.XR_FOVEATION.toFixed(2)}`,
+          `XR Scale: ${RC.XR_FRAMEBUFFER_SCALE.toFixed(2)}`,
+          `Video Res: ${ctx.jellyfinVideo.videoWidth || 0}x${ctx.jellyfinVideo.videoHeight || 0}`
       ];
       for (let i = 0; i < ctx.infoLeftStatusLines.length; i++) {
         ctx.infoLeftStatusLines[i].text = leftLines[i] || '';
@@ -3824,14 +3930,14 @@
         ? ctx.xrLastCommittedLayers.map((layer) => (layer && layer.constructor && layer.constructor.name) || 'UnknownLayer').join(', ')
         : 'none';
       const leftLines = [
-        `Session: ${ctx.xrSessionMode}`,
+        `Session: ${ctx.xrSessionMode} / XR ${ctx.xrPolyfillState}`,
         `Projection: ${ctx.projectionLayerStatus}`,
         `Video: ${ctx.mediaLayerMode}/${ctx.mediaLayerStatus}`,
         `Reason: ${ctx.mediaLayerReason}`,
         `Screen: C${ctx.state.screenCurvature.toFixed(2)} S${ctx.state.screenSize.toFixed(2)} D${Math.abs(ctx.state.screenDistance).toFixed(2)}`
       ];
       const rightLines = [
-        `Layers: ${layerNames}`,
+        `Layers: ${layerNames} / ${ctx.xrLayersPolyfillState}`,
         `Face: ${ctx.state.debugPanelFacePlayer ? 'On' : 'Off'} / Global ${ctx.state.uiFacePlayer && ctx.state.screenFacePlayer ? 'On' : 'Off'}`,
         `Ops: C${ctx.xrLayerCommitCount} R${ctx.xrLayerRecreateCount} S${ctx.xrLayerSyncCount}`,
         ctx.state.debugMetricsEnabled
@@ -3979,19 +4085,27 @@
     exposeHarnessDebug(ctx);
     updateHarnessState(ctx);
 
-    async function initThree() {
-      injectImportMap();
-      const THREE = await import('three');
-      const { VRButton } = await import('three/addons/webxr/VRButton.js');
-      const { ARButton } = await import('three/addons/webxr/ARButton.js');
+      async function initThree() {
+        injectImportMap();
+        const polyfillState = await ensureWebXRPolyfills();
+        const THREE = await import('three');
+        const { VRButton } = await import('three/addons/webxr/VRButton.js');
+        const { ARButton } = await import('three/addons/webxr/ARButton.js');
       const { XRControllerModelFactory } = await import('three/addons/webxr/XRControllerModelFactory.js');
       const { XRHandModelFactory } = await import('three/addons/webxr/XRHandModelFactory.js');
       const { Text } = await import('troika-three-text');
       window.THREE = THREE;
 
-      if (!ctx.active) return;
+        if (!ctx.active) return;
 
-      const container = overlay.querySelector('#jfvr-canvas-container');
+        ctx.xrPolyfillState = polyfillState && polyfillState.xr ? polyfillState.xr : 'missing';
+        ctx.xrLayersPolyfillState = polyfillState && polyfillState.layers ? polyfillState.layers : 'missing';
+        if (polyfillState && polyfillState.error && ctx.xrLayersPolyfillState === 'missing') {
+          ctx.xrLayerLastError = polyfillState.error.message || String(polyfillState.error);
+        }
+        updateHarnessState(ctx);
+
+        const container = overlay.querySelector('#jfvr-canvas-container');
       ctx.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
       ctx.renderer.setClearColor(0x000000, 0);
       ctx.renderer.setPixelRatio(Math.max(1, Math.min(2.5, window.devicePixelRatio * 1.25)));
