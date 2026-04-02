@@ -13,9 +13,9 @@ export function injectImportMap() {
   im.type = 'importmap';
   im.textContent = JSON.stringify({
     imports: {
-      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
-      "troika-three-text": "https://esm.sh/troika-three-text@0.49.0?external=three"
+      "three": "https://unpkg.com/three@0.183.2/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.183.2/examples/jsm/",
+      "troika-three-text": "https://esm.sh/troika-three-text@0.52.4?external=three"
     }
   });
   document.head.appendChild(im);
