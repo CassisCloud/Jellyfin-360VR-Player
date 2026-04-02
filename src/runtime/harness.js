@@ -57,6 +57,8 @@ export function updateHarnessState(ctx) {
     xrSessionMode: ctx.xrSessionMode,
     xrEnvironmentBlendMode: ctx.xrEnvironmentBlendMode,
     xrModeDetection: ctx.xrModeDetection,
+    xrPolyfillState: ctx.xrPolyfillState,
+    xrLayersPolyfillState: ctx.xrLayersPolyfillState,
     xrBindingState: ctx.xrBindingState,
     xrRenderStateLayers: ctx.xrRenderStateLayers,
     xrRenderStateBaseLayer: ctx.xrRenderStateBaseLayer,
@@ -168,6 +170,18 @@ export function exposeHarnessDebug(ctx) {
         }
       }
 
+      const stereoCapable = Boolean(ctx.state.isImmersive && ctx.state.mode && ctx.state.mode.stereo !== 'mono');
+      let effectiveStereo = false;
+      if (stereoCapable && ctx.state.stereoLock !== 'force-2d') {
+        if (ctx.mediaLayerStatus === 'active') {
+          effectiveStereo = !ctx.mediaLayerDebugSpec || ctx.mediaLayerDebugSpec.forceMonoPresentation !== true;
+        } else if (ctx.meshes.left && ctx.meshes.left.visible === true) {
+          effectiveStereo = true;
+        } else if (ctx.state.stereoLock === 'force-3d') {
+          effectiveStereo = true;
+        }
+      }
+
       return {
         modeId: ctx.state.mode ? ctx.state.mode.id : null,
         uiVisible: ctx.state.uiVisible,
@@ -191,6 +205,8 @@ export function exposeHarnessDebug(ctx) {
         xrSessionMode: ctx.xrSessionMode,
         xrEnvironmentBlendMode: ctx.xrEnvironmentBlendMode,
         xrModeDetection: ctx.xrModeDetection,
+        xrPolyfillState: ctx.xrPolyfillState,
+        xrLayersPolyfillState: ctx.xrLayersPolyfillState,
         xrBindingState: ctx.xrBindingState,
         xrRenderStateLayers: ctx.xrRenderStateLayers,
         xrRenderStateBaseLayer: ctx.xrRenderStateBaseLayer,
@@ -247,7 +263,7 @@ export function exposeHarnessDebug(ctx) {
         xrLayerRecreateCount: ctx.xrLayerRecreateCount,
         xrLayerSyncCount: ctx.xrLayerSyncCount,
         rayColor,
-        effectiveStereo: ctx.meshes.left ? ctx.meshes.left.visible === true : false,
+        effectiveStereo,
         visibleTextCount,
         readyTextCount
       };

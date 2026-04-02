@@ -116,6 +116,8 @@ export function createRuntimeContext(overlay, styleEl, jellyfinVideo, modeId) {
     xrSessionMode: 'unknown',
     xrEnvironmentBlendMode: 'unknown',
     xrModeDetection: 'unknown',
+    xrPolyfillState: 'not-checked',
+    xrLayersPolyfillState: 'not-checked',
     xrBindingState: 'unknown',
     xrRenderStateLayers: 'unknown',
     xrRenderStateBaseLayer: 'unknown',

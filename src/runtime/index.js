@@ -7,7 +7,7 @@ import { createCurvedScreenGeometry } from './geometry.js';
 import { getScreenSurfaceSpec } from './screen-math.js';
 import { clearCompositionVideoLayer, syncCompositionVideoLayer, getSurfaceWorldTransform } from './composition-layers.js';
 import { updateHarnessState, exposeHarnessActions, exposeHarnessDebug, updateImmersiveDebugScreen } from './harness.js';
-import { injectImportMap, getPreferredWebXROptionalFeatures } from './xr-session.js';
+import { injectImportMap, getPreferredWebXROptionalFeatures, ensureWebXRPolyfills } from './xr-session.js';
 import {
   applyUiAnchorFromViewer, applyDebugPanelAnchorFromViewer,
   recenterActiveMode, updateStereoVisibility,
@@ -27,19 +27,27 @@ export function createInlinePlayerRuntime(overlay, styleEl, jellyfinVideo, modeI
   exposeHarnessDebug(ctx);
   updateHarnessState(ctx);
 
-  async function initThree() {
-    injectImportMap();
-    const THREE = await import('three');
-    const { VRButton } = await import('three/addons/webxr/VRButton.js');
-    const { ARButton } = await import('three/addons/webxr/ARButton.js');
+    async function initThree() {
+      injectImportMap();
+      const polyfillState = await ensureWebXRPolyfills();
+      const THREE = await import('three');
+      const { VRButton } = await import('three/addons/webxr/VRButton.js');
+      const { ARButton } = await import('three/addons/webxr/ARButton.js');
     const { XRControllerModelFactory } = await import('three/addons/webxr/XRControllerModelFactory.js');
     const { XRHandModelFactory } = await import('three/addons/webxr/XRHandModelFactory.js');
     const { Text } = await import('troika-three-text');
     window.THREE = THREE;
 
-    if (!ctx.active) return;
+      if (!ctx.active) return;
 
-    const container = overlay.querySelector('#jfvr-canvas-container');
+      ctx.xrPolyfillState = polyfillState && polyfillState.xr ? polyfillState.xr : 'missing';
+      ctx.xrLayersPolyfillState = polyfillState && polyfillState.layers ? polyfillState.layers : 'missing';
+      if (polyfillState && polyfillState.error && ctx.xrLayersPolyfillState === 'missing') {
+        ctx.xrLayerLastError = polyfillState.error.message || String(polyfillState.error);
+      }
+      updateHarnessState(ctx);
+
+      const container = overlay.querySelector('#jfvr-canvas-container');
     ctx.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     ctx.renderer.setClearColor(0x000000, 0);
     ctx.renderer.setPixelRatio(Math.max(1, Math.min(2.5, window.devicePixelRatio * 1.25)));

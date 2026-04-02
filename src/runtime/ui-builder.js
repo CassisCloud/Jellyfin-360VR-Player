@@ -629,20 +629,20 @@ export function buildUI(ctx, THREE, Text, closeFn, applyModeFromState, updatePas
   ctx.infoRightStatusLines = createInfoColumnLines(ctx.infoRightColumnGroup, infoRightTemplateCount);
   ctx.infoGroup.position.set(0.0, (SETTINGS_LAYOUT.height / 2) + (infoHeight / 2) + 0.08, 0.02);
 
-  ctx.updateInfoPanelStatus = function () {
-    if ((!ctx.infoLeftStatusLines.length && !ctx.infoRightStatusLines.length) || !ctx.renderer) return;
-    const leftLines = [
-      `Session: ${ctx.xrSessionMode}`,
-      `Projection Layer: ${ctx.projectionLayerStatus}`,
-      `Projection Reason: ${ctx.projectionLayerReason}`,
-      `Video Layer: ${ctx.mediaLayerMode} / ${ctx.mediaLayerStatus}`
-    ];
-    const rightLines = [
-      `Video Reason: ${ctx.mediaLayerReason}`,
-      `Text: ${ctx.textRendererStatus} sdf256`,
-      `Pixel Ratio / Fov: ${ctx.renderer.getPixelRatio().toFixed(2)} / ${RC.XR_FOVEATION.toFixed(2)}`,
-      `XR Scale: ${RC.XR_FRAMEBUFFER_SCALE.toFixed(2)}`,
-      `Video Res: ${ctx.jellyfinVideo.videoWidth || 0}x${ctx.jellyfinVideo.videoHeight || 0}`
+    ctx.updateInfoPanelStatus = function () {
+      if ((!ctx.infoLeftStatusLines.length && !ctx.infoRightStatusLines.length) || !ctx.renderer) return;
+      const leftLines = [
+        `Session: ${ctx.xrSessionMode} / XR ${ctx.xrPolyfillState}`,
+        `Projection Layer: ${ctx.projectionLayerStatus}`,
+        `Projection Reason: ${ctx.projectionLayerReason}`,
+        `Video Layer: ${ctx.mediaLayerMode} / ${ctx.mediaLayerStatus}`
+      ];
+      const rightLines = [
+        `Video Reason: ${ctx.mediaLayerReason}`,
+        `Layers: ${ctx.xrLayersPolyfillState} / Text ${ctx.textRendererStatus}`,
+        `Pixel Ratio / Fov: ${ctx.renderer.getPixelRatio().toFixed(2)} / ${RC.XR_FOVEATION.toFixed(2)}`,
+        `XR Scale: ${RC.XR_FRAMEBUFFER_SCALE.toFixed(2)}`,
+        `Video Res: ${ctx.jellyfinVideo.videoWidth || 0}x${ctx.jellyfinVideo.videoHeight || 0}`
     ];
     for (let i = 0; i < ctx.infoLeftStatusLines.length; i++) {
       ctx.infoLeftStatusLines[i].text = leftLines[i] || '';
@@ -778,14 +778,14 @@ export function buildUI(ctx, THREE, Text, closeFn, applyModeFromState, updatePas
       ? ctx.xrLastCommittedLayers.map((layer) => (layer && layer.constructor && layer.constructor.name) || 'UnknownLayer').join(', ')
       : 'none';
     const leftLines = [
-      `Session: ${ctx.xrSessionMode}`,
+      `Session: ${ctx.xrSessionMode} / XR ${ctx.xrPolyfillState}`,
       `Projection: ${ctx.projectionLayerStatus}`,
       `Video: ${ctx.mediaLayerMode}/${ctx.mediaLayerStatus}`,
       `Reason: ${ctx.mediaLayerReason}`,
       `Screen: C${ctx.state.screenCurvature.toFixed(2)} S${ctx.state.screenSize.toFixed(2)} D${Math.abs(ctx.state.screenDistance).toFixed(2)}`
     ];
     const rightLines = [
-      `Layers: ${layerNames}`,
+      `Layers: ${layerNames} / ${ctx.xrLayersPolyfillState}`,
       `Face: ${ctx.state.debugPanelFacePlayer ? 'On' : 'Off'} / Global ${ctx.state.uiFacePlayer && ctx.state.screenFacePlayer ? 'On' : 'Off'}`,
       `Ops: C${ctx.xrLayerCommitCount} R${ctx.xrLayerRecreateCount} S${ctx.xrLayerSyncCount}`,
       ctx.state.debugMetricsEnabled
