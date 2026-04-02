@@ -23,6 +23,29 @@ export function createInlinePlayerRuntime(overlay, styleEl, jellyfinVideo, modeI
   const ctx = createRuntimeContext(overlay, styleEl, jellyfinVideo, modeId);
   const RC = RUNTIME_CONSTANTS;
 
+  function createInteractivePointer(THREE) {
+    const group = new THREE.Group();
+    group.position.set(0, 0, -1.2);
+
+    const circle = new THREE.Mesh(
+      new THREE.CircleGeometry(0.0155, 40),
+      new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.22,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      })
+    );
+    circle.renderOrder = 30;
+    group.add(circle);
+
+    return {
+      group,
+      circle
+    };
+  }
+
   exposeHarnessActions(ctx);
   exposeHarnessDebug(ctx);
   updateHarnessState(ctx);
@@ -402,12 +425,26 @@ export function createInlinePlayerRuntime(overlay, styleEl, jellyfinVideo, modeI
       ctx.scene.add(hand);
 
       const geometryLine = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -5)]);
-      const line = new THREE.Line(geometryLine, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 }));
+      const line = new THREE.Line(geometryLine, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.18 }));
+      const pointer = createInteractivePointer(THREE);
       controller.userData.lineRef = line;
       controller.userData.lineColor = new THREE.Color(0xffffff);
       controller.userData.lineTargetColor = new THREE.Color(0xffffff);
+      controller.userData.lineOpacity = 0.18;
+      controller.userData.lineTargetOpacity = 0.18;
       controller.userData.lineActive = false;
+      controller.userData.pointerRef = pointer.group;
+      controller.userData.pointerCircleRef = pointer.circle;
+      controller.userData.pointerColor = new THREE.Color(0xffffff);
+      controller.userData.pointerTargetColor = new THREE.Color(0xffffff);
+      controller.userData.pointerScale = 1;
+      controller.userData.pointerTargetScale = 1;
+      controller.userData.pointerOpacity = 0.22;
+      controller.userData.pointerTargetOpacity = 0.22;
+      controller.userData.pointerTriggerActive = false;
+      controller.userData.pointerSqueezeActive = false;
       controller.add(line);
+      controller.add(pointer.group);
     }
 
     // Extended harness actions (require initThree scope)
