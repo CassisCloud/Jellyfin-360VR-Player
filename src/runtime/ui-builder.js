@@ -496,13 +496,45 @@ export function buildUI(ctx, THREE, Text, closeFn, applyModeFromState, updatePas
   ctx.seekFill.position.z = 0.002;
   seekGroup.add(ctx.seekFill);
 
+  const previewW = 0.44;
+  const previewH = 0.25;
+  ctx.seekPreviewGroup = new THREE.Group();
+  ctx.seekPreviewGroup.position.set(0, 0.18, 0.02);
+  ctx.seekPreviewGroup.visible = false;
+  ctx.seekPreviewGroup.userData.previewWidth = previewW;
+  seekGroup.add(ctx.seekPreviewGroup);
+  const previewBg = new THREE.Mesh(
+    createRoundedRectGeometry(THREE, previewW, previewH + 0.07, 0.035),
+    new THREE.MeshBasicMaterial({ color: 0x020617, transparent: true, opacity: 0.94, side: THREE.DoubleSide })
+  );
+  previewBg.position.set(0, 0.01, 0);
+  ctx.seekPreviewGroup.add(previewBg);
+
+  const previewImageBg = new THREE.Mesh(
+    createRoundedRectGeometry(THREE, previewW - 0.04, previewH - 0.02, 0.02),
+    new THREE.MeshBasicMaterial({ color: 0x111827, side: THREE.DoubleSide })
+  );
+  previewImageBg.position.set(0, 0.03, 0.002);
+  ctx.seekPreviewGroup.add(previewImageBg);
+
+  ctx.seekPreviewImage = new THREE.Mesh(
+    new THREE.PlaneGeometry(previewW - 0.05, previewH - 0.03),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 1, side: THREE.DoubleSide })
+  );
+  ctx.seekPreviewImage.position.set(0, 0.03, 0.004);
+  ctx.seekPreviewImage.visible = false;
+  ctx.seekPreviewGroup.add(ctx.seekPreviewImage);
+
+  ctx.seekPreviewTimeObj = createTextObj('0:00', ctx.seekPreviewGroup, 0, -(previewH / 2) - 0.005, 0.026, 0xe2e8f0, 'center');
+  ctx.seekPreviewTimeObj.position.z = 0.01;
+
   const handleSeekDrag = (pt) => {
     const local = ctx.seekBg.worldToLocal(pt.clone());
     const raw = (local.x + seekW / 2) / seekW;
     const ratio = Math.max(0, Math.min(1, raw));
     if (Number.isFinite(ctx.jellyfinVideo.duration)) ctx.jellyfinVideo.currentTime = ratio * ctx.jellyfinVideo.duration;
   };
-  ctx.seekBg.userData = { hover: 0x1e293b, bg: 0x0f172a, onClick: handleSeekDrag, onDrag: handleSeekDrag };
+  ctx.seekBg.userData = { hover: 0x1e293b, bg: 0x0f172a, onClick: handleSeekDrag, onDrag: handleSeekDrag, seekWidth: seekW };
   ctx.interactables.push(ctx.seekBg);
 
   ctx.timeCurrentObj = createTextObj('0:00', ctx.uiGroup, -seekW / 2, seekY - 0.04, 0.03, 0x94a3b8, 'left');

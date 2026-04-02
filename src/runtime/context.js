@@ -82,6 +82,11 @@ export function createRuntimeContext(overlay, styleEl, jellyfinVideo, modeId) {
     seekBg: null,
     seekBuf: null,
     seekFill: null,
+    seekPreviewGroup: null,
+    seekPreviewImage: null,
+    seekPreviewTimeObj: null,
+    seekHoverVisible: false,
+    seekHoverRatio: 0,
     volSliderGroup: null,
     ptSliderGroup: null,
     ptSliderUpdateFill: null,
@@ -131,6 +136,16 @@ export function createRuntimeContext(overlay, styleEl, jellyfinVideo, modeId) {
     xrLastCommittedLayers: null,
     xrCachedSupportSession: null,
     xrCachedSupport: null,
+
+    trickplayItemId: '',
+    trickplayInfo: null,
+    trickplayFetchState: 'idle',
+    trickplayActiveTileIndex: -1,
+    trickplayActiveFrameIndex: -1,
+    trickplayActiveTexture: null,
+    trickplayTileCache: new Map(),
+    trickplayTileLoads: new Map(),
+    trickplayTileLoader: null,
 
     state: {
       mode: MODES_BY_ID[modeId] || MODES_BY_ID['360-mono'],

@@ -383,6 +383,8 @@ export function onSqueezeEnd(ctx, event) {
 
 export function updateHover(ctx, THREE, controllers) {
   let hit = false;
+  let seekHoverVisible = false;
+  let seekHoverRatio = ctx.seekHoverRatio;
   const hasFloatingUi = ctx.state.uiVisible || (ctx.debugPanelGroup && ctx.debugPanelGroup.visible);
   if (!hasFloatingUi && ctx._hoveredObj) {
     if (ctx._hoveredObj.material.color) ctx._hoveredObj.material.color.setHex(ctx._hoveredObj.userData.bg);
@@ -426,6 +428,12 @@ export function updateHover(ctx, THREE, controllers) {
 
     if (isHoveringUi) {
       const obj = interactableIntersections[0].object;
+      if (obj === ctx.seekBg) {
+        const local = ctx.seekBg.worldToLocal(interactableIntersections[0].point.clone());
+        const seekWidth = ctx.seekBg.userData && ctx.seekBg.userData.seekWidth ? ctx.seekBg.userData.seekWidth : 1.9;
+        seekHoverVisible = true;
+        seekHoverRatio = THREE.MathUtils.clamp((local.x + (seekWidth / 2)) / seekWidth, 0, 1);
+      }
       if (ctx._hoveredObj && ctx._hoveredObj !== obj) {
         if (ctx._hoveredObj.material.color) ctx._hoveredObj.material.color.setHex(ctx._hoveredObj.userData.bg);
       }
@@ -482,5 +490,10 @@ export function updateHover(ctx, THREE, controllers) {
   if (!hit && ctx._hoveredObj && hasFloatingUi) {
     if (ctx._hoveredObj.material.color) ctx._hoveredObj.material.color.setHex(ctx._hoveredObj.userData.bg);
     ctx._hoveredObj = null;
+  }
+
+  ctx.seekHoverVisible = seekHoverVisible;
+  if (seekHoverVisible) {
+    ctx.seekHoverRatio = seekHoverRatio;
   }
 }

@@ -1,5 +1,5 @@
 import { STORAGE_KEYS } from '../constants.js';
-import { getVideoTitle } from '../utils.js';
+import { getVideoTitle, getJellyfinApiClient, getJellyfinItemId } from '../utils.js';
 import { removeVersionModal, openVersionModal } from '../version-modal.js';
 import { setActiveInlinePlayer } from '../active-player.js';
 import { createRuntimeContext, RUNTIME_CONSTANTS } from './context.js';
@@ -18,6 +18,68 @@ import {
 } from './interaction.js';
 import { createAnimationLoop } from './animation-loop.js';
 import { buildUI } from './ui-builder.js';
+
+function selectTrickplayInfo(trickplayManifest) {
+  if (!trickplayManifest || typeof trickplayManifest !== 'object') return null;
+
+  const variants = [];
+  const outerEntries = Object.values(trickplayManifest);
+  for (let i = 0; i < outerEntries.length; i += 1) {
+    const entry = outerEntries[i];
+    if (!entry || typeof entry !== 'object') continue;
+    const widthEntries = Object.entries(entry);
+    for (let j = 0; j < widthEntries.length; j += 1) {
+      const [widthKey, info] = widthEntries[j];
+      if (!info || typeof info !== 'object') continue;
+      const width = Number(info.Width || widthKey);
+      if (!Number.isFinite(width) || width <= 0) continue;
+      variants.push({ width, info });
+    }
+  }
+
+  if (!variants.length) return null;
+
+  variants.sort((a, b) => a.width - b.width);
+  const preferred = variants.find((variant) => variant.width >= 320) || variants[0];
+  return {
+    width: preferred.width,
+    ...preferred.info
+  };
+}
+
+async function loadTrickplayMetadata(ctx) {
+  const apiClient = getJellyfinApiClient();
+  const itemId = getJellyfinItemId(ctx.jellyfinVideo);
+  ctx.trickplayItemId = itemId;
+
+  if (!apiClient || !itemId || typeof apiClient.getItems !== 'function') {
+    ctx.trickplayFetchState = 'unavailable';
+    return;
+  }
+
+  ctx.trickplayFetchState = 'loading';
+
+  try {
+    const userId = typeof apiClient.getCurrentUserId === 'function' ? apiClient.getCurrentUserId() : null;
+    const result = await apiClient.getItems(userId, {
+      ids: itemId,
+      fields: 'Trickplay'
+    });
+
+    if (!ctx.active) return;
+
+    const items = result && Array.isArray(result.Items) ? result.Items : [];
+    const item = items[0] || null;
+    const info = item ? selectTrickplayInfo(item.Trickplay) : null;
+    ctx.trickplayInfo = info;
+    ctx.trickplayFetchState = info ? 'ready' : 'missing';
+  } catch (error) {
+    console.warn('Failed to load trickplay metadata:', error);
+    if (!ctx.active) return;
+    ctx.trickplayInfo = null;
+    ctx.trickplayFetchState = 'error';
+  }
+}
 
 export function createInlinePlayerRuntime(overlay, styleEl, jellyfinVideo, modeId) {
   const ctx = createRuntimeContext(overlay, styleEl, jellyfinVideo, modeId);
@@ -74,11 +136,12 @@ export function createInlinePlayerRuntime(overlay, styleEl, jellyfinVideo, modeI
     ctx.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     ctx.renderer.setClearColor(0x000000, 0);
     ctx.renderer.setPixelRatio(Math.max(1, Math.min(2.5, window.devicePixelRatio * 1.25)));
-    ctx.renderer.setSize(window.innerWidth, window.innerHeight);
-    ctx.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    ctx.renderer.toneMapping = THREE.NoToneMapping;
-    ctx.renderer.xr.enabled = true;
-    ctx.renderer.xr.setReferenceSpaceType('local');
+      ctx.renderer.setSize(window.innerWidth, window.innerHeight);
+      ctx.renderer.outputColorSpace = THREE.SRGBColorSpace;
+      ctx.renderer.toneMapping = THREE.NoToneMapping;
+      ctx.renderer.xr.enabled = true;
+      ctx.trickplayTileLoader = new THREE.TextureLoader();
+      ctx.renderer.xr.setReferenceSpaceType('local');
     if (ctx.renderer.xr && typeof ctx.renderer.xr.setFramebufferScaleFactor === 'function') {
       ctx.renderer.xr.setFramebufferScaleFactor(RC.XR_FRAMEBUFFER_SCALE);
     }
@@ -323,6 +386,7 @@ export function createInlinePlayerRuntime(overlay, styleEl, jellyfinVideo, modeI
 
     // Build 3D UI
     buildUI(ctx, THREE, Text, close, applyModeFromState, updatePassthroughVisuals);
+    loadTrickplayMetadata(ctx);
 
     // XR Session handlers
     ctx.renderer.xr.addEventListener('sessionstart', () => {
@@ -651,6 +715,11 @@ export function createInlinePlayerRuntime(overlay, styleEl, jellyfinVideo, modeI
       ctx.xrCachedSupport = null;
       ctx.renderer.setAnimationLoop(null);
       if (ctx.videoTexture) ctx.videoTexture.dispose();
+      ctx.trickplayTileCache.forEach((texture) => {
+        if (texture && typeof texture.dispose === 'function') texture.dispose();
+      });
+      ctx.trickplayTileCache.clear();
+      ctx.trickplayTileLoads.clear();
       if (ctx.scene) {
         ctx.scene.traverse((child) => {
           if (child.geometry) child.geometry.dispose();

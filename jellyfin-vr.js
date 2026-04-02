@@ -33,6 +33,37 @@
     return '';
   }
 
+  function getJellyfinItemId(video) {
+    const srcCandidates = [video && video.currentSrc, video && video.src].filter(Boolean);
+    for (let i = 0; i < srcCandidates.length; i += 1) {
+      try {
+        const url = new URL(srcCandidates[i], window.location.href);
+        const videoMatch = url.pathname.match(/\/Videos\/([^/]+)/i);
+        if (videoMatch && videoMatch[1]) return videoMatch[1];
+        const itemParam = url.searchParams.get('itemId') || url.searchParams.get('id');
+        if (itemParam) return itemParam;
+      } catch (_error) {
+        const fallbackMatch = String(srcCandidates[i]).match(/\/Videos\/([^/?#]+)/i);
+        if (fallbackMatch && fallbackMatch[1]) return fallbackMatch[1];
+      }
+    }
+
+    const hash = window.location.hash || '';
+    const hashQueryIndex = hash.indexOf('?');
+    if (hashQueryIndex >= 0) {
+      const hashParams = new URLSearchParams(hash.slice(hashQueryIndex + 1));
+      const hashItemId = hashParams.get('id') || hashParams.get('itemId');
+      if (hashItemId) return hashItemId;
+    }
+
+    const pageParams = new URLSearchParams(window.location.search);
+    return pageParams.get('id') || pageParams.get('itemId') || '';
+  }
+
+  function getJellyfinApiClient() {
+    return window.ApiClient || window.apiClient || null;
+  }
+
   const VERSION = '0.1.3';
 
   const STORAGE_KEYS = {
@@ -818,6 +849,11 @@
       seekBg: null,
       seekBuf: null,
       seekFill: null,
+      seekPreviewGroup: null,
+      seekPreviewImage: null,
+      seekPreviewTimeObj: null,
+      seekHoverVisible: false,
+      seekHoverRatio: 0,
       volSliderGroup: null,
       ptSliderGroup: null,
       ptSliderUpdateFill: null,
@@ -867,6 +903,16 @@
       xrLastCommittedLayers: null,
       xrCachedSupportSession: null,
       xrCachedSupport: null,
+
+      trickplayItemId: '',
+      trickplayInfo: null,
+      trickplayFetchState: 'idle',
+      trickplayActiveTileIndex: -1,
+      trickplayActiveFrameIndex: -1,
+      trickplayActiveTexture: null,
+      trickplayTileCache: new Map(),
+      trickplayTileLoads: new Map(),
+      trickplayTileLoader: null,
 
       state: {
         mode: MODES_BY_ID[modeId] || MODES_BY_ID['360-mono'],
@@ -2704,6 +2750,8 @@
 
   function updateHover(ctx, THREE, controllers) {
     let hit = false;
+    let seekHoverVisible = false;
+    let seekHoverRatio = ctx.seekHoverRatio;
     const hasFloatingUi = ctx.state.uiVisible || (ctx.debugPanelGroup && ctx.debugPanelGroup.visible);
     if (!hasFloatingUi && ctx._hoveredObj) {
       if (ctx._hoveredObj.material.color) ctx._hoveredObj.material.color.setHex(ctx._hoveredObj.userData.bg);
@@ -2747,6 +2795,12 @@
 
       if (isHoveringUi) {
         const obj = interactableIntersections[0].object;
+        if (obj === ctx.seekBg) {
+          const local = ctx.seekBg.worldToLocal(interactableIntersections[0].point.clone());
+          const seekWidth = ctx.seekBg.userData && ctx.seekBg.userData.seekWidth ? ctx.seekBg.userData.seekWidth : 1.9;
+          seekHoverVisible = true;
+          seekHoverRatio = THREE.MathUtils.clamp((local.x + (seekWidth / 2)) / seekWidth, 0, 1);
+        }
         if (ctx._hoveredObj && ctx._hoveredObj !== obj) {
           if (ctx._hoveredObj.material.color) ctx._hoveredObj.material.color.setHex(ctx._hoveredObj.userData.bg);
         }
@@ -2803,6 +2857,136 @@
     if (!hit && ctx._hoveredObj && hasFloatingUi) {
       if (ctx._hoveredObj.material.color) ctx._hoveredObj.material.color.setHex(ctx._hoveredObj.userData.bg);
       ctx._hoveredObj = null;
+    }
+
+    ctx.seekHoverVisible = seekHoverVisible;
+    if (seekHoverVisible) {
+      ctx.seekHoverRatio = seekHoverRatio;
+    }
+  }
+
+  function hideSeekPreview(ctx) {
+    if (ctx.seekPreviewGroup) ctx.seekPreviewGroup.visible = false;
+    if (ctx.seekPreviewImage) ctx.seekPreviewImage.visible = false;
+  }
+
+  function getTrickplayTileUrl(ctx, tileIndex) {
+    const apiClient = getJellyfinApiClient();
+    const info = ctx.trickplayInfo;
+    if (!apiClient || !info || !ctx.trickplayItemId || typeof apiClient.getUrl !== 'function') return '';
+    return apiClient.getUrl(`Videos/${ctx.trickplayItemId}/Trickplay/${info.width}/${tileIndex}.jpg`);
+  }
+
+  function ensureTrickplayTileTexture(ctx, THREE, tileIndex) {
+    if (ctx.trickplayTileCache.has(tileIndex)) {
+      return Promise.resolve(ctx.trickplayTileCache.get(tileIndex));
+    }
+    if (ctx.trickplayTileLoads.has(tileIndex)) {
+      return ctx.trickplayTileLoads.get(tileIndex);
+    }
+
+    const url = getTrickplayTileUrl(ctx, tileIndex);
+    if (!url || !ctx.trickplayTileLoader) {
+      return Promise.resolve(null);
+    }
+
+    const loadPromise = new Promise((resolve) => {
+      ctx.trickplayTileLoader.load(
+        url,
+        (texture) => {
+          texture.colorSpace = THREE.SRGBColorSpace;
+          texture.wrapS = THREE.ClampToEdgeWrapping;
+          texture.wrapT = THREE.ClampToEdgeWrapping;
+          texture.generateMipmaps = false;
+          texture.needsUpdate = true;
+          ctx.trickplayTileCache.set(tileIndex, texture);
+          ctx.trickplayTileLoads.delete(tileIndex);
+          resolve(texture);
+        },
+        undefined,
+        () => {
+          ctx.trickplayTileLoads.delete(tileIndex);
+          resolve(null);
+        }
+      );
+    });
+
+    ctx.trickplayTileLoads.set(tileIndex, loadPromise);
+    return loadPromise;
+  }
+
+  function applySeekPreviewFrame(ctx, columns, rows, frameIndex) {
+    if (!ctx.trickplayActiveTexture || !ctx.seekPreviewImage || !ctx.seekPreviewImage.material) return false;
+    const cellIndex = frameIndex % (columns * rows);
+    const cellX = cellIndex % columns;
+    const cellY = Math.floor(cellIndex / columns);
+    ctx.trickplayActiveTexture.repeat.set(1 / columns, 1 / rows);
+    ctx.trickplayActiveTexture.offset.set(cellX / columns, 1 - ((cellY + 1) / rows));
+    ctx.trickplayActiveTexture.needsUpdate = true;
+    ctx.seekPreviewImage.material.map = ctx.trickplayActiveTexture;
+    ctx.seekPreviewImage.material.needsUpdate = true;
+    ctx.seekPreviewImage.visible = true;
+    ctx.trickplayActiveFrameIndex = frameIndex;
+    return true;
+  }
+
+  function updateSeekPreview(ctx, THREE, durationSeconds) {
+    const info = ctx.trickplayInfo;
+    if (!ctx.seekPreviewGroup || !info || !ctx.seekHoverVisible || durationSeconds <= 0) {
+      hideSeekPreview(ctx);
+      return;
+    }
+
+    const hoverRatio = THREE.MathUtils.clamp(ctx.seekHoverRatio, 0, 1);
+    const previewSeconds = hoverRatio * durationSeconds;
+    const intervalMs = Math.max(1, Number(info.Interval) || 1000);
+    const frameCount = Math.max(1, Number(info.ThumbnailCount) || 1);
+    const frameIndex = Math.max(0, Math.min(Math.floor((previewSeconds * 1000) / intervalMs), frameCount - 1));
+    const columns = Math.max(1, Number(info.TileWidth) || 1);
+    const rows = Math.max(1, Number(info.TileHeight) || 1);
+    const tileIndex = Math.floor(frameIndex / (columns * rows));
+    const previewWidth = ctx.seekPreviewGroup.userData && ctx.seekPreviewGroup.userData.previewWidth
+      ? ctx.seekPreviewGroup.userData.previewWidth
+      : 0.44;
+    const seekWidth = ctx.seekBg && ctx.seekBg.userData && ctx.seekBg.userData.seekWidth
+      ? ctx.seekBg.userData.seekWidth
+      : 1.9;
+    const previewHalfWidth = previewWidth / 2;
+    const previewX = THREE.MathUtils.clamp(
+      (-seekWidth / 2) + (seekWidth * hoverRatio),
+      (-seekWidth / 2) + previewHalfWidth,
+      (seekWidth / 2) - previewHalfWidth
+    );
+
+    ctx.seekPreviewGroup.visible = true;
+    ctx.seekPreviewGroup.position.x = previewX;
+    if (ctx.seekPreviewTimeObj) {
+      ctx.seekPreviewTimeObj.text = formatTime(previewSeconds);
+      ctx.seekPreviewTimeObj.sync();
+    }
+
+    if (ctx.trickplayActiveTexture && ctx.trickplayActiveTileIndex === tileIndex) {
+      applySeekPreviewFrame(ctx, columns, rows, frameIndex);
+      return;
+    }
+
+    ensureTrickplayTileTexture(ctx, THREE, tileIndex).then((texture) => {
+      if (!ctx.active || !texture || !ctx.trickplayInfo) return;
+      if (ctx.trickplayActiveTileIndex !== tileIndex) {
+        ctx.trickplayActiveTexture = texture;
+        ctx.trickplayActiveTileIndex = tileIndex;
+      }
+    });
+
+    if (ctx.trickplayTileCache.has(tileIndex)) {
+      ctx.trickplayActiveTexture = ctx.trickplayTileCache.get(tileIndex);
+      ctx.trickplayActiveTileIndex = tileIndex;
+    }
+
+    if (ctx.trickplayActiveTexture && ctx.trickplayActiveTileIndex === tileIndex) {
+      applySeekPreviewFrame(ctx, columns, rows, frameIndex);
+    } else {
+      ctx.seekPreviewImage.visible = false;
     }
   }
 
@@ -2881,6 +3065,8 @@
         ctx.playIconGroup.visible = ctx.jellyfinVideo.paused;
         ctx.pauseIconGroup.visible = !ctx.jellyfinVideo.paused;
       }
+
+      updateSeekPreview(ctx, THREE, dur);
 
       // Marquee scroll for long titles
       if (ctx.titleTextObj && ctx.titleTextObj.textRenderInfo) {
@@ -3739,13 +3925,45 @@
     ctx.seekFill.position.z = 0.002;
     seekGroup.add(ctx.seekFill);
 
+    const previewW = 0.44;
+    const previewH = 0.25;
+    ctx.seekPreviewGroup = new THREE.Group();
+    ctx.seekPreviewGroup.position.set(0, 0.18, 0.02);
+    ctx.seekPreviewGroup.visible = false;
+    ctx.seekPreviewGroup.userData.previewWidth = previewW;
+    seekGroup.add(ctx.seekPreviewGroup);
+    const previewBg = new THREE.Mesh(
+      createRoundedRectGeometry(THREE, previewW, previewH + 0.07, 0.035),
+      new THREE.MeshBasicMaterial({ color: 0x020617, transparent: true, opacity: 0.94, side: THREE.DoubleSide })
+    );
+    previewBg.position.set(0, 0.01, 0);
+    ctx.seekPreviewGroup.add(previewBg);
+
+    const previewImageBg = new THREE.Mesh(
+      createRoundedRectGeometry(THREE, previewW - 0.04, previewH - 0.02, 0.02),
+      new THREE.MeshBasicMaterial({ color: 0x111827, side: THREE.DoubleSide })
+    );
+    previewImageBg.position.set(0, 0.03, 0.002);
+    ctx.seekPreviewGroup.add(previewImageBg);
+
+    ctx.seekPreviewImage = new THREE.Mesh(
+      new THREE.PlaneGeometry(previewW - 0.05, previewH - 0.03),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 1, side: THREE.DoubleSide })
+    );
+    ctx.seekPreviewImage.position.set(0, 0.03, 0.004);
+    ctx.seekPreviewImage.visible = false;
+    ctx.seekPreviewGroup.add(ctx.seekPreviewImage);
+
+    ctx.seekPreviewTimeObj = createTextObj('0:00', ctx.seekPreviewGroup, 0, -0.125 - 0.005, 0.026, 0xe2e8f0, 'center');
+    ctx.seekPreviewTimeObj.position.z = 0.01;
+
     const handleSeekDrag = (pt) => {
       const local = ctx.seekBg.worldToLocal(pt.clone());
       const raw = (local.x + seekW / 2) / seekW;
       const ratio = Math.max(0, Math.min(1, raw));
       if (Number.isFinite(ctx.jellyfinVideo.duration)) ctx.jellyfinVideo.currentTime = ratio * ctx.jellyfinVideo.duration;
     };
-    ctx.seekBg.userData = { hover: 0x1e293b, bg: 0x0f172a, onClick: handleSeekDrag, onDrag: handleSeekDrag };
+    ctx.seekBg.userData = { hover: 0x1e293b, bg: 0x0f172a, onClick: handleSeekDrag, onDrag: handleSeekDrag, seekWidth: seekW };
     ctx.interactables.push(ctx.seekBg);
 
     ctx.timeCurrentObj = createTextObj('0:00', ctx.uiGroup, -seekW / 2, seekY - 0.04, 0.03, 0x94a3b8, 'left');
@@ -4168,6 +4386,68 @@
     ctx._setForceFallback = setForceFallback;
   }
 
+  function selectTrickplayInfo(trickplayManifest) {
+    if (!trickplayManifest || typeof trickplayManifest !== 'object') return null;
+
+    const variants = [];
+    const outerEntries = Object.values(trickplayManifest);
+    for (let i = 0; i < outerEntries.length; i += 1) {
+      const entry = outerEntries[i];
+      if (!entry || typeof entry !== 'object') continue;
+      const widthEntries = Object.entries(entry);
+      for (let j = 0; j < widthEntries.length; j += 1) {
+        const [widthKey, info] = widthEntries[j];
+        if (!info || typeof info !== 'object') continue;
+        const width = Number(info.Width || widthKey);
+        if (!Number.isFinite(width) || width <= 0) continue;
+        variants.push({ width, info });
+      }
+    }
+
+    if (!variants.length) return null;
+
+    variants.sort((a, b) => a.width - b.width);
+    const preferred = variants.find((variant) => variant.width >= 320) || variants[0];
+    return {
+      width: preferred.width,
+      ...preferred.info
+    };
+  }
+
+  async function loadTrickplayMetadata(ctx) {
+    const apiClient = getJellyfinApiClient();
+    const itemId = getJellyfinItemId(ctx.jellyfinVideo);
+    ctx.trickplayItemId = itemId;
+
+    if (!apiClient || !itemId || typeof apiClient.getItems !== 'function') {
+      ctx.trickplayFetchState = 'unavailable';
+      return;
+    }
+
+    ctx.trickplayFetchState = 'loading';
+
+    try {
+      const userId = typeof apiClient.getCurrentUserId === 'function' ? apiClient.getCurrentUserId() : null;
+      const result = await apiClient.getItems(userId, {
+        ids: itemId,
+        fields: 'Trickplay'
+      });
+
+      if (!ctx.active) return;
+
+      const items = result && Array.isArray(result.Items) ? result.Items : [];
+      const item = items[0] || null;
+      const info = item ? selectTrickplayInfo(item.Trickplay) : null;
+      ctx.trickplayInfo = info;
+      ctx.trickplayFetchState = info ? 'ready' : 'missing';
+    } catch (error) {
+      console.warn('Failed to load trickplay metadata:', error);
+      if (!ctx.active) return;
+      ctx.trickplayInfo = null;
+      ctx.trickplayFetchState = 'error';
+    }
+  }
+
   function createInlinePlayerRuntime(overlay, styleEl, jellyfinVideo, modeId) {
     const ctx = createRuntimeContext(overlay, styleEl, jellyfinVideo, modeId);
     const RC = RUNTIME_CONSTANTS;
@@ -4223,11 +4503,12 @@
       ctx.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
       ctx.renderer.setClearColor(0x000000, 0);
       ctx.renderer.setPixelRatio(Math.max(1, Math.min(2.5, window.devicePixelRatio * 1.25)));
-      ctx.renderer.setSize(window.innerWidth, window.innerHeight);
-      ctx.renderer.outputColorSpace = THREE.SRGBColorSpace;
-      ctx.renderer.toneMapping = THREE.NoToneMapping;
-      ctx.renderer.xr.enabled = true;
-      ctx.renderer.xr.setReferenceSpaceType('local');
+        ctx.renderer.setSize(window.innerWidth, window.innerHeight);
+        ctx.renderer.outputColorSpace = THREE.SRGBColorSpace;
+        ctx.renderer.toneMapping = THREE.NoToneMapping;
+        ctx.renderer.xr.enabled = true;
+        ctx.trickplayTileLoader = new THREE.TextureLoader();
+        ctx.renderer.xr.setReferenceSpaceType('local');
       if (ctx.renderer.xr && typeof ctx.renderer.xr.setFramebufferScaleFactor === 'function') {
         ctx.renderer.xr.setFramebufferScaleFactor(RC.XR_FRAMEBUFFER_SCALE);
       }
@@ -4472,6 +4753,7 @@
 
       // Build 3D UI
       buildUI(ctx, THREE, Text, close, applyModeFromState, updatePassthroughVisuals);
+      loadTrickplayMetadata(ctx);
 
       // XR Session handlers
       ctx.renderer.xr.addEventListener('sessionstart', () => {
@@ -4800,6 +5082,11 @@
         ctx.xrCachedSupport = null;
         ctx.renderer.setAnimationLoop(null);
         if (ctx.videoTexture) ctx.videoTexture.dispose();
+        ctx.trickplayTileCache.forEach((texture) => {
+          if (texture && typeof texture.dispose === 'function') texture.dispose();
+        });
+        ctx.trickplayTileCache.clear();
+        ctx.trickplayTileLoads.clear();
         if (ctx.scene) {
           ctx.scene.traverse((child) => {
             if (child.geometry) child.geometry.dispose();

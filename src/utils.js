@@ -29,3 +29,34 @@ export function getVideoTitle() {
   if (document.title && document.title !== 'Jellyfin') return document.title.replace(' | Jellyfin', '').trim();
   return '';
 }
+
+export function getJellyfinItemId(video) {
+  const srcCandidates = [video && video.currentSrc, video && video.src].filter(Boolean);
+  for (let i = 0; i < srcCandidates.length; i += 1) {
+    try {
+      const url = new URL(srcCandidates[i], window.location.href);
+      const videoMatch = url.pathname.match(/\/Videos\/([^/]+)/i);
+      if (videoMatch && videoMatch[1]) return videoMatch[1];
+      const itemParam = url.searchParams.get('itemId') || url.searchParams.get('id');
+      if (itemParam) return itemParam;
+    } catch (_error) {
+      const fallbackMatch = String(srcCandidates[i]).match(/\/Videos\/([^/?#]+)/i);
+      if (fallbackMatch && fallbackMatch[1]) return fallbackMatch[1];
+    }
+  }
+
+  const hash = window.location.hash || '';
+  const hashQueryIndex = hash.indexOf('?');
+  if (hashQueryIndex >= 0) {
+    const hashParams = new URLSearchParams(hash.slice(hashQueryIndex + 1));
+    const hashItemId = hashParams.get('id') || hashParams.get('itemId');
+    if (hashItemId) return hashItemId;
+  }
+
+  const pageParams = new URLSearchParams(window.location.search);
+  return pageParams.get('id') || pageParams.get('itemId') || '';
+}
+
+export function getJellyfinApiClient() {
+  return window.ApiClient || window.apiClient || null;
+}

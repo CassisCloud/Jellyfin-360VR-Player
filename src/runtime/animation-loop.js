@@ -1,8 +1,133 @@
-import { formatTime } from '../utils.js';
+import { formatTime, getJellyfinApiClient } from '../utils.js';
 import { getSurfaceWorldTransform } from './composition-layers.js';
 import { toggleUI, updateFloatingPanelFacing, faceObjectTowardViewer } from './ui-controls.js';
 import { updateVideoGrab, updateFloatingPanelGrab, updateHover } from './interaction.js';
 import { RUNTIME_CONSTANTS } from './context.js';
+
+function hideSeekPreview(ctx) {
+  if (ctx.seekPreviewGroup) ctx.seekPreviewGroup.visible = false;
+  if (ctx.seekPreviewImage) ctx.seekPreviewImage.visible = false;
+}
+
+function getTrickplayTileUrl(ctx, tileIndex) {
+  const apiClient = getJellyfinApiClient();
+  const info = ctx.trickplayInfo;
+  if (!apiClient || !info || !ctx.trickplayItemId || typeof apiClient.getUrl !== 'function') return '';
+  return apiClient.getUrl(`Videos/${ctx.trickplayItemId}/Trickplay/${info.width}/${tileIndex}.jpg`);
+}
+
+function ensureTrickplayTileTexture(ctx, THREE, tileIndex) {
+  if (ctx.trickplayTileCache.has(tileIndex)) {
+    return Promise.resolve(ctx.trickplayTileCache.get(tileIndex));
+  }
+  if (ctx.trickplayTileLoads.has(tileIndex)) {
+    return ctx.trickplayTileLoads.get(tileIndex);
+  }
+
+  const url = getTrickplayTileUrl(ctx, tileIndex);
+  if (!url || !ctx.trickplayTileLoader) {
+    return Promise.resolve(null);
+  }
+
+  const loadPromise = new Promise((resolve) => {
+    ctx.trickplayTileLoader.load(
+      url,
+      (texture) => {
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.wrapS = THREE.ClampToEdgeWrapping;
+        texture.wrapT = THREE.ClampToEdgeWrapping;
+        texture.generateMipmaps = false;
+        texture.needsUpdate = true;
+        ctx.trickplayTileCache.set(tileIndex, texture);
+        ctx.trickplayTileLoads.delete(tileIndex);
+        resolve(texture);
+      },
+      undefined,
+      () => {
+        ctx.trickplayTileLoads.delete(tileIndex);
+        resolve(null);
+      }
+    );
+  });
+
+  ctx.trickplayTileLoads.set(tileIndex, loadPromise);
+  return loadPromise;
+}
+
+function applySeekPreviewFrame(ctx, columns, rows, frameIndex) {
+  if (!ctx.trickplayActiveTexture || !ctx.seekPreviewImage || !ctx.seekPreviewImage.material) return false;
+  const cellIndex = frameIndex % (columns * rows);
+  const cellX = cellIndex % columns;
+  const cellY = Math.floor(cellIndex / columns);
+  ctx.trickplayActiveTexture.repeat.set(1 / columns, 1 / rows);
+  ctx.trickplayActiveTexture.offset.set(cellX / columns, 1 - ((cellY + 1) / rows));
+  ctx.trickplayActiveTexture.needsUpdate = true;
+  ctx.seekPreviewImage.material.map = ctx.trickplayActiveTexture;
+  ctx.seekPreviewImage.material.needsUpdate = true;
+  ctx.seekPreviewImage.visible = true;
+  ctx.trickplayActiveFrameIndex = frameIndex;
+  return true;
+}
+
+function updateSeekPreview(ctx, THREE, durationSeconds) {
+  const info = ctx.trickplayInfo;
+  if (!ctx.seekPreviewGroup || !info || !ctx.seekHoverVisible || durationSeconds <= 0) {
+    hideSeekPreview(ctx);
+    return;
+  }
+
+  const hoverRatio = THREE.MathUtils.clamp(ctx.seekHoverRatio, 0, 1);
+  const previewSeconds = hoverRatio * durationSeconds;
+  const intervalMs = Math.max(1, Number(info.Interval) || 1000);
+  const frameCount = Math.max(1, Number(info.ThumbnailCount) || 1);
+  const frameIndex = Math.max(0, Math.min(Math.floor((previewSeconds * 1000) / intervalMs), frameCount - 1));
+  const columns = Math.max(1, Number(info.TileWidth) || 1);
+  const rows = Math.max(1, Number(info.TileHeight) || 1);
+  const tileIndex = Math.floor(frameIndex / (columns * rows));
+  const previewWidth = ctx.seekPreviewGroup.userData && ctx.seekPreviewGroup.userData.previewWidth
+    ? ctx.seekPreviewGroup.userData.previewWidth
+    : 0.44;
+  const seekWidth = ctx.seekBg && ctx.seekBg.userData && ctx.seekBg.userData.seekWidth
+    ? ctx.seekBg.userData.seekWidth
+    : 1.9;
+  const previewHalfWidth = previewWidth / 2;
+  const previewX = THREE.MathUtils.clamp(
+    (-seekWidth / 2) + (seekWidth * hoverRatio),
+    (-seekWidth / 2) + previewHalfWidth,
+    (seekWidth / 2) - previewHalfWidth
+  );
+
+  ctx.seekPreviewGroup.visible = true;
+  ctx.seekPreviewGroup.position.x = previewX;
+  if (ctx.seekPreviewTimeObj) {
+    ctx.seekPreviewTimeObj.text = formatTime(previewSeconds);
+    ctx.seekPreviewTimeObj.sync();
+  }
+
+  if (ctx.trickplayActiveTexture && ctx.trickplayActiveTileIndex === tileIndex) {
+    applySeekPreviewFrame(ctx, columns, rows, frameIndex);
+    return;
+  }
+
+  ensureTrickplayTileTexture(ctx, THREE, tileIndex).then((texture) => {
+    if (!ctx.active || !texture || !ctx.trickplayInfo) return;
+    if (ctx.trickplayActiveTileIndex !== tileIndex) {
+      ctx.trickplayActiveTexture = texture;
+      ctx.trickplayActiveTileIndex = tileIndex;
+    }
+  });
+
+  if (ctx.trickplayTileCache.has(tileIndex)) {
+    ctx.trickplayActiveTexture = ctx.trickplayTileCache.get(tileIndex);
+    ctx.trickplayActiveTileIndex = tileIndex;
+  }
+
+  if (ctx.trickplayActiveTexture && ctx.trickplayActiveTileIndex === tileIndex) {
+    applySeekPreviewFrame(ctx, columns, rows, frameIndex);
+  } else {
+    ctx.seekPreviewImage.visible = false;
+  }
+}
 
 export function createAnimationLoop(ctx, THREE) {
   const layerPositionThresholdSq = Math.pow(RUNTIME_CONSTANTS.LAYER_POSITION_THRESHOLD_METERS, 2);
@@ -79,6 +204,8 @@ export function createAnimationLoop(ctx, THREE) {
       ctx.playIconGroup.visible = ctx.jellyfinVideo.paused;
       ctx.pauseIconGroup.visible = !ctx.jellyfinVideo.paused;
     }
+
+    updateSeekPreview(ctx, THREE, dur);
 
     // Marquee scroll for long titles
     if (ctx.titleTextObj && ctx.titleTextObj.textRenderInfo) {
