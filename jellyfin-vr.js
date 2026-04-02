@@ -741,10 +741,9 @@
         };
 
         function immersiveDebugScreenActive() {
-            return window.__JFVR_HARNESS_RUNTIME_MODE__ === 'extension'
-                && renderer
-                && renderer.xr
-                && renderer.xr.isPresenting;
+            // Disabled: debug screen at 2.2m/2.8m overlaps with composition layers and causes
+            // phantom "small Mesh" display. Re-enable only for isolated IWER harness testing.
+            return false;
         }
 
         function updateHarnessState() {
@@ -1104,20 +1103,22 @@
             };
         }
 
-        function clearCompositionVideoLayer(session) {
+        function clearCompositionVideoLayer(session, skipUpdate) {
             const xrSession = session || (renderer && renderer.xr && typeof renderer.xr.getSession === 'function' ? renderer.xr.getSession() : null);
-            try {
-                if (xrSession && typeof xrSession.updateRenderState === 'function' && xrSession.renderState) {
-                    const existingLayers = Array.isArray(xrSession.renderState.layers) ? Array.from(xrSession.renderState.layers) : [];
-                    const remaining = existingLayers.filter((l) => l !== mediaVideoLayer);
-                    if (remaining.length > 0 && remaining.length !== existingLayers.length) {
-                        xrSession.updateRenderState({ layers: remaining });
-                    } else if (remaining.length === 0 && xrSession.renderState.baseLayer) {
-                        xrSession.updateRenderState({ baseLayer: xrSession.renderState.baseLayer });
+            if (!skipUpdate) {
+                try {
+                    if (xrSession && typeof xrSession.updateRenderState === 'function' && xrSession.renderState) {
+                        const existingLayers = Array.isArray(xrSession.renderState.layers) ? Array.from(xrSession.renderState.layers) : [];
+                        const remaining = existingLayers.filter((l) => l !== mediaVideoLayer);
+                        if (remaining.length > 0 && remaining.length !== existingLayers.length) {
+                            xrSession.updateRenderState({ layers: remaining });
+                        } else if (remaining.length === 0 && xrSession.renderState.baseLayer) {
+                            xrSession.updateRenderState({ baseLayer: xrSession.renderState.baseLayer });
+                        }
                     }
+                } catch (_error) {
+                    // Best-effort cleanup only.
                 }
-            } catch (_error) {
-                // Best-effort cleanup only.
             }
             if (mediaVideoLayer && typeof mediaVideoLayer.destroy === 'function') {
                 try {
@@ -1284,19 +1285,22 @@
                 if (curveParams.curved && hasCylinderLayer) {
                     layerFactory = 'createCylinderLayer';
                     layerMode = 'cylinder-layer';
-                    const _cylPos = new THREE.Vector3(transform.position.x, transform.position.y, transform.position.z);
-                    const _cylQuat = new THREE.Quaternion(transform.orientation.x, transform.orientation.y, transform.orientation.z, transform.orientation.w);
-                    const _cylFwd = new THREE.Vector3(0, 0, 1).applyQuaternion(_cylQuat);
-                    _cylPos.add(_cylFwd.multiplyScalar(curveParams.radius * state.screenSize));
+                    surfaceRoot.updateMatrixWorld(true);
+                    const centerMatrix = new THREE.Matrix4().copy(surfaceRoot.matrixWorld)
+                        .multiply(new THREE.Matrix4().makeTranslation(0, 0, curveParams.radius * state.screenSize));
+                    const _pos = new THREE.Vector3();
+                    const _quat = new THREE.Quaternion();
+                    const _scale = new THREE.Vector3();
+                    centerMatrix.decompose(_pos, _quat, _scale);
                     layerOptions = {
                         space: referenceSpace,
                         radius: curveParams.radius * state.screenSize,
                         centralAngle: curveParams.theta,
                         aspectRatio: width / height,
                         layout,
-                        transform: new XRRigidTransform(
-                            { x: _cylPos.x, y: _cylPos.y, z: _cylPos.z },
-                            { x: _cylQuat.x, y: _cylQuat.y, z: _cylQuat.z, w: _cylQuat.w }
+                        transform: new window.XRRigidTransform(
+                            { x: _pos.x, y: _pos.y, z: _pos.z },
+                            { x: _quat.x, y: _quat.y, z: _quat.z, w: _quat.w }
                         )
                     };
                 } else if (hasQuadLayer) {
@@ -1348,14 +1352,14 @@
                 stereo: state.mode.stereo,
                 variant: state.mode.variant,
                 stereoLock: state.stereoLock,
-                curved: curveParams.curved,
-                theta: curveParams.theta,
-                scale: state.screenSize,
-                distance: state.screenDistance
+                curved: curveParams.curved
+                // theta, scale, distance are excluded — these are synced per-frame without layer recreation
             });
 
             if (mediaLayerKey === layerKey && mediaVideoLayer) {
-                mediaVideoLayer.transform = new XRRigidTransform(transform.position, transform.orientation);
+                try {
+                    mediaVideoLayer.transform = layerOptions ? layerOptions.transform : new window.XRRigidTransform(transform.position, transform.orientation);
+                } catch (_e) {}
                 mediaLayerStatus = 'active';
                 mediaLayerReason = 'ok';
                 mediaLayerMode = layerMode;
@@ -1366,17 +1370,22 @@
             }
 
             try {
-                clearCompositionVideoLayer(session);
+                clearCompositionVideoLayer(session, true);
                 mediaBinding = new window.XRMediaBinding(session);
                 if (typeof mediaBinding[layerFactory] !== 'function') {
                     throw new Error(layerFactory + ' not supported');
                 }
                 mediaVideoLayer = mediaBinding[layerFactory](jellyfinVideo, layerOptions);
-                const projLayer = renderer.xr && typeof renderer.xr.getBaseLayer === 'function' ? renderer.xr.getBaseLayer() : null;
-                const compositionLayers = projLayer
-                    ? [mediaVideoLayer, projLayer]
-                    : [mediaVideoLayer];
-                session.updateRenderState({ layers: compositionLayers });
+                const baseLayer = session.renderState.baseLayer;
+                const existingLayers = Array.isArray(session.renderState.layers) ? session.renderState.layers : [];
+                const otherLayers = existingLayers.filter((l) => l !== mediaVideoLayer);
+                const newLayers = [mediaVideoLayer];
+                if (otherLayers.length > 0) {
+                    newLayers.push.apply(newLayers, otherLayers);
+                } else if (baseLayer) {
+                    newLayers.push(baseLayer);
+                }
+                session.updateRenderState({ layers: newLayers });
                 mediaLayerStatus = 'active';
                 mediaLayerReason = 'ok';
                 mediaLayerMode = layerMode;
@@ -2664,19 +2673,19 @@
             const sY3 = SETTINGS_LAYOUT.rowY[2];
             createTextObj('Curve', settingsGroup, SETTINGS_LAYOUT.leftLabelX, sY1, 0.03, 0x94a3b8, 'left');
             createCurveStartIcon(settingsGroup, SETTINGS_LAYOUT.leftIconX, sY1);
-            createSlider('s-curve', settingsGroup, SETTINGS_LAYOUT.leftSliderX, sY1, SETTINGS_LAYOUT.leftSliderW, 0.03, state.screenCurvature, (v) => { state.screenCurvature = v; applyModeFromState({ preserveSurfaceTransform: true }); }, { deferCommit: true });
+            createSlider('s-curve', settingsGroup, SETTINGS_LAYOUT.leftSliderX, sY1, SETTINGS_LAYOUT.leftSliderW, 0.03, state.screenCurvature, (v) => { state.screenCurvature = v; applyModeFromState({ preserveSurfaceTransform: true }); });
             createCurveEndIcon(settingsGroup, SETTINGS_LAYOUT.leftEndIconX, sY1);
 
             createTextObj('Dist.', settingsGroup, SETTINGS_LAYOUT.leftLabelX, sY2, 0.03, 0x94a3b8, 'left');
             const initDistRatio = (state.screenDistance - (-20)) / (-4 - (-20));
             createNearIcon(settingsGroup, SETTINGS_LAYOUT.leftIconX, sY2);
-            createSlider('s-dist', settingsGroup, SETTINGS_LAYOUT.leftSliderX, sY2, SETTINGS_LAYOUT.leftSliderW, 0.03, initDistRatio, (v) => { state.screenDistance = -20 + (v * 16); applyModeFromState(); }, { deferCommit: true });
+            createSlider('s-dist', settingsGroup, SETTINGS_LAYOUT.leftSliderX, sY2, SETTINGS_LAYOUT.leftSliderW, 0.03, initDistRatio, (v) => { state.screenDistance = -20 + (v * 16); applyModeFromState(); });
             createFarIcon(settingsGroup, SETTINGS_LAYOUT.leftEndIconX, sY2);
 
             createTextObj('Size', settingsGroup, SETTINGS_LAYOUT.leftLabelX, sY3, 0.03, 0x94a3b8, 'left');
             const initSizeRatio = (state.screenSize - 0.5) / (3.0 - 0.5);
             createNearIcon(settingsGroup, SETTINGS_LAYOUT.leftIconX, sY3);
-            createSlider('s-size', settingsGroup, SETTINGS_LAYOUT.leftSliderX, sY3, SETTINGS_LAYOUT.leftSliderW, 0.03, initSizeRatio, (v) => { state.screenSize = 0.5 + (v * 2.5); applyModeFromState(); }, { deferCommit: true });
+            createSlider('s-size', settingsGroup, SETTINGS_LAYOUT.leftSliderX, sY3, SETTINGS_LAYOUT.leftSliderW, 0.03, initSizeRatio, (v) => { state.screenSize = 0.5 + (v * 2.5); applyModeFromState(); });
             createFarIcon(settingsGroup, SETTINGS_LAYOUT.leftEndIconX, sY3);
 
             createTextObj('UI Dist', settingsGroup, SETTINGS_LAYOUT.rightLabelX, sY1, 0.03, 0x94a3b8, 'left');
@@ -2686,7 +2695,7 @@
                 state.uiDistance = UI_DISTANCE_MIN + (v * (UI_DISTANCE_MAX - UI_DISTANCE_MIN));
                 localStorage.setItem('jfvr:ui-distance', state.uiDistance.toString());
                 refreshUiDistance();
-            }, { deferCommit: true });
+            });
             settingsUiDistTrack = uiDistSlider.track;
             createFarIcon(settingsGroup, SETTINGS_LAYOUT.rightEndIconX, sY1);
 
@@ -3152,29 +3161,35 @@
 
             renderer.setAnimationLoop(() => {
                 if (mediaVideoLayer && surfaceRoot) {
-                    const _syncPos = new THREE.Vector3();
-                    const _syncQuat = new THREE.Quaternion();
-                    const _syncScale = new THREE.Vector3();
-                    surfaceRoot.matrixWorld.decompose(_syncPos, _syncQuat, _syncScale);
+                    surfaceRoot.updateMatrixWorld(true);
+                    let localZOffset = 0;
                     if (mediaLayerMode === 'cylinder-layer') {
-                        const _curveOff = getScreenCurveParams();
-                        const _fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(_syncQuat);
-                        _syncPos.add(_fwd.multiplyScalar(_curveOff.radius * _syncScale.x));
+                        const _curveSync = getScreenCurveParams();
+                        localZOffset = _curveSync.radius;
                     }
+                    const centerMatrix = new THREE.Matrix4().copy(surfaceRoot.matrixWorld);
+                    if (localZOffset !== 0) {
+                        const rootScale = surfaceRoot.scale.x;
+                        centerMatrix.multiply(new THREE.Matrix4().makeTranslation(0, 0, localZOffset * rootScale));
+                    }
+                    const _pos = new THREE.Vector3();
+                    const _quat = new THREE.Quaternion();
+                    const _scale = new THREE.Vector3();
+                    centerMatrix.decompose(_pos, _quat, _scale);
                     try {
                         mediaVideoLayer.transform = new window.XRRigidTransform(
-                            { x: _syncPos.x, y: _syncPos.y, z: _syncPos.z },
-                            { x: _syncQuat.x, y: _syncQuat.y, z: _syncQuat.z, w: _syncQuat.w }
+                            { x: _pos.x, y: _pos.y, z: _pos.z },
+                            { x: _quat.x, y: _quat.y, z: _quat.z, w: _quat.w }
                         );
                         if (mediaLayerMode === 'quad-layer' && 'width' in mediaVideoLayer) {
-                            mediaVideoLayer.width = 18 * _syncScale.x;
-                            mediaVideoLayer.height = 10.125 * _syncScale.x;
+                            mediaVideoLayer.width = 18 * _scale.x;
+                            mediaVideoLayer.height = 10.125 * _scale.x;
                         } else if (mediaLayerMode === 'cylinder-layer' && 'radius' in mediaVideoLayer) {
-                            const _curveSync = getScreenCurveParams();
-                            mediaVideoLayer.radius = _curveSync.radius * _syncScale.x;
-                            mediaVideoLayer.centralAngle = _curveSync.theta;
+                            const _curveSyncLoop = getScreenCurveParams();
+                            mediaVideoLayer.radius = _curveSyncLoop.radius * _scale.x;
+                            mediaVideoLayer.centralAngle = _curveSyncLoop.theta;
                         } else if (mediaLayerMode === 'equirect-layer' && 'radius' in mediaVideoLayer) {
-                            mediaVideoLayer.radius = 32 * _syncScale.x;
+                            mediaVideoLayer.radius = 32 * _scale.x;
                         }
                     } catch (_syncErr) {
                         // Best-effort per-frame sync.
